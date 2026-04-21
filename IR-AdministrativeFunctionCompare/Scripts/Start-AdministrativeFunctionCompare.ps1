@@ -62,9 +62,11 @@ function Set-UiState {
 
     if ($Busy) {
         $BtnRestoreSelected.IsEnabled = $false
+        [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
     }
     else {
         Refresh-RestoreButtonState -SelectedItem $GridRoles.SelectedItem
+        [System.Windows.Input.Mouse]::OverrideCursor = $null
     }
 }
 
@@ -95,7 +97,7 @@ function Connect-OperatorTenantSession {
 
     Reset-GraphContext
     if (Test-IsElevated) {
-        throw "Esta aplicação deve ser executada em PowerShell não elevado para abrir o pop-up interativo da Microsoft (WAM). Feche e reabra sem 'Executar como administrador'."
+        throw "This application must run in non-elevated PowerShell to open the Microsoft interactive sign-in popup (WAM). Close and reopen without 'Run as administrator'."
     }
 
     $connectParams = @{
@@ -109,10 +111,10 @@ function Connect-OperatorTenantSession {
 
     $context = Get-MgContext
     if (-not $context -or $context.TenantId -ne $TenantId) {
-        throw "A autenticação retornou tenant inesperado. Tenant solicitado: $TenantId | Tenant autenticado: $($context.TenantId)"
+        throw "Authentication returned an unexpected tenant. Requested tenant: $TenantId | Authenticated tenant: $($context.TenantId)"
     }
 
-    Write-Log "Autenticação do operador concluída no tenant correto: $TenantId"
+    Write-Log "Operator authentication completed in the correct tenant: $TenantId"
 }
 
 function Add-TaskEntry {
@@ -141,7 +143,7 @@ function Connect-AppOnlyWithRetry {
         [string]$TenantId,
         [string]$ClientId,
         [string]$Thumbprint,
-        [string]$Operation = "Validação",
+        [string]$Operation = "Validation",
         [scriptblock]$StatusCallback
     )
 
@@ -153,30 +155,30 @@ function Connect-AppOnlyWithRetry {
 
         try {
             if ($StatusCallback) {
-                & $StatusCallback "Replicação de App Registration: tentativa $attempt de $maxAttempts (janela máxima de 2 minutos)." 0
+                & $StatusCallback "App Registration replication: attempt $attempt of $maxAttempts (maximum 2-minute window)." 0
             }
 
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
             Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
-            Write-Log "${Operation}: conexão app-only bem-sucedida na tentativa $attempt."
+            Write-Log "${Operation}: app-only connection succeeded on attempt $attempt."
 
             if ($StatusCallback) {
-                & $StatusCallback "Replicação de App Registration: concluída na tentativa $attempt." 0
+                & $StatusCallback "App Registration replication: completed on attempt $attempt." 0
             }
 
             return
         }
         catch {
             $message = $_.Exception.Message
-            Write-Log "${Operation}: tentativa $attempt falhou - $message"
+            Write-Log "${Operation}: attempt $attempt failed - $message"
 
             if ($attempt -eq $maxAttempts) {
-                throw "Falha na conexão app-only após 2 minutos (8 tentativas com espera de 15s). Último erro: $message"
+                throw "App-only connection failed after 2 minutes (8 attempts with 15s wait). Last error: $message"
             }
 
             for ($remaining = $delaySeconds; $remaining -gt 0; $remaining--) {
                 if ($StatusCallback) {
-                    & $StatusCallback "Replicação de App Registration: aguardando próxima tentativa ($attempt/$maxAttempts)." $remaining
+                    & $StatusCallback "App Registration replication: waiting for next attempt ($attempt/$maxAttempts)." $remaining
                 }
 
                 Start-Sleep -Seconds 1
@@ -256,11 +258,11 @@ function Load-Snapshot {
     $manifestPath = Join-Path $Folder "manifest.json"
 
     if (-not (Test-Path $roleDefinitionsPath)) {
-        throw "Arquivo roleDefinitions.json não encontrado na pasta selecionada."
+        throw "roleDefinitions.json was not found in the selected folder."
     }
 
     if (-not (Test-Path $roleAssignmentsPath)) {
-        throw "Arquivo roleAssignments.json não encontrado na pasta selecionada."
+        throw "roleAssignments.json was not found in the selected folder."
     }
 
     return [PSCustomObject]@{
@@ -307,7 +309,7 @@ function Get-BackupSnapshots {
                     }
                 }
                 catch {
-                    $collectedAt = "manifest inválido"
+                    $collectedAt = "invalid manifest"
                 }
             }
 
@@ -329,7 +331,7 @@ function Format-RoleDetails {
     )
 
     if (-not $RoleObject) {
-        return "$Label`r`n`r`nObjeto não existe."
+        return "$Label`r`n`r`nObject does not exist."
     }
 
     $normalized = Normalize-RoleDefinition -Role $RoleObject
@@ -338,15 +340,15 @@ function Format-RoleDetails {
     $lines.Add("$Label")
     $lines.Add("")
     $lines.Add("ID: $($normalized.Id)")
-    $lines.Add("Nome: $($normalized.DisplayName)")
-    $lines.Add("Descrição: $($normalized.Description)")
+    $lines.Add("Name: $($normalized.DisplayName)")
+    $lines.Add("Description: $($normalized.Description)")
     $lines.Add("IsEnabled: $($normalized.IsEnabled)")
     $lines.Add("IsBuiltIn: $($normalized.IsBuiltIn)")
     $lines.Add("")
-    $lines.Add("Permissões:")
+    $lines.Add("Permissions:")
 
     if ($normalized.Actions.Count -eq 0) {
-        $lines.Add("  Nenhuma")
+        $lines.Add("  None")
     }
     else {
         foreach ($a in $normalized.Actions) {
@@ -355,10 +357,10 @@ function Format-RoleDetails {
     }
 
     $lines.Add("")
-    $lines.Add("Atribuições:")
+    $lines.Add("Assignments:")
 
     if (-not $Assignments -or $Assignments.Count -eq 0) {
-        $lines.Add("  Nenhuma")
+        $lines.Add("  None")
     }
     else {
         foreach ($a in $Assignments) {
@@ -451,11 +453,11 @@ function Compare-Roles {
             $results += [PSCustomObject]@{
                 RoleName           = $name
                 RoleType           = if ($snapRaw.isBuiltIn) { "Built-in" } else { "Custom" }
-                Status             = "Removida"
-                DefinitionChanged  = "Sim"
-                AssignmentsChanged = "Sim"
+                Status             = "Removed"
+                DefinitionChanged  = "Yes"
+                AssignmentsChanged = "Yes"
                 DifferenceCount    = 1
-                Summary            = "Função existia no backup e não existe no tenant atual."
+                Summary            = "Role existed in the backup and does not exist in the current tenant."
                 BackupObject       = $snapRaw
                 CurrentObject      = $null
                 BackupAssignments  = $snapAssignments
@@ -470,11 +472,11 @@ function Compare-Roles {
             $results += [PSCustomObject]@{
                 RoleName           = $name
                 RoleType           = if ($currRaw.IsBuiltIn) { "Built-in" } else { "Custom" }
-                Status             = "Nova"
-                DefinitionChanged  = "Sim"
-                AssignmentsChanged = "Sim"
+                Status             = "New"
+                DefinitionChanged  = "Yes"
+                AssignmentsChanged = "Yes"
                 DifferenceCount    = 1
-                Summary            = "Função não existia no backup e existe no tenant atual."
+                Summary            = "Role did not exist in the backup and exists in the current tenant."
                 BackupObject       = $null
                 CurrentObject      = $currRaw
                 BackupAssignments  = @()
@@ -515,33 +517,33 @@ function Compare-Roles {
         $assignmentsChanged = ($removedAssignments.Count -gt 0 -or $addedAssignments.Count -gt 0)
         $definitionChanged = ($definitionDiffs.Count -gt 0)
 
-        $status = if (-not $definitionChanged -and -not $assignmentsChanged) { "Igual" } else { "Alterada" }
+        $status = if (-not $definitionChanged -and -not $assignmentsChanged) { "Equal" } else { "Changed" }
         $diffCount = $definitionDiffs.Count + $removedAssignments.Count + $addedAssignments.Count
 
         $summaryParts = @()
 
         if ($definitionDiffs.Count -gt 0) {
-            $summaryParts += ("Definição: " + ($definitionDiffs -join ", "))
+            $summaryParts += ("Definition: " + ($definitionDiffs -join ", "))
         }
 
         if ($removedAssignments.Count -gt 0) {
-            $summaryParts += ("Atribuições removidas: " + $removedAssignments.Count)
+            $summaryParts += ("Removed assignments: " + $removedAssignments.Count)
         }
 
         if ($addedAssignments.Count -gt 0) {
-            $summaryParts += ("Atribuições adicionadas: " + $addedAssignments.Count)
+            $summaryParts += ("Added assignments: " + $addedAssignments.Count)
         }
 
         if ($summaryParts.Count -eq 0) {
-            $summaryParts += "Sem diferenças"
+            $summaryParts += "No differences"
         }
 
         $results += [PSCustomObject]@{
             RoleName           = $name
             RoleType           = if ($currNorm.IsBuiltIn -eq "True") { "Built-in" } else { "Custom" }
             Status             = $status
-            DefinitionChanged  = if ($definitionChanged) { "Sim" } else { "Não" }
-            AssignmentsChanged = if ($assignmentsChanged) { "Sim" } else { "Não" }
+            DefinitionChanged  = if ($definitionChanged) { "Yes" } else { "No" }
+            AssignmentsChanged = if ($assignmentsChanged) { "Yes" } else { "No" }
             DifferenceCount    = $diffCount
             Summary            = ($summaryParts -join " | ")
             BackupObject       = $snapRaw
@@ -555,10 +557,10 @@ function Compare-Roles {
         $results | Sort-Object `
             @{ Expression = {
                     switch ($_.Status) {
-                        "Alterada" { 0 }
-                        "Nova"     { 1 }
-                        "Removida" { 2 }
-                        "Igual"    { 3 }
+                        "Changed" { 0 }
+                        "New"     { 1 }
+                        "Removed" { 2 }
+                        "Equal"   { 3 }
                         default    { 9 }
                     }
                 }
@@ -601,7 +603,7 @@ function Apply-RoleFilter {
         $filtered = @($filtered | Where-Object { $_.RoleName -like "*$NameFilter*" })
     }
 
-    if ($StatusFilter -and $StatusFilter -ne "Todos") {
+    if ($StatusFilter -and $StatusFilter -ne "All") {
         $filtered = @($filtered | Where-Object { $_.Status -eq $StatusFilter })
     }
 
@@ -623,16 +625,16 @@ function Update-StatusText {
     param([array]$Data)
 
     if (-not $Data -or $Data.Count -eq 0) {
-        return "Status: nenhuma função listada."
+        return "Status: no roles listed."
     }
 
     $total = $Data.Count
-    $iguais = @($Data | Where-Object { $_.Status -eq "Igual" }).Count
-    $alteradas = @($Data | Where-Object { $_.Status -eq "Alterada" }).Count
-    $novas = @($Data | Where-Object { $_.Status -eq "Nova" }).Count
-    $removidas = @($Data | Where-Object { $_.Status -eq "Removida" }).Count
+    $iguais = @($Data | Where-Object { $_.Status -eq "Equal" }).Count
+    $alteradas = @($Data | Where-Object { $_.Status -eq "Changed" }).Count
+    $novas = @($Data | Where-Object { $_.Status -eq "New" }).Count
+    $removidas = @($Data | Where-Object { $_.Status -eq "Removed" }).Count
 
-    return "Status: comparação concluída. Total: $total | Iguais: $iguais | Alteradas: $alteradas | Novas: $novas | Removidas: $removidas"
+    return "Status: comparison completed. Total: $total | Equal: $iguais | Changed: $alteradas | New: $novas | Removed: $removidas"
 }
 
 function Refresh-RestoreButtonState {
@@ -648,7 +650,7 @@ function Refresh-RestoreButtonState {
         return
     }
 
-    if ($SelectedItem.Status -eq "Igual") {
+    if ($SelectedItem.Status -eq "Equal") {
         $BtnRestoreSelected.IsEnabled = $false
         return
     }
@@ -673,9 +675,9 @@ function Ensure-ConnectionInputs {
 
     if ($missingFields.Count -gt 0) {
         $MainTabs.SelectedIndex = 2
-        $TxtStatus.Text = "Status: preencha os dados obrigatórios na aba TENANTS."
+        $TxtStatus.Text = "Status: fill in the required fields on the TENANTS tab."
         $fields = [string]::Join(", ", $missingFields.ToArray())
-        throw "Preencha os campos obrigatórios na aba TENANTS: $fields."
+        throw "Fill in the required fields on the TENANTS tab: $fields."
     }
 }
 
@@ -683,29 +685,29 @@ function Run-ComparisonWorkflow {
     Ensure-ConnectionInputs
 
     if (-not $TxtSnapshotFolder.Text) {
-        throw "Selecione primeiro uma pasta de snapshot."
+        throw "Select a snapshot folder first."
     }
 
-    Set-UiState -StatusText "Status: preparando comparação..." -Busy $true
+    Set-UiState -StatusText "Status: preparing comparison..." -Busy $true
 
     try {
-        Write-Log "Carregando snapshot"
+        Write-Log "Loading snapshot"
         $script:SnapshotData = Load-Snapshot -Folder $TxtSnapshotFolder.Text
 
-        Connect-AppOnlyWithRetry -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -Operation "Comparação" -StatusCallback {
+        Connect-AppOnlyWithRetry -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -Operation "Comparison" -StatusCallback {
             param($text, $remainingSeconds)
             if ($remainingSeconds -gt 0) {
-                $TxtReplicationStatus.Text = "$text Aguarde $remainingSeconds s..."
+                $TxtReplicationStatus.Text = "$text Please wait $remainingSeconds s..."
             }
             else {
                 $TxtReplicationStatus.Text = $text
             }
         }
 
-        Write-Log "Lendo tenant atual"
+        Write-Log "Reading current tenant"
         $script:CurrentData = Load-CurrentTenantData -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text
 
-        Write-Log "Comparando backup com tenant atual"
+        Write-Log "Comparing backup with current tenant"
         $script:CompareResults = Compare-Roles -SnapshotData $script:SnapshotData -CurrentData $script:CurrentData
         $script:FilteredResults = Apply-RoleFilter -Data $script:CompareResults -NameFilter $TxtFilterRoleName.Text -StatusFilter (Get-SelectedStatusFilter)
 
@@ -722,7 +724,7 @@ function Run-ComparisonWorkflow {
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
     }
     finally {
-        Set-UiState -ReplicationText "Replicação de App Registration: pronta para próximo fluxo." -Busy $false
+        Set-UiState -ReplicationText "App Registration replication: ready for next workflow." -Busy $false
     }
 }
 
@@ -736,10 +738,10 @@ function Invoke-ExternalRestore {
     )
 
     if (-not (Test-Path $RestoreScriptPath)) {
-        throw "Script de restore não encontrado em: $RestoreScriptPath"
+        throw "Restore script not found at: $RestoreScriptPath"
     }
 
-    Write-Log "Chamando restore externo para a função '$RoleName'"
+    Write-Log "Calling external restore for role '$RoleName'"
 
     $restoreOutput = & powershell.exe `
         -ExecutionPolicy Bypass `
@@ -751,11 +753,11 @@ function Invoke-ExternalRestore {
         -RoleName $RoleName 2>&1 | Out-String
 
     $exitCode = $LASTEXITCODE
-    Write-Log "Saída do restore externo:"
+    Write-Log "External restore output:"
     Write-Log $restoreOutput
 
     if ($exitCode -ne 0) {
-        throw "O script de restore retornou exit code $exitCode. Verifique o log."
+        throw "The restore script returned exit code $exitCode. Check the log."
     }
 }
 
@@ -808,15 +810,15 @@ $script:FilteredResults = @()
 $script:EventEntries = New-Object 'System.Collections.Generic.List[object]'
 $script:TaskEntries = New-Object 'System.Collections.Generic.List[object]'
 
-$TxtTenantNotes.Text = "Segurança: toda operação de compare/restore usa Service Principal + Certificate (app-only)." +
-"`r`n`r`nLogin interativo: para setup e validação inicial, o tenant informado é obrigatório e a conexão força Connect-MgGraph -TenantId." +
-"`r`n`r`nImportante: execute em PowerShell NÃO elevado para o pop-up WAM da Microsoft funcionar."
+$TxtTenantNotes.Text = "Security: every compare/restore operation uses Service Principal + Certificate (app-only)." +
+"`r`n`r`nInteractive sign-in: for setup and initial validation, the provided tenant is required and the connection enforces Connect-MgGraph -TenantId." +
+"`r`n`r`nImportant: run in non-elevated PowerShell so the Microsoft WAM popup can work."
 
 if (Test-IsElevated) {
-    $TxtStatus.Text = "Status: execução elevada detectada. Reabra sem administrador para autenticação interativa."
+    $TxtStatus.Text = "Status: elevated execution detected. Reopen without administrator privileges for interactive authentication."
     [System.Windows.MessageBox]::Show(
-        "Modo administrador detectado. O pop-up interativo da Microsoft (WAM) pode falhar. Reabra em PowerShell comum.",
-        "Aviso de execução",
+        "Administrator mode detected. The Microsoft interactive popup (WAM) can fail. Reopen in regular PowerShell.",
+        "Execution warning",
         [System.Windows.MessageBoxButton]::OK,
         [System.Windows.MessageBoxImage]::Warning
     )
@@ -828,14 +830,14 @@ $loadBackupsAction = {
     $GridBackups.ItemsSource = $snapshots
 
     if ($snapshots.Count -eq 0) {
-        $TxtStatus.Text = "Status: nenhum backup encontrado em $BackupExportsPath"
+        $TxtStatus.Text = "Status: no backup found in $BackupExportsPath"
     }
     else {
-        $TxtStatus.Text = "Status: $($snapshots.Count) backup(s) carregado(s)."
+        $TxtStatus.Text = "Status: $($snapshots.Count) backup(s) loaded."
     }
 
-    Write-Log "Backups recarregados da pasta fixa: $BackupExportsPath"
-    Add-TaskEntry -Task "Load Backups" -Status "Completed" -Details "$($snapshots.Count) snapshot(s) carregados"
+    Write-Log "Backups reloaded from fixed folder: $BackupExportsPath"
+    Add-TaskEntry -Task "Load Backups" -Status "Completed" -Details "$($snapshots.Count) snapshot(s) loaded"
 }
 
 $BtnLoadBackups.Add_Click({
@@ -844,8 +846,8 @@ $BtnLoadBackups.Add_Click({
         $MainTabs.SelectedIndex = 0
     }
     catch {
-        [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro ao carregar backups: " + $_.Exception.Message) -Severity "ERROR"
+        [System.Windows.MessageBox]::Show($_.Exception.Message, "Error")
+        Write-Log ("Error loading backups: " + $_.Exception.Message) -Severity "ERROR"
         Add-TaskEntry -Task "Load Backups" -Status "Failed" -Details $_.Exception.Message
     }
 })
@@ -855,8 +857,8 @@ $BtnRefreshBackups.Add_Click({
         & $loadBackupsAction
     }
     catch {
-        [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro ao atualizar backups: " + $_.Exception.Message) -Severity "ERROR"
+        [System.Windows.MessageBox]::Show($_.Exception.Message, "Error")
+        Write-Log ("Error refreshing backups: " + $_.Exception.Message) -Severity "ERROR"
         Add-TaskEntry -Task "Refresh Backups" -Status "Failed" -Details $_.Exception.Message
     }
 })
@@ -891,21 +893,21 @@ $GridBackups.Add_SelectionChanged({
     $selected = $GridBackups.SelectedItem
     if ($selected) {
         $TxtSnapshotFolder.Text = $selected.FullName
-        $TxtStatus.Text = "Status: backup selecionado ($($selected.Timestamp))."
+        $TxtStatus.Text = "Status: backup selected ($($selected.Timestamp))."
         $MainTabs.SelectedIndex = 1
-        Write-Log "Backup selecionado pelo grid: $($selected.FullName)"
+        Write-Log "Backup selected from grid: $($selected.FullName)"
         Add-TaskEntry -Task "Select Snapshot" -Status "Completed" -Details $selected.FullName
     }
 })
 
 $BtnBrowseSnapshot.Add_Click({
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-    $dialog.Description = "Selecione a pasta do snapshot"
+    $dialog.Description = "Select snapshot folder"
 
     if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         $TxtSnapshotFolder.Text = $dialog.SelectedPath
-        $TxtStatus.Text = "Status: snapshot selecionado manualmente."
-        Write-Log "Snapshot selecionado manualmente: $($dialog.SelectedPath)"
+        $TxtStatus.Text = "Status: snapshot selected manually."
+        Write-Log "Snapshot selected manually: $($dialog.SelectedPath)"
         Add-TaskEntry -Task "Select Snapshot" -Status "Completed" -Details $dialog.SelectedPath
     }
 })
@@ -913,47 +915,47 @@ $BtnBrowseSnapshot.Add_Click({
 $BtnConnect.Add_Click({
     try {
         Ensure-ConnectionInputs
-        Set-UiState -StatusText "Status: autenticando operador no tenant informado..." -Busy $true
+        Set-UiState -StatusText "Status: authenticating operator in the provided tenant..." -Busy $true
 
         Connect-OperatorTenantSession -TenantId $TxtTenantId.Text
 
-        Set-UiState -StatusText "Status: validando conexão app-only com retry automático..." -Busy $true
-        Connect-AppOnlyWithRetry -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -Operation "Validação de conexão" -StatusCallback {
+        Set-UiState -StatusText "Status: validating app-only connection with automatic retry..." -Busy $true
+        Connect-AppOnlyWithRetry -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -Operation "Connection validation" -StatusCallback {
             param($text, $remainingSeconds)
             if ($remainingSeconds -gt 0) {
-                $TxtReplicationStatus.Text = "$text Aguarde $remainingSeconds s..."
+                $TxtReplicationStatus.Text = "$text Please wait $remainingSeconds s..."
             }
             else {
                 $TxtReplicationStatus.Text = $text
             }
         }
 
-        $TxtStatus.Text = "Status: autenticação e validação concluídas no tenant $($TxtTenantId.Text)."
-        Write-Log "Conexão validada com sucesso"
+        $TxtStatus.Text = "Status: authentication and validation completed in tenant $($TxtTenantId.Text)."
+        Write-Log "Connection validated successfully"
         Add-TaskEntry -Task "Connect Tenant" -Status "Completed" -Details "Tenant $($TxtTenantId.Text)"
     }
     catch {
-        $TxtStatus.Text = "Status: erro ao autenticar/conectar"
-        [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro na autenticação/conexão: " + $_.Exception.Message) -Severity "ERROR"
+        $TxtStatus.Text = "Status: authentication/connection error"
+        [System.Windows.MessageBox]::Show($_.Exception.Message, "Error")
+        Write-Log ("Authentication/connection error: " + $_.Exception.Message) -Severity "ERROR"
         Add-TaskEntry -Task "Connect Tenant" -Status "Failed" -Details $_.Exception.Message
     }
     finally {
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-        Set-UiState -ReplicationText "Replicação de App Registration: pronta para próximo fluxo." -Busy $false
+        Set-UiState -ReplicationText "App Registration replication: ready for next workflow." -Busy $false
     }
 })
 
 $BtnCompare.Add_Click({
     try {
         Run-ComparisonWorkflow
-        Write-Log "Comparação concluída com sucesso"
-        Add-TaskEntry -Task "Run Compare" -Status "Completed" -Details "$($script:FilteredResults.Count) item(ns) após filtro"
+        Write-Log "Comparison completed successfully"
+        Add-TaskEntry -Task "Run Compare" -Status "Completed" -Details "$($script:FilteredResults.Count) item(s) after filter"
     }
     catch {
-        $TxtStatus.Text = "Status: erro na comparação"
-        [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro na comparação: " + $_.Exception.Message) -Severity "ERROR"
+        $TxtStatus.Text = "Status: comparison error"
+        [System.Windows.MessageBox]::Show($_.Exception.Message, "Error")
+        Write-Log ("Comparison error: " + $_.Exception.Message) -Severity "ERROR"
         Add-TaskEntry -Task "Run Compare" -Status "Failed" -Details $_.Exception.Message
     }
 })
@@ -967,12 +969,12 @@ $BtnApplyFilter.Add_Click({
 
         $TxtStatus.Text = Update-StatusText -Data $script:FilteredResults
         Refresh-RestoreButtonState -SelectedItem $GridRoles.SelectedItem
-        Write-Log "Filtro aplicado com sucesso"
-        Add-TaskEntry -Task "Apply Filter" -Status "Completed" -Details "$($script:FilteredResults.Count) item(ns) filtrados"
+        Write-Log "Filter applied successfully"
+        Add-TaskEntry -Task "Apply Filter" -Status "Completed" -Details "$($script:FilteredResults.Count) item(s) filtered"
     }
     catch {
-        [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro ao aplicar filtro: " + $_.Exception.Message) -Severity "ERROR"
+        [System.Windows.MessageBox]::Show($_.Exception.Message, "Error")
+        Write-Log ("Error applying filter: " + $_.Exception.Message) -Severity "ERROR"
         Add-TaskEntry -Task "Apply Filter" -Status "Failed" -Details $_.Exception.Message
     }
 })
@@ -982,7 +984,7 @@ $GridRoles.Add_SelectionChanged({
 
     if ($null -ne $item) {
         $TxtBackupDetails.Text = Format-RoleDetails -RoleObject $item.BackupObject -Assignments $item.BackupAssignments -Label "BACKUP"
-        $TxtCurrentDetails.Text = Format-RoleDetails -RoleObject $item.CurrentObject -Assignments $item.CurrentAssignments -Label "ATUAL"
+        $TxtCurrentDetails.Text = Format-RoleDetails -RoleObject $item.CurrentObject -Assignments $item.CurrentAssignments -Label "CURRENT"
         Update-UnpackedObjectsGrid -Item $item
     }
     else {
@@ -1000,72 +1002,72 @@ $BtnRestoreSelected.Add_Click({
         $item = $GridRoles.SelectedItem
 
         if (-not $item) {
-            throw "Selecione uma função antes de restaurar."
+            throw "Select a role before restoring."
         }
 
         if ($item.RoleType -eq "Built-in") {
-            throw "Restore por este fluxo só é suportado para custom role."
+            throw "Restore through this workflow is supported only for custom roles."
         }
 
-        if ($item.Status -eq "Igual") {
-            throw "A função selecionada já está igual ao snapshot."
+        if ($item.Status -eq "Equal") {
+            throw "The selected role is already equal to the snapshot."
         }
 
         if (-not $TxtSnapshotFolder.Text) {
-            throw "Selecione primeiro uma pasta de snapshot."
+            throw "Select a snapshot folder first."
         }
 
-        $confirmationMessage = "Deseja restaurar a função abaixo usando o snapshot selecionado?`r`n`r`nFunção: $($item.RoleName)`r`nStatus atual: $($item.Status)`r`nSnapshot: $($TxtSnapshotFolder.Text)"
+        $confirmationMessage = "Do you want to restore the role below using the selected snapshot?`r`n`r`nRole: $($item.RoleName)`r`nCurrent status: $($item.Status)`r`nSnapshot: $($TxtSnapshotFolder.Text)"
         $confirmation = [System.Windows.MessageBox]::Show(
             $confirmationMessage,
-            "Confirmar restore",
+            "Confirm restore",
             [System.Windows.MessageBoxButton]::YesNo,
             [System.Windows.MessageBoxImage]::Warning
         )
 
         if ($confirmation -ne [System.Windows.MessageBoxResult]::Yes) {
-            Write-Log "Restore cancelado pelo operador para a função '$($item.RoleName)'"
+            Write-Log "Restore cancelled by operator for role '$($item.RoleName)'"
             return
         }
 
-        Set-UiState -StatusText "Status: executando restore de '$($item.RoleName)'..." -Busy $true
-        Write-Log "Iniciando restore externo da função '$($item.RoleName)'"
+        Set-UiState -StatusText "Status: running restore for '$($item.RoleName)'..." -Busy $true
+        Write-Log "Starting external restore for role '$($item.RoleName)'"
 
         Invoke-ExternalRestore -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -RoleName $item.RoleName -SnapshotFolder $TxtSnapshotFolder.Text
 
-        $TxtStatus.Text = "Status: restore concluído. Execute um novo compare para validar o resultado."
-        [System.Windows.MessageBox]::Show("Restore concluído com sucesso para a função '$($item.RoleName)'. Execute Run Compare para atualizar a visão de diferenças.", "Restore concluído")
-        Write-Log "Restore externo concluído para a função '$($item.RoleName)'"
-        Add-TaskEntry -Task "Restore Selected" -Status "Completed" -Details "Função $($item.RoleName)"
+        $TxtStatus.Text = "Status: restore completed. Run a new compare to validate the result."
+        [System.Windows.MessageBox]::Show("Restore completed successfully for role '$($item.RoleName)'. Run Compare to refresh the differences view.", "Restore completed")
+        Write-Log "External restore completed for role '$($item.RoleName)'"
+        Add-TaskEntry -Task "Restore Selected" -Status "Completed" -Details "Role $($item.RoleName)"
     }
     catch {
-        $TxtStatus.Text = "Status: erro no restore"
-        [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro no restore")
-        Write-Log ("Erro no restore: " + $_.Exception.Message) -Severity "ERROR"
+        $TxtStatus.Text = "Status: restore error"
+        [System.Windows.MessageBox]::Show($_.Exception.Message, "Restore error")
+        Write-Log ("Restore error: " + $_.Exception.Message) -Severity "ERROR"
         Add-TaskEntry -Task "Restore Selected" -Status "Failed" -Details $_.Exception.Message
     }
     finally {
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-        Set-UiState -ReplicationText "Replicação de App Registration: pronta para próximo fluxo." -Busy $false
+        Set-UiState -ReplicationText "App Registration replication: ready for next workflow." -Busy $false
     }
 })
 
 $BtnExport.Add_Click({
     try {
         if (-not $script:FilteredResults -or $script:FilteredResults.Count -eq 0) {
-            throw "Não há resultados para exportar."
+            throw "There are no results to export."
         }
 
         $paths = Export-Diff -Data $script:FilteredResults -BasePath $BasePath
-        $TxtStatus.Text = "Status: diff exportado com sucesso"
-        [System.Windows.MessageBox]::Show("Arquivos gerados:`r`n$($paths.JsonPath)`r`n$($paths.CsvPath)", "Export concluído")
-        Write-Log "Diff exportado com sucesso"
+        $TxtStatus.Text = "Status: diff exported successfully"
+        [System.Windows.MessageBox]::Show("Files generated:`r`n$($paths.JsonPath)`r`n$($paths.CsvPath)", "Export completed")
+        Write-Log "Diff exported successfully"
         Add-TaskEntry -Task "Export Diff" -Status "Completed" -Details $paths.CsvPath
     }
     catch {
-        $TxtStatus.Text = "Status: erro ao exportar"
-        [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro ao exportar: " + $_.Exception.Message) -Severity "ERROR"
+        $TxtStatus.Text = "Status: export error"
+        [System.Windows.MessageBox]::Show($_.Exception.Message, "Error")
+        Write-Log ("Export error: " + $_.Exception.Message) -Severity "ERROR"
         Add-TaskEntry -Task "Export Diff" -Status "Failed" -Details $_.Exception.Message
     }
 })
@@ -1082,8 +1084,8 @@ if ($GridEvents) {
         })
 }
 
-Write-Log "Painel iniciado. Diretório de backups monitorado: $BackupExportsPath"
-Add-TaskEntry -Task "Start Panel" -Status "Completed" -Details "Aplicação iniciada"
+Write-Log "Panel started. Monitored backup directory: $BackupExportsPath"
+Add-TaskEntry -Task "Start Panel" -Status "Completed" -Details "Application started"
 
 & $loadBackupsAction
 $window.ShowDialog() | Out-Null
