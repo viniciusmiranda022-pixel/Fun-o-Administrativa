@@ -8,7 +8,9 @@ Import-Module Microsoft.Graph.Identity.Governance
 
 $BasePath = "C:\ProgramData\Quest\IR-AdministrativeFunctionCompare"
 $XamlPath = Join-Path $BasePath "Xaml\MainWindow.xaml"
-$LogPath = Join-Path $BasePath "Logs\Compare-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
+$LogDirectory = Join-Path $BasePath "Logs"
+if (-not (Test-Path $LogDirectory)) { New-Item -Path $LogDirectory -ItemType Directory -Force | Out-Null }
+$LogPath = Join-Path $LogDirectory "Compare-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
 $BackupExportsPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Exports"
 $RestoreScriptPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Scripts\Restore-CustomRole-Full.ps1"
 
@@ -85,9 +87,14 @@ function Connect-OperatorTenantSession {
     $connectCommand = Get-Command -Name Connect-MgGraph -ErrorAction Stop
     $isElevated = Test-IsElevated
 
-    if ($isElevated -and $connectCommand.Parameters.ContainsKey("UseDeviceAuthentication")) {
+    if ($connectCommand.Parameters.ContainsKey("UseDeviceAuthentication")) {
         $connectParams.UseDeviceAuthentication = $true
-        Write-Log "Sessão elevada detectada. Forçando Device Authentication para evitar comportamento inconsistente de WAM."
+        if ($isElevated) {
+            Write-Log "Sessão elevada detectada. Forçando Device Authentication para evitar falhas de WAM/InteractiveBrowserCredential."
+        }
+        else {
+            Write-Log "Device Authentication habilitado para reduzir SSO automático no tenant padrão."
+        }
     }
 
     try {
@@ -95,7 +102,7 @@ function Connect-OperatorTenantSession {
     }
     catch {
         if ($isElevated -and $connectParams.ContainsKey("UseDeviceAuthentication")) {
-            Write-Log "Falha em Device Authentication. Tentando fluxo interativo padrão."
+            Write-Log "Falha em Device Authentication no modo elevado. Tentando fluxo interativo padrão como fallback."
             $connectParams.Remove("UseDeviceAuthentication")
             Connect-MgGraph @connectParams | Out-Null
         }
@@ -109,7 +116,7 @@ function Connect-OperatorTenantSession {
         throw "A autenticação retornou tenant inesperado. Tenant solicitado: $TenantId | Tenant autenticado: $($context.TenantId)"
     }
 
-    Write-Log "Autenticação interativa concluída no tenant correto: $TenantId"
+    Write-Log "Autenticação do operador concluída no tenant correto: $TenantId"
 }
 
 function Connect-AppOnlyWithRetry {
@@ -129,7 +136,7 @@ function Connect-AppOnlyWithRetry {
 
         try {
             if ($StatusCallback) {
-                & $StatusCallback "Replicação de App Registration: tentativa $attempt de $maxAttempts (janela máxima de 2 minutos)."
+                & $StatusCallback "Replicação de App Registration: tentativa $attempt de $maxAttempts (janela máxima de 2 minutos)." 0
             }
 
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
@@ -137,7 +144,7 @@ function Connect-AppOnlyWithRetry {
             Write-Log "${Operation}: conexão app-only bem-sucedida na tentativa $attempt."
 
             if ($StatusCallback) {
-                & $StatusCallback "Replicação de App Registration: concluída na tentativa $attempt."
+                & $StatusCallback "Replicação de App Registration: concluída na tentativa $attempt." 0
             }
 
             return
@@ -150,11 +157,13 @@ function Connect-AppOnlyWithRetry {
                 throw "Falha na conexão app-only após 2 minutos (8 tentativas com espera de 15s). Último erro: $message"
             }
 
-            if ($StatusCallback) {
-                & $StatusCallback "Replicação de App Registration: aguardando 15s antes da próxima tentativa ($attempt/$maxAttempts)."
-            }
+            for ($remaining = $delaySeconds; $remaining -gt 0; $remaining--) {
+                if ($StatusCallback) {
+                    & $StatusCallback "Replicação de App Registration: aguardando próxima tentativa ($attempt/$maxAttempts)." $remaining
+                }
 
-            Start-Sleep -Seconds $delaySeconds
+                Start-Sleep -Seconds 1
+            }
         }
         finally {
             Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
@@ -535,6 +544,17 @@ function Apply-RoleFilter {
     return @($filtered)
 }
 
+
+function Get-SelectedStatusFilter {
+    $selected = $CmbStatusFilter.SelectedItem
+
+    if ($selected -is [System.Windows.Controls.ComboBoxItem]) {
+        return [string]$selected.Content
+    }
+
+    return [string]$CmbStatusFilter.Text
+}
+
 function Update-StatusText {
     param([array]$Data)
 
@@ -600,8 +620,13 @@ function Run-ComparisonWorkflow {
         $script:SnapshotData = Load-Snapshot -Folder $TxtSnapshotFolder.Text
 
         Connect-AppOnlyWithRetry -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -Operation "Comparação" -StatusCallback {
-            param($text)
-            $TxtReplicationStatus.Text = $text
+            param($text, $remainingSeconds)
+            if ($remainingSeconds -gt 0) {
+                $TxtReplicationStatus.Text = "$text Aguarde $remainingSeconds s..."
+            }
+            else {
+                $TxtReplicationStatus.Text = $text
+            }
         }
 
         Write-Log "Lendo tenant atual"
@@ -609,7 +634,7 @@ function Run-ComparisonWorkflow {
 
         Write-Log "Comparando backup com tenant atual"
         $script:CompareResults = Compare-Roles -SnapshotData $script:SnapshotData -CurrentData $script:CurrentData
-        $script:FilteredResults = Apply-RoleFilter -Data $script:CompareResults -NameFilter $TxtFilterRoleName.Text -StatusFilter $CmbStatusFilter.Text
+        $script:FilteredResults = Apply-RoleFilter -Data $script:CompareResults -NameFilter $TxtFilterRoleName.Text -StatusFilter (Get-SelectedStatusFilter)
 
         $GridRoles.ItemsSource = $null
         $GridRoles.ItemsSource = $script:FilteredResults
@@ -763,8 +788,13 @@ $BtnConnect.Add_Click({
 
         Set-UiState -StatusText "Status: validando conexão app-only com retry automático..." -Busy $true
         Connect-AppOnlyWithRetry -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -Operation "Validação de conexão" -StatusCallback {
-            param($text)
-            $TxtReplicationStatus.Text = $text
+            param($text, $remainingSeconds)
+            if ($remainingSeconds -gt 0) {
+                $TxtReplicationStatus.Text = "$text Aguarde $remainingSeconds s..."
+            }
+            else {
+                $TxtReplicationStatus.Text = $text
+            }
         }
 
         $TxtStatus.Text = "Status: autenticação e validação concluídas no tenant $($TxtTenantId.Text)."
@@ -795,7 +825,7 @@ $BtnCompare.Add_Click({
 
 $BtnApplyFilter.Add_Click({
     try {
-        $script:FilteredResults = Apply-RoleFilter -Data $script:CompareResults -NameFilter $TxtFilterRoleName.Text -StatusFilter $CmbStatusFilter.Text
+        $script:FilteredResults = Apply-RoleFilter -Data $script:CompareResults -NameFilter $TxtFilterRoleName.Text -StatusFilter (Get-SelectedStatusFilter)
 
         $GridRoles.ItemsSource = $null
         $GridRoles.ItemsSource = $script:FilteredResults
@@ -860,20 +890,13 @@ $BtnRestoreSelected.Add_Click({
         }
 
         Set-UiState -StatusText "Status: executando restore de '$($item.RoleName)'..." -Busy $true
-        Write-Log "Iniciando restore da função '$($item.RoleName)'"
-
-        Connect-AppOnlyWithRetry -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -Operation "Pré-validação do restore" -StatusCallback {
-            param($text)
-            $TxtReplicationStatus.Text = $text
-        }
+        Write-Log "Iniciando restore externo da função '$($item.RoleName)'"
 
         Invoke-ExternalRestore -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -RoleName $item.RoleName -SnapshotFolder $TxtSnapshotFolder.Text
 
-        Start-Sleep -Seconds 3
-        Run-ComparisonWorkflow
-
-        [System.Windows.MessageBox]::Show("Restore concluído com sucesso para a função '$($item.RoleName)'.", "Restore concluído")
-        Write-Log "Restore concluído com sucesso para a função '$($item.RoleName)'"
+        $TxtStatus.Text = "Status: restore concluído. Execute um novo compare para validar o resultado."
+        [System.Windows.MessageBox]::Show("Restore concluído com sucesso para a função '$($item.RoleName)'. Execute Run Compare para atualizar a visão de diferenças.", "Restore concluído")
+        Write-Log "Restore externo concluído para a função '$($item.RoleName)'"
     }
     catch {
         $TxtStatus.Text = "Status: erro no restore"
