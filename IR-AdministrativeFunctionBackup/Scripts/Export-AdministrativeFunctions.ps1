@@ -32,9 +32,42 @@ function Write-Log {
     $line | Tee-Object -FilePath $logFile -Append
 }
 
+function Connect-AppOnlyGraphWithRetry {
+    param(
+        [string]$TenantId,
+        [string]$ClientId,
+        [string]$CertificateThumbprint,
+        [int]$MaxAttempts = 8,
+        [int]$DelaySeconds = 15
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+
+        try {
+            Write-Log "App Registration em replicação - tentativa $attempt de $MaxAttempts."
+            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
+            Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
+            Write-Log "Conexão app-only estabelecida na tentativa $attempt."
+            return
+        }
+        catch {
+            $errorMessage = $_.Exception.Message
+            Write-Log "Tentativa $attempt falhou: $errorMessage"
+
+            if ($attempt -eq $MaxAttempts) {
+                throw "Falha ao conectar no Graph com app-only após 2 minutos (8 tentativas a cada 15s). Último erro: $errorMessage"
+            }
+
+            Write-Log "Aguardando $DelaySeconds segundos para nova tentativa..."
+            Start-Sleep -Seconds $DelaySeconds
+        }
+    }
+}
+
 try {
-    Write-Log "Iniciando conex�o com Microsoft Graph"
-    Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome
+    Write-Log "Iniciando conexão com Microsoft Graph"
+    Connect-AppOnlyGraphWithRetry -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint
 
     Write-Log "Coletando role definitions"
     $roleDefinitions = Get-MgRoleManagementDirectoryRoleDefinition -All
@@ -61,13 +94,13 @@ try {
     $manifestPath = Join-Path $todayFolder "manifest.json"
     $manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestPath -Encoding UTF8
 
-    Write-Log "Export conclu�do com sucesso"
+    Write-Log "Export concluído com sucesso"
 }
 catch {
     Write-Log "ERRO: $($_.Exception.Message)"
     throw
 }
 finally {
-    Disconnect-MgGraph | Out-Null
-    Write-Log "Conex�o encerrada"
+    Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+    Write-Log "Conexão encerrada"
 }
