@@ -134,7 +134,7 @@ function Connect-AppOnlyWithRetry {
 
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
             Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
-            Write-Log "$Operation: conexão app-only bem-sucedida na tentativa $attempt."
+            Write-Log "${Operation}: conexão app-only bem-sucedida na tentativa $attempt."
 
             if ($StatusCallback) {
                 & $StatusCallback "Replicação de App Registration: concluída na tentativa $attempt."
@@ -144,7 +144,7 @@ function Connect-AppOnlyWithRetry {
         }
         catch {
             $message = $_.Exception.Message
-            Write-Log "$Operation: tentativa $attempt falhou - $message"
+            Write-Log "${Operation}: tentativa $attempt falhou - $message"
 
             if ($attempt -eq $maxAttempts) {
                 throw "Falha na conexão app-only após 2 minutos (8 tentativas com espera de 15s). Último erro: $message"
