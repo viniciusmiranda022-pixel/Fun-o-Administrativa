@@ -76,7 +76,21 @@
                             <TextBlock Text="Comparação e Restore de Administrative Functions" FontSize="28" FontWeight="SemiBold" Foreground="#111827"/>
                             <TextBlock x:Name="TxtStatus" Text="Status: pronto." Foreground="#4B5563" Margin="0,6,0,0" FontSize="14"/>
                         </StackPanel>
-                        <Button Grid.Column="1" x:Name="BtnConnect" Content="Conectar Tenant" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="BtnHamburger" Content="☰ Ações" Background="#F3F4F6" BorderBrush="#C7CDD6" BorderThickness="1" Padding="12,7" Margin="8,0,0,0">
+                                <Button.ContextMenu>
+                                    <ContextMenu x:Name="ActionMenu">
+                                        <MenuItem x:Name="MnuConnectTenant" Header="Conectar Tenant"/>
+                                        <MenuItem x:Name="MnuOpenTenantsTab" Header="Abrir aba TENANTS"/>
+                                        <Separator/>
+                                        <MenuItem x:Name="MnuManageBackups" Header="Manage Backups"/>
+                                        <MenuItem x:Name="MnuRunCompare" Header="Run Compare"/>
+                                        <MenuItem x:Name="MnuRestoreSelected" Header="Restore Selected"/>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                            <Button x:Name="BtnConnect" Content="Conectar Tenant" Style="{StaticResource PrimaryButton}" Visibility="Collapsed"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
