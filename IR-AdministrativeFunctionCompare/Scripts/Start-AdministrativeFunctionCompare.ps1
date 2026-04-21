@@ -19,9 +19,24 @@ $DefaultClientId = ""
 $DefaultThumbprint = ""
 
 function Write-Log {
-    param([string]$Message)
+    param(
+        [string]$Message,
+        [ValidateSet("INFO", "WARN", "ERROR")]
+        [string]$Severity = "INFO"
+    )
+
     $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
     $line | Tee-Object -FilePath $LogPath -Append
+
+    if ($script:EventEntries -and $GridEvents) {
+        $script:EventEntries.Insert(0, [PSCustomObject]@{
+                Time     = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                Severity = $Severity
+                Message  = $Message
+            })
+        $GridEvents.ItemsSource = $null
+        $GridEvents.ItemsSource = $script:EventEntries
+    }
 }
 
 function Set-UiState {
@@ -41,6 +56,8 @@ function Set-UiState {
     $BtnRefreshBackups.IsEnabled = -not $Busy
     $BtnApplyFilter.IsEnabled = -not $Busy
     $BtnExport.IsEnabled = -not $Busy
+    $GridBackups.IsEnabled = -not $Busy
+    $GridRoles.IsEnabled = -not $Busy
 
     if ($Busy) {
         $BtnRestoreSelected.IsEnabled = $false
@@ -76,6 +93,9 @@ function Connect-OperatorTenantSession {
     param([string]$TenantId)
 
     Reset-GraphContext
+    if (Test-IsElevated) {
+        throw "Esta aplicação deve ser executada em PowerShell não elevado para abrir o pop-up interativo da Microsoft (WAM). Feche e reabra sem 'Executar como administrador'."
+    }
 
     $connectParams = @{
         TenantId     = $TenantId
@@ -84,32 +104,7 @@ function Connect-OperatorTenantSession {
         ContextScope = "Process"
     }
 
-    $connectCommand = Get-Command -Name Connect-MgGraph -ErrorAction Stop
-    $isElevated = Test-IsElevated
-
-    if ($connectCommand.Parameters.ContainsKey("UseDeviceAuthentication")) {
-        $connectParams.UseDeviceAuthentication = $true
-        if ($isElevated) {
-            Write-Log "Sessão elevada detectada. Forçando Device Authentication para evitar falhas de WAM/InteractiveBrowserCredential."
-        }
-        else {
-            Write-Log "Device Authentication habilitado para reduzir SSO automático no tenant padrão."
-        }
-    }
-
-    try {
-        Connect-MgGraph @connectParams | Out-Null
-    }
-    catch {
-        if ($isElevated -and $connectParams.ContainsKey("UseDeviceAuthentication")) {
-            Write-Log "Falha em Device Authentication no modo elevado. Tentando fluxo interativo padrão como fallback."
-            $connectParams.Remove("UseDeviceAuthentication")
-            Connect-MgGraph @connectParams | Out-Null
-        }
-        else {
-            throw
-        }
-    }
+    Connect-MgGraph @connectParams | Out-Null
 
     $context = Get-MgContext
     if (-not $context -or $context.TenantId -ne $TenantId) {
@@ -117,6 +112,27 @@ function Connect-OperatorTenantSession {
     }
 
     Write-Log "Autenticação do operador concluída no tenant correto: $TenantId"
+}
+
+function Add-TaskEntry {
+    param(
+        [string]$Task,
+        [string]$Status,
+        [string]$Details
+    )
+
+    if (-not $script:TaskEntries) {
+        return
+    }
+
+    $script:TaskEntries.Insert(0, [PSCustomObject]@{
+            Time    = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            Task    = $Task
+            Status  = $Status
+            Details = $Details
+        })
+    $GridTasks.ItemsSource = $null
+    $GridTasks.ItemsSource = $script:TaskEntries
 }
 
 function Connect-AppOnlyWithRetry {
@@ -355,6 +371,53 @@ function Format-RoleDetails {
     }
 
     return ($lines -join "`r`n")
+}
+
+function ConvertTo-DisplayValue {
+    param($Value)
+
+    if ($null -eq $Value) {
+        return ""
+    }
+
+    if ($Value -is [array]) {
+        return ($Value | ForEach-Object { [string]$_ } | Sort-Object -Unique) -join "; "
+    }
+
+    return [string]$Value
+}
+
+function Update-UnpackedObjectsGrid {
+    param($Item)
+
+    $rows = New-Object System.Collections.Generic.List[object]
+    if (-not $Item) {
+        $GridUnpackedObjects.ItemsSource = $null
+        return
+    }
+
+    $backupNorm = if ($Item.BackupObject) { Normalize-RoleDefinition -Role $Item.BackupObject } else { $null }
+    $currentNorm = if ($Item.CurrentObject) { Normalize-RoleDefinition -Role $Item.CurrentObject } else { $null }
+
+    $fields = @("Id", "DisplayName", "Description", "IsEnabled", "IsBuiltIn", "Actions")
+    foreach ($field in $fields) {
+        $rows.Add([PSCustomObject]@{
+                Section      = "Definition"
+                Field        = $field
+                BackupValue  = ConvertTo-DisplayValue -Value ($backupNorm.$field)
+                CurrentValue = ConvertTo-DisplayValue -Value ($currentNorm.$field)
+            })
+    }
+
+    $rows.Add([PSCustomObject]@{
+            Section      = "Assignments"
+            Field        = "Total"
+            BackupValue  = [string](@($Item.BackupAssignments).Count)
+            CurrentValue = [string](@($Item.CurrentAssignments).Count)
+        })
+
+    $GridUnpackedObjects.ItemsSource = $null
+    $GridUnpackedObjects.ItemsSource = $rows
 }
 
 function Compare-Roles {
@@ -711,6 +774,11 @@ $GridBackups = $window.FindName("GridBackups")
 $GridRoles = $window.FindName("GridRoles")
 $TxtBackupDetails = $window.FindName("TxtBackupDetails")
 $TxtCurrentDetails = $window.FindName("TxtCurrentDetails")
+$GridUnpackedObjects = $window.FindName("GridUnpackedObjects")
+$GridEvents = $window.FindName("GridEvents")
+$TxtEventDetails = $window.FindName("TxtEventDetails")
+$GridTasks = $window.FindName("GridTasks")
+$TxtTenantNotes = $window.FindName("TxtTenantNotes")
 
 $TxtTenantId.Text = $DefaultTenantId
 $TxtClientId.Text = $DefaultClientId
@@ -721,6 +789,22 @@ $script:SnapshotData = $null
 $script:CurrentData = $null
 $script:CompareResults = @()
 $script:FilteredResults = @()
+$script:EventEntries = New-Object 'System.Collections.Generic.List[object]'
+$script:TaskEntries = New-Object 'System.Collections.Generic.List[object]'
+
+$TxtTenantNotes.Text = "Segurança: toda operação de compare/restore usa Service Principal + Certificate (app-only)." +
+"`r`n`r`nLogin interativo: para setup e validação inicial, o tenant informado é obrigatório e a conexão força Connect-MgGraph -TenantId." +
+"`r`n`r`nImportante: execute em PowerShell NÃO elevado para o pop-up WAM da Microsoft funcionar."
+
+if (Test-IsElevated) {
+    $TxtStatus.Text = "Status: execução elevada detectada. Reabra sem administrador para autenticação interativa."
+    [System.Windows.MessageBox]::Show(
+        "Modo administrador detectado. O pop-up interativo da Microsoft (WAM) pode falhar. Reabra em PowerShell comum.",
+        "Aviso de execução",
+        [System.Windows.MessageBoxButton]::OK,
+        [System.Windows.MessageBoxImage]::Warning
+    )
+}
 
 $loadBackupsAction = {
     $snapshots = Get-BackupSnapshots
@@ -735,6 +819,7 @@ $loadBackupsAction = {
     }
 
     Write-Log "Backups recarregados da pasta fixa: $BackupExportsPath"
+    Add-TaskEntry -Task "Load Backups" -Status "Completed" -Details "$($snapshots.Count) snapshot(s) carregados"
 }
 
 $BtnLoadBackups.Add_Click({
@@ -744,7 +829,8 @@ $BtnLoadBackups.Add_Click({
     }
     catch {
         [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro ao carregar backups: " + $_.Exception.Message)
+        Write-Log ("Erro ao carregar backups: " + $_.Exception.Message) -Severity "ERROR"
+        Add-TaskEntry -Task "Load Backups" -Status "Failed" -Details $_.Exception.Message
     }
 })
 
@@ -754,7 +840,8 @@ $BtnRefreshBackups.Add_Click({
     }
     catch {
         [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro ao atualizar backups: " + $_.Exception.Message)
+        Write-Log ("Erro ao atualizar backups: " + $_.Exception.Message) -Severity "ERROR"
+        Add-TaskEntry -Task "Refresh Backups" -Status "Failed" -Details $_.Exception.Message
     }
 })
 
@@ -765,6 +852,7 @@ $GridBackups.Add_SelectionChanged({
         $TxtStatus.Text = "Status: backup selecionado ($($selected.Timestamp))."
         $MainTabs.SelectedIndex = 1
         Write-Log "Backup selecionado pelo grid: $($selected.FullName)"
+        Add-TaskEntry -Task "Select Snapshot" -Status "Completed" -Details $selected.FullName
     }
 })
 
@@ -776,6 +864,7 @@ $BtnBrowseSnapshot.Add_Click({
         $TxtSnapshotFolder.Text = $dialog.SelectedPath
         $TxtStatus.Text = "Status: snapshot selecionado manualmente."
         Write-Log "Snapshot selecionado manualmente: $($dialog.SelectedPath)"
+        Add-TaskEntry -Task "Select Snapshot" -Status "Completed" -Details $dialog.SelectedPath
     }
 })
 
@@ -799,11 +888,13 @@ $BtnConnect.Add_Click({
 
         $TxtStatus.Text = "Status: autenticação e validação concluídas no tenant $($TxtTenantId.Text)."
         Write-Log "Conexão validada com sucesso"
+        Add-TaskEntry -Task "Connect Tenant" -Status "Completed" -Details "Tenant $($TxtTenantId.Text)"
     }
     catch {
         $TxtStatus.Text = "Status: erro ao autenticar/conectar"
         [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro na autenticação/conexão: " + $_.Exception.Message)
+        Write-Log ("Erro na autenticação/conexão: " + $_.Exception.Message) -Severity "ERROR"
+        Add-TaskEntry -Task "Connect Tenant" -Status "Failed" -Details $_.Exception.Message
     }
     finally {
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
@@ -815,11 +906,13 @@ $BtnCompare.Add_Click({
     try {
         Run-ComparisonWorkflow
         Write-Log "Comparação concluída com sucesso"
+        Add-TaskEntry -Task "Run Compare" -Status "Completed" -Details "$($script:FilteredResults.Count) item(ns) após filtro"
     }
     catch {
         $TxtStatus.Text = "Status: erro na comparação"
         [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro na comparação: " + $_.Exception.Message)
+        Write-Log ("Erro na comparação: " + $_.Exception.Message) -Severity "ERROR"
+        Add-TaskEntry -Task "Run Compare" -Status "Failed" -Details $_.Exception.Message
     }
 })
 
@@ -833,10 +926,12 @@ $BtnApplyFilter.Add_Click({
         $TxtStatus.Text = Update-StatusText -Data $script:FilteredResults
         Refresh-RestoreButtonState -SelectedItem $GridRoles.SelectedItem
         Write-Log "Filtro aplicado com sucesso"
+        Add-TaskEntry -Task "Apply Filter" -Status "Completed" -Details "$($script:FilteredResults.Count) item(ns) filtrados"
     }
     catch {
         [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro ao aplicar filtro: " + $_.Exception.Message)
+        Write-Log ("Erro ao aplicar filtro: " + $_.Exception.Message) -Severity "ERROR"
+        Add-TaskEntry -Task "Apply Filter" -Status "Failed" -Details $_.Exception.Message
     }
 })
 
@@ -846,10 +941,12 @@ $GridRoles.Add_SelectionChanged({
     if ($null -ne $item) {
         $TxtBackupDetails.Text = Format-RoleDetails -RoleObject $item.BackupObject -Assignments $item.BackupAssignments -Label "BACKUP"
         $TxtCurrentDetails.Text = Format-RoleDetails -RoleObject $item.CurrentObject -Assignments $item.CurrentAssignments -Label "ATUAL"
+        Update-UnpackedObjectsGrid -Item $item
     }
     else {
         $TxtBackupDetails.Text = ""
         $TxtCurrentDetails.Text = ""
+        Update-UnpackedObjectsGrid -Item $null
     }
 
     Refresh-RestoreButtonState -SelectedItem $item
@@ -897,11 +994,13 @@ $BtnRestoreSelected.Add_Click({
         $TxtStatus.Text = "Status: restore concluído. Execute um novo compare para validar o resultado."
         [System.Windows.MessageBox]::Show("Restore concluído com sucesso para a função '$($item.RoleName)'. Execute Run Compare para atualizar a visão de diferenças.", "Restore concluído")
         Write-Log "Restore externo concluído para a função '$($item.RoleName)'"
+        Add-TaskEntry -Task "Restore Selected" -Status "Completed" -Details "Função $($item.RoleName)"
     }
     catch {
         $TxtStatus.Text = "Status: erro no restore"
         [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro no restore")
-        Write-Log ("Erro no restore: " + $_.Exception.Message)
+        Write-Log ("Erro no restore: " + $_.Exception.Message) -Severity "ERROR"
+        Add-TaskEntry -Task "Restore Selected" -Status "Failed" -Details $_.Exception.Message
     }
     finally {
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
@@ -919,13 +1018,30 @@ $BtnExport.Add_Click({
         $TxtStatus.Text = "Status: diff exportado com sucesso"
         [System.Windows.MessageBox]::Show("Arquivos gerados:`r`n$($paths.JsonPath)`r`n$($paths.CsvPath)", "Export concluído")
         Write-Log "Diff exportado com sucesso"
+        Add-TaskEntry -Task "Export Diff" -Status "Completed" -Details $paths.CsvPath
     }
     catch {
         $TxtStatus.Text = "Status: erro ao exportar"
         [System.Windows.MessageBox]::Show($_.Exception.Message, "Erro")
-        Write-Log ("Erro ao exportar: " + $_.Exception.Message)
+        Write-Log ("Erro ao exportar: " + $_.Exception.Message) -Severity "ERROR"
+        Add-TaskEntry -Task "Export Diff" -Status "Failed" -Details $_.Exception.Message
     }
 })
+
+if ($GridEvents) {
+    $GridEvents.Add_SelectionChanged({
+            $selectedEvent = $GridEvents.SelectedItem
+            if ($selectedEvent) {
+                $TxtEventDetails.Text = "[{0}] {1}`r`n`r`n{2}" -f $selectedEvent.Time, $selectedEvent.Severity, $selectedEvent.Message
+            }
+            else {
+                $TxtEventDetails.Text = ""
+            }
+        })
+}
+
+Write-Log "Painel iniciado. Diretório de backups monitorado: $BackupExportsPath"
+Add-TaskEntry -Task "Start Panel" -Status "Completed" -Details "Aplicação iniciada"
 
 & $loadBackupsAction
 $window.ShowDialog() | Out-Null
