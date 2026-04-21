@@ -1,0 +1,1 @@
+$t="ca9b03ea-578e-4277-b684-969fa2a34a9a";$c="6af90901-2c0e-46f3-bf6c-3d032e9b0966";$p="97D00B8AEA140F7E9B7274E52A793BFD786BB3C2";& "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Scripts\Export-AdministrativeFunctions.ps1" -TenantId $t -ClientId $c -CertificateThumbprint $p

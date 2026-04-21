@@ -1,0 +1,205 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Administrative Function Compare Console"
+        Height="800"
+        Width="1360"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F6F8"
+        FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+        </Style>
+
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#333333"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="250"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock Text="Administrative Function Compare Console"
+                       FontSize="26"
+                       FontWeight="SemiBold"
+                       Foreground="#111111"/>
+            <TextBlock x:Name="TxtStatus"
+                       Text="Status: aguardando"
+                       FontSize="14"
+                       Foreground="#555555"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="White" CornerRadius="6" Padding="15,15,15,5" Margin="0,0,0,20">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Tenant ID" FontWeight="SemiBold" Grid.Row="0" Grid.Column="0" Margin="0,0,0,4"/>
+                <TextBlock Text="Client ID" FontWeight="SemiBold" Grid.Row="0" Grid.Column="1" Margin="0,0,0,4"/>
+                <TextBlock Text="Thumbprint do Certificado" FontWeight="SemiBold" Grid.Row="0" Grid.Column="2" Margin="0,0,0,4"/>
+                <TextBlock Text="Pasta do Snapshot (Fase 1)" FontWeight="SemiBold" Grid.Row="0" Grid.Column="3" Margin="0,0,0,4"/>
+
+                <TextBox x:Name="TxtTenantId" Grid.Row="1" Grid.Column="0" Margin="0,0,15,10"/>
+                <TextBox x:Name="TxtClientId" Grid.Row="1" Grid.Column="1" Margin="0,0,15,10"/>
+                <TextBox x:Name="TxtThumbprint" Grid.Row="1" Grid.Column="2" Margin="0,0,15,10"/>
+
+                <Grid Grid.Row="1" Grid.Column="3" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="TxtSnapshotFolder"
+                             Grid.Column="0"
+                             Margin="0,0,10,0"
+                             IsReadOnly="True"
+                             Background="#F0F0F0"/>
+                    <Button x:Name="BtnBrowseSnapshot"
+                            Content="..."
+                            Grid.Column="1"
+                            Width="35"
+                            Background="#E1E1E1"
+                            Foreground="Black"
+                            Margin="0"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="White" CornerRadius="6" Padding="15" Margin="0,0,20,0">
+                <StackPanel>
+                    <TextBlock Text="Controles" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+
+                    <Button x:Name="BtnConnect" Content="1. Conectar ao Tenant" Margin="0,0,0,10"/>
+                    <Button x:Name="BtnCompare" Content="2. Comparar Funções" Margin="0,0,0,10"/>
+                    <Button x:Name="BtnRestoreSelected"
+                            Content="3. Restaurar Função Selecionada"
+                            Background="#D83B01"
+                            Margin="0,0,0,20"
+                            IsEnabled="False"/>
+
+                    <Separator Margin="0,0,0,20"/>
+
+                    <TextBlock Text="Filtros" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                    <TextBlock Text="Nome da Função:" Margin="0,0,0,4"/>
+                    <TextBox x:Name="TxtFilterRoleName" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="Status:" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="CmbStatusFilter" Margin="0,0,0,15" Padding="4">
+                        <ComboBoxItem Content="Todos" IsSelected="True"/>
+                        <ComboBoxItem Content="Igual"/>
+                        <ComboBoxItem Content="Alterada"/>
+                        <ComboBoxItem Content="Nova"/>
+                        <ComboBoxItem Content="Removida"/>
+                    </ComboBox>
+
+                    <Button x:Name="BtnApplyFilter"
+                            Content="Aplicar Filtro"
+                            Background="#E1E1E1"
+                            Foreground="Black"
+                            Margin="0,0,0,20"/>
+
+                    <Separator Margin="0,0,0,20"/>
+
+                    <Button x:Name="BtnExport"
+                            Content="Exportar Relatório"
+                            Background="#107C41"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Background="White" CornerRadius="6" Padding="10">
+                <DataGrid x:Name="GridRoles"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          BorderThickness="1"
+                          BorderBrush="#E5E5E5"
+                          RowHeight="28"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#E5E5E5"
+                          AlternatingRowBackground="#FAFAFA"
+                          Background="White">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Função" Binding="{Binding RoleName}" Width="280"/>
+                        <DataGridTextColumn Header="Tipo" Binding="{Binding RoleType}" Width="100"/>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                        <DataGridTextColumn Header="Definição Mudou?" Binding="{Binding DefinitionChanged}" Width="120"/>
+                        <DataGridTextColumn Header="Atribuições Mudaram?" Binding="{Binding AssignmentsChanged}" Width="140"/>
+                        <DataGridTextColumn Header="Qtd. Diff" Binding="{Binding DifferenceCount}" Width="80"/>
+                        <DataGridTextColumn Header="Resumo das Diferenças" Binding="{Binding Summary}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Header="Detalhes do Backup (JSON)" Grid.Column="0" Margin="0,0,10,0" FontWeight="SemiBold">
+                <TextBox x:Name="TxtBackupDetails"
+                         AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         TextWrapping="NoWrap"
+                         FontFamily="Consolas"
+                         FontSize="13"
+                         FontWeight="Normal"
+                         Background="#2D2D30"
+                         Foreground="#D4D4D4"
+                         BorderThickness="0"
+                         Margin="5"/>
+            </GroupBox>
+
+            <GroupBox Header="Detalhes Atuais no Tenant (JSON)" Grid.Column="1" Margin="10,0,0,0" FontWeight="SemiBold">
+                <TextBox x:Name="TxtCurrentDetails"
+                         AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         TextWrapping="NoWrap"
+                         FontFamily="Consolas"
+                         FontSize="13"
+                         FontWeight="Normal"
+                         Background="#2D2D30"
+                         Foreground="#D4D4D4"
+                         BorderThickness="0"
+                         Margin="5"/>
+            </GroupBox>
+        </Grid>
+    </Grid>
+</Window>
