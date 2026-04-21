@@ -50,6 +50,7 @@ function Set-UiState {
     if ($ReplicationText) { $TxtReplicationStatus.Text = $ReplicationText }
 
     $BtnConnect.IsEnabled = -not $Busy
+    if ($BtnHamburger) { $BtnHamburger.IsEnabled = -not $Busy }
     $BtnCompare.IsEnabled = -not $Busy
     $BtnBrowseSnapshot.IsEnabled = -not $Busy
     $BtnLoadBackups.IsEnabled = -not $Busy
@@ -656,16 +657,25 @@ function Refresh-RestoreButtonState {
 }
 
 function Ensure-ConnectionInputs {
+    $missingFields = New-Object System.Collections.Generic.List[string]
+
     if ([string]::IsNullOrWhiteSpace($TxtTenantId.Text)) {
-        throw "Tenant ID é obrigatório."
+        $missingFields.Add("Tenant ID")
     }
 
     if ([string]::IsNullOrWhiteSpace($TxtClientId.Text)) {
-        throw "Client ID é obrigatório para conexão app-only."
+        $missingFields.Add("Client ID")
     }
 
     if ([string]::IsNullOrWhiteSpace($TxtThumbprint.Text)) {
-        throw "Thumbprint do certificado é obrigatório para conexão app-only."
+        $missingFields.Add("Certificate Thumbprint")
+    }
+
+    if ($missingFields.Count -gt 0) {
+        $MainTabs.SelectedIndex = 2
+        $TxtStatus.Text = "Status: preencha os dados obrigatórios na aba TENANTS."
+        $fields = [string]::Join(", ", $missingFields.ToArray())
+        throw "Preencha os campos obrigatórios na aba TENANTS: $fields."
     }
 }
 
@@ -766,6 +776,7 @@ $BtnRefreshBackups = $window.FindName("BtnRefreshBackups")
 $BtnCompare = $window.FindName("BtnCompare")
 $BtnRestoreSelected = $window.FindName("BtnRestoreSelected")
 $BtnExport = $window.FindName("BtnExport")
+$BtnHamburger = $window.FindName("BtnHamburger")
 $TxtFilterRoleName = $window.FindName("TxtFilterRoleName")
 $CmbStatusFilter = $window.FindName("CmbStatusFilter")
 $BtnApplyFilter = $window.FindName("BtnApplyFilter")
@@ -779,6 +790,11 @@ $GridEvents = $window.FindName("GridEvents")
 $TxtEventDetails = $window.FindName("TxtEventDetails")
 $GridTasks = $window.FindName("GridTasks")
 $TxtTenantNotes = $window.FindName("TxtTenantNotes")
+$MnuConnectTenant = $window.FindName("MnuConnectTenant")
+$MnuOpenTenantsTab = $window.FindName("MnuOpenTenantsTab")
+$MnuManageBackups = $window.FindName("MnuManageBackups")
+$MnuRunCompare = $window.FindName("MnuRunCompare")
+$MnuRestoreSelected = $window.FindName("MnuRestoreSelected")
 
 $TxtTenantId.Text = $DefaultTenantId
 $TxtClientId.Text = $DefaultClientId
@@ -843,6 +859,32 @@ $BtnRefreshBackups.Add_Click({
         Write-Log ("Erro ao atualizar backups: " + $_.Exception.Message) -Severity "ERROR"
         Add-TaskEntry -Task "Refresh Backups" -Status "Failed" -Details $_.Exception.Message
     }
+})
+
+$BtnHamburger.Add_Click({
+    $menu = $BtnHamburger.ContextMenu
+    $menu.PlacementTarget = $BtnHamburger
+    $menu.IsOpen = $true
+})
+
+$MnuOpenTenantsTab.Add_Click({
+    $MainTabs.SelectedIndex = 2
+})
+
+$MnuConnectTenant.Add_Click({
+    $BtnConnect.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
+})
+
+$MnuManageBackups.Add_Click({
+    $BtnLoadBackups.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
+})
+
+$MnuRunCompare.Add_Click({
+    $BtnCompare.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
+})
+
+$MnuRestoreSelected.Add_Click({
+    $BtnRestoreSelected.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
 })
 
 $GridBackups.Add_SelectionChanged({
