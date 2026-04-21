@@ -45,34 +45,34 @@ function Connect-AppOnlyGraphWithRetry {
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
 
         try {
-            Write-Log "App Registration em replicação - tentativa $attempt de $MaxAttempts."
+            Write-Log "App Registration replication in progress - attempt $attempt of $MaxAttempts."
             Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
             Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
-            Write-Log "Conexão app-only estabelecida na tentativa $attempt."
+            Write-Log "App-only connection established on attempt $attempt."
             return
         }
         catch {
             $errorMessage = $_.Exception.Message
-            Write-Log "Tentativa $attempt falhou: $errorMessage"
+            Write-Log "Attempt $attempt failed: $errorMessage"
 
             if ($attempt -eq $MaxAttempts) {
-                throw "Falha ao conectar no Graph com app-only após 2 minutos (8 tentativas a cada 15s). Último erro: $errorMessage"
+                throw "Failed to connect to Graph with app-only after 2 minutes (8 attempts every 15s). Last error: $errorMessage"
             }
 
-            Write-Log "Aguardando $DelaySeconds segundos para nova tentativa..."
+            Write-Log "Waiting $DelaySeconds seconds before next attempt..."
             Start-Sleep -Seconds $DelaySeconds
         }
     }
 }
 
 try {
-    Write-Log "Iniciando conexão com Microsoft Graph"
+    Write-Log "Starting connection to Microsoft Graph"
     Connect-AppOnlyGraphWithRetry -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint
 
-    Write-Log "Coletando role definitions"
+    Write-Log "Collecting role definitions"
     $roleDefinitions = Get-MgRoleManagementDirectoryRoleDefinition -All
 
-    Write-Log "Coletando role assignments"
+    Write-Log "Collecting role assignments"
     $roleAssignments = Get-MgRoleManagementDirectoryRoleAssignment -All
 
     $roleDefinitionsPath = Join-Path $todayFolder "roleDefinitions.json"
@@ -94,13 +94,13 @@ try {
     $manifestPath = Join-Path $todayFolder "manifest.json"
     $manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestPath -Encoding UTF8
 
-    Write-Log "Export concluído com sucesso"
+    Write-Log "Export completed successfully"
 }
 catch {
-    Write-Log "ERRO: $($_.Exception.Message)"
+    Write-Log "ERROR: $($_.Exception.Message)"
     throw
 }
 finally {
     Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-    Write-Log "Conexão encerrada"
+    Write-Log "Connection closed"
 }

@@ -39,21 +39,21 @@ function Connect-AppOnlyGraphWithRetry {
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
 
         try {
-            Write-Log "App Registration em replicao - tentativa $attempt de $MaxAttempts."
+            Write-Log "App Registration replication in progress - attempt $attempt of $MaxAttempts."
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
             Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
-            Write-Log "Conexo app-only estabelecida na tentativa $attempt."
+            Write-Log "App-only connection established on attempt $attempt."
             return
         }
         catch {
             $errorMessage = $_.Exception.Message
-            Write-Log "Tentativa $attempt falhou: $errorMessage"
+            Write-Log "Attempt $attempt failed: $errorMessage"
 
             if ($attempt -eq $MaxAttempts) {
-                throw "Falha ao conectar no Graph com app-only aps 2 minutos (8 tentativas a cada 15s). ltimo erro: $errorMessage"
+                throw "Failed to connect to Graph with app-only after 2 minutes (8 attempts every 15s). Last error: $errorMessage"
             }
 
-            Write-Log "Aguardando $DelaySeconds segundos para nova tentativa..."
+            Write-Log "Waiting $DelaySeconds seconds before next attempt..."
             Start-Sleep -Seconds $DelaySeconds
         }
     }
@@ -72,40 +72,40 @@ function Get-AssignmentKey {
 }
 
 try {
-    Write-Log "Conectando no Microsoft Graph (com retry para replicao de App Registration)"
+    Write-Log "Connecting to Microsoft Graph (with retry for App Registration replication)"
     Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint
 
     $roleDefinitionsPath = Join-Path $SnapshotFolder "roleDefinitions.json"
     $roleAssignmentsPath = Join-Path $SnapshotFolder "roleAssignments.json"
 
     if (-not (Test-Path $roleDefinitionsPath)) {
-        throw "Arquivo roleDefinitions.json no encontrado em $SnapshotFolder"
+        throw "roleDefinitions.json was not found in $SnapshotFolder"
     }
 
     if (-not (Test-Path $roleAssignmentsPath)) {
-        throw "Arquivo roleAssignments.json no encontrado em $SnapshotFolder"
+        throw "roleAssignments.json was not found in $SnapshotFolder"
     }
 
-    Write-Log "Carregando arquivos do snapshot"
+    Write-Log "Loading snapshot files"
     $definitions = Get-Content $roleDefinitionsPath -Raw | ConvertFrom-Json
     $assignments = Get-Content $roleAssignmentsPath -Raw | ConvertFrom-Json
 
     $desiredRole = $definitions | Where-Object { $_.displayName -eq $RoleName } | Select-Object -First 1
 
     if (-not $desiredRole) {
-        throw "Funo '$RoleName' no encontrada no roleDefinitions.json"
+        throw "Role '$RoleName' was not found in roleDefinitions.json"
     }
 
-    Write-Log "Funo encontrada no snapshot: $($desiredRole.displayName)"
+    Write-Log "Role found in snapshot: $($desiredRole.displayName)"
 
     $currentRole = Get-MgRoleManagementDirectoryRoleDefinition -Filter "displayName eq '$RoleName'" | Select-Object -First 1
 
     if ($currentRole -and $currentRole.IsBuiltIn) {
-        throw "A funo '$RoleName' existente no tenant  built-in. Esse restore s funciona para custom role."
+        throw "The existing role '$RoleName' in the tenant is built-in. This restore only supports custom roles."
     }
 
     if (-not $currentRole) {
-        Write-Log "Funo no existe hoje. Criando novamente a partir do snapshot"
+        Write-Log "Role does not exist currently. Recreating from snapshot"
 
         $newRoleParams = @{
             DisplayName     = $desiredRole.displayName
@@ -125,10 +125,10 @@ try {
         }
 
         $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
-        Write-Log "Funo recriada com sucesso. Id atual: $($currentRole.Id)"
+        Write-Log "Role recreated successfully. Current Id: $($currentRole.Id)"
     }
     else {
-        Write-Log "Funo existe hoje. Sobrescrevendo definio completa"
+        Write-Log "Role exists currently. Overwriting full definition"
 
         $updateParams = @{
             displayName     = $desiredRole.displayName
@@ -148,10 +148,10 @@ try {
             -BodyParameter $updateParams
 
         $currentRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $currentRole.Id
-        Write-Log "Definio da funo atualizada"
+        Write-Log "Role definition updated"
     }
 
-    Write-Log "Processando atribuies do snapshot"
+    Write-Log "Processing assignments from snapshot"
 
     $desiredAssignments = @($assignments | Where-Object { $_.roleDefinitionId -eq $desiredRole.id })
     $currentAssignments = @(Get-MgRoleManagementDirectoryRoleAssignment -All | Where-Object { $_.roleDefinitionId -eq $currentRole.Id })
@@ -195,7 +195,7 @@ try {
             }
 
             New-MgRoleManagementDirectoryRoleAssignment -BodyParameter $body | Out-Null
-            Write-Log "Atribuio recriada: $key"
+            Write-Log "Assignment recreated: $key"
         }
     }
 
@@ -205,18 +205,18 @@ try {
         $key = Get-AssignmentKey -Assignment $a
         if (-not $desiredMap.ContainsKey($key)) {
             Remove-MgRoleManagementDirectoryRoleAssignment -UnifiedRoleAssignmentId $a.Id -Confirm:$false
-            Write-Log "Atribuio extra removida: $key"
+            Write-Log "Extra assignment removed: $key"
         }
     }
 
-    Write-Log "Validao final"
+    Write-Log "Final validation"
     $finalRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $currentRole.Id
     $finalAssignments = @(Get-MgRoleManagementDirectoryRoleAssignment -All | Where-Object { $_.roleDefinitionId -eq $currentRole.Id })
 
-    Write-Log "Role restaurada: $($finalRole.DisplayName)"
-    Write-Log "Descrio atual: $($finalRole.Description)"
-    Write-Log "IsEnabled atual: $($finalRole.IsEnabled)"
-    Write-Log "Quantidade final de atribuies: $($finalAssignments.Count)"
+    Write-Log "Role restored: $($finalRole.DisplayName)"
+    Write-Log "Current description: $($finalRole.Description)"
+    Write-Log "Current IsEnabled: $($finalRole.IsEnabled)"
+    Write-Log "Final assignment count: $($finalAssignments.Count)"
 
     $finalRole | Select-Object Id, DisplayName, Description, IsEnabled
     $finalRole.RolePermissions | ConvertTo-Json -Depth 20
