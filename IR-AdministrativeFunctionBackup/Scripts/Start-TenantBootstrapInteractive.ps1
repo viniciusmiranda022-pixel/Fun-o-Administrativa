@@ -144,15 +144,33 @@ try {
     $added = Add-CertificateToApplication -ApplicationId $selectedApp.Id -Certificate $cert
     if ($added) { Write-BootstrapLog 'Certificado público adicionado ao keyCredentials do App Registration.' } else { Write-BootstrapLog 'Certificado já estava presente no keyCredentials; nenhuma alteração necessária.' }
 
-    try { Ensure-GraphApplicationPermissions -ApplicationId $selectedApp.Id -ServicePrincipalId $sp.Id }
-    catch { Write-BootstrapLog "Falha ao conceder admin consent automático: $($_.Exception.Message)" }
+    Ensure-GraphApplicationPermissions -ApplicationId $selectedApp.Id -ServicePrincipalId $sp.Id
 
-    $settings = Get-DefaultSettings
-    $settings.TenantId = $tenantId
-    $settings.ClientId = $selectedApp.AppId
-    $settings.CertificateThumbprint = $cert.Thumbprint
-    Save-Settings -Settings $settings -Path $SettingsPath
-    Write-BootstrapLog "Configuração salva em: $SettingsPath"
+    $configRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config"
+
+    if (-not (Test-Path $configRoot)) {
+        New-Item -Path $configRoot -ItemType Directory -Force | Out-Null
+    }
+
+    $settingsPath = Join-Path $configRoot "settings.json"
+
+    $settings = [ordered]@{
+        TenantId = $tenantId
+        ClientId = $selectedApp.AppId
+        AppDisplayName = "Quest Recovery Function - Administrative Roles Backup"
+        CertificateThumbprint = $cert.Thumbprint
+        CertificateStore = "LocalMachine\My"
+        BackupRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups"
+        LogRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs"
+    }
+
+    $settings | ConvertTo-Json -Depth 10 | Set-Content -Path $settingsPath -Encoding UTF8
+
+    if (-not (Test-Path $settingsPath)) {
+        throw "Falha ao criar settings.json em $settingsPath"
+    }
+
+    Write-BootstrapLog "Configuração salva em: $settingsPath"
 
     Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
     Connect-MgGraph -ClientId $settings.ClientId -TenantId $settings.TenantId -CertificateThumbprint $settings.CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
