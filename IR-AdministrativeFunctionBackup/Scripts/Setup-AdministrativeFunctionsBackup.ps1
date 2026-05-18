@@ -285,8 +285,30 @@ $btnCreate.Add_Click({
 
 $btnAuto.Add_Click({
     try {
+ codex/add-automatic-microsoft-entra-id-setup-button-dvu0al
+        Set-Status 'Iniciando autenticação interativa (Device Code) no Microsoft Graph...'
+        Set-Status 'Quando o código for exibido, acesse https://microsoft.com/devicelogin em qualquer navegador e conclua o login administrativo do tenant.'
+        $deviceCodeOutput = @(Connect-MgGraph -Scopes $RequiredInteractiveScopes -UseDeviceCode -NoWelcome -ContextScope Process 6>&1)
+        foreach ($entry in $deviceCodeOutput) {
+            $message = $null
+            if ($entry -is [System.Management.Automation.InformationRecord]) {
+                $message = [string]$entry.MessageData
+            } elseif ($entry) {
+                $message = [string]$entry
+            }
+
+            if ($message) {
+                Set-Status $message
+                if ($message -match '(?i)code\s*[:]?\s*([A-Z0-9-]{6,})') {
+                    Set-Status "Código Device Login detectado: $($Matches[1])"
+                }
+            }
+        }
+        Set-Status 'Autenticação Device Code concluída no Microsoft Graph.'
+
         Set-Status 'Iniciando autenticação interativa no Microsoft Graph...'
         Connect-MgGraph -Scopes $RequiredInteractiveScopes -NoWelcome -ContextScope Process | Out-Null
+ main
         $ctx = Get-MgContext
         $tenantId = $ctx.TenantId
         $txtTenant.Text = $tenantId
