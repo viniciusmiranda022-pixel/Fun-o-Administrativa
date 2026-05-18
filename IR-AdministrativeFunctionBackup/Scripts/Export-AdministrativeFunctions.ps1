@@ -1,11 +1,4 @@
-﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
-
-try {
-    chcp 65001 | Out-Null
-} catch {}
-
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$TenantId,
 
@@ -19,10 +12,17 @@ param(
     [string]$BasePath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup"
 )
 
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+try {
+    chcp 65001 | Out-Null
+} catch {}
+
 $ErrorActionPreference = "Stop"
 
 $logPath = Join-Path $BasePath "Logs"
-$exportPath = Join-Path $BasePath "Exports"
+$exportPath = Join-Path $BasePath "Backups"
 
 New-Item -ItemType Directory -Path $logPath -Force | Out-Null
 New-Item -ItemType Directory -Path $exportPath -Force | Out-Null
