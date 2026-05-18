@@ -7,6 +7,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $GraphAppId = '00000003-0000-0000-c000-000000000000'
+$BootstrapLogPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs\tenant-bootstrap.log'
 $RequiredInteractiveScopes = @(
     'Application.ReadWrite.All'
     'AppRoleAssignment.ReadWrite.All'
@@ -24,7 +25,17 @@ $OptionalApplicationPermissions = @(
     'AppRoleAssignment.ReadWrite.All'
 )
 
-function Write-Step { param([string]$Message) Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $Message" }
+function Write-BootstrapLog {
+    param([string]$Message)
+
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $line = "[$timestamp] $Message"
+
+    Write-Host $line
+    $dir = Split-Path -Parent $BootstrapLogPath
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    Add-Content -Path $BootstrapLogPath -Value $line -Encoding UTF8
+}
 
 function Get-DefaultSettings {
     [ordered]@{
@@ -32,7 +43,7 @@ function Get-DefaultSettings {
         ClientId = ''
         AppDisplayName = $AppDisplayName
         CertificateThumbprint = ''
-        CertificateStore = 'LocalMachine\\My'
+        CertificateStore = 'LocalMachine\My'
         BackupRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups'
         LogRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs'
     }
@@ -81,7 +92,7 @@ function Ensure-GraphApplicationPermissions {
     $roleMap = @{}
     foreach ($value in $requiredRoles) {
         $role = $graphSp.AppRoles | Where-Object { $_.Value -eq $value -and $_.AllowedMemberTypes -contains 'Application' }
-        if ($role) { $roleMap[$value] = $role.Id } else { Write-Step "Permissão $value não encontrada nos appRoles do Graph." }
+        if ($role) { $roleMap[$value] = $role.Id } else { Write-BootstrapLog "Permissão $value não encontrada nos appRoles do Graph." }
     }
 
     $merged = @{}
@@ -91,65 +102,66 @@ function Ensure-GraphApplicationPermissions {
     $resourceAccess = @()
     foreach ($k in $merged.Keys) { $resourceAccess += @{ Id = $k; Type = 'Role' } }
     Update-MgApplication -ApplicationId $ApplicationId -RequiredResourceAccess @(@{ ResourceAppId = $GraphAppId; ResourceAccess = $resourceAccess })
-    Write-Step 'Permissões de aplicação do Microsoft Graph configuradas no App Registration.'
+    Write-BootstrapLog 'Permissões de aplicação do Microsoft Graph configuradas no App Registration.'
 
     $existingAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ServicePrincipalId -All
     foreach ($pair in $roleMap.GetEnumerator()) {
         $already = $existingAssignments | Where-Object { $_.ResourceId -eq $graphSp.Id -and $_.AppRoleId -eq $pair.Value }
         if (-not $already) {
             New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ServicePrincipalId -PrincipalId $ServicePrincipalId -ResourceId $graphSp.Id -AppRoleId $pair.Value | Out-Null
-            Write-Step "Admin consent concedido automaticamente para: $($pair.Key)"
+            Write-BootstrapLog "Admin consent concedido automaticamente para: $($pair.Key)"
         }
     }
 }
 
 try {
-    Write-Step 'Iniciando autenticação interativa (Device Code) no Microsoft Graph...'
+    Write-BootstrapLog 'Iniciando autenticação interativa (Device Code) no Microsoft Graph...'
     Connect-MgGraph -Scopes $RequiredInteractiveScopes -UseDeviceCode -NoWelcome
     $ctx = Get-MgContext
     $tenantId = $ctx.TenantId
-    Write-Step "Autenticação concluída. Tenant: $tenantId"
+    Write-BootstrapLog "Autenticação concluída. Tenant: $tenantId"
 
     $existingApps = Get-MgApplication -Filter "displayName eq '$AppDisplayName'" -ConsistencyLevel eventual
     $selectedApp = $null
     if ($existingApps) {
         $selectedApp = $existingApps | Select-Object -First 1
-        Write-Step "Reutilizando App Registration existente. AppId: $($selectedApp.AppId)"
+        Write-BootstrapLog "Reutilizando App Registration existente. AppId: $($selectedApp.AppId)"
     }
     if (-not $selectedApp) {
         $selectedApp = New-MgApplication -DisplayName $AppDisplayName -SignInAudience 'AzureADMyOrg'
-        Write-Step "Novo App Registration criado. AppId: $($selectedApp.AppId)"
+        Write-BootstrapLog "Novo App Registration criado. AppId: $($selectedApp.AppId)"
     }
 
     $sp = Get-MgServicePrincipal -Filter "appId eq '$($selectedApp.AppId)'"
-    if (-not $sp) { $sp = New-MgServicePrincipal -AppId $selectedApp.AppId; Write-Step 'Service Principal criado no tenant.' } else { Write-Step 'Service Principal existente localizado no tenant.' }
+    if (-not $sp) { $sp = New-MgServicePrincipal -AppId $selectedApp.AppId; Write-BootstrapLog 'Service Principal criado no tenant.' } else { Write-BootstrapLog 'Service Principal existente localizado no tenant.' }
 
     $friendlyName = 'Quest Recovery Function - Administrative Roles Backup'
     $cert = New-SelfSignedCertificate -DnsName 'IR-AdministrativeFunctionBackup' -FriendlyName $friendlyName -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddMonths([int]$CertificateValidityMonths) -KeyExportPolicy Exportable -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
-    Write-Step "Certificado self-signed criado. Thumbprint: $($cert.Thumbprint)"
+    Write-BootstrapLog "Certificado self-signed criado. Thumbprint: $($cert.Thumbprint)"
     $cerPath = Export-PublicCertificate -Thumbprint $cert.Thumbprint
-    Write-Step "Certificado público exportado para: $cerPath"
+    Write-BootstrapLog "Certificado público exportado para: $cerPath"
 
     $added = Add-CertificateToApplication -ApplicationId $selectedApp.Id -Certificate $cert
-    if ($added) { Write-Step 'Certificado público adicionado ao keyCredentials do App Registration.' } else { Write-Step 'Certificado já estava presente no keyCredentials; nenhuma alteração necessária.' }
+    if ($added) { Write-BootstrapLog 'Certificado público adicionado ao keyCredentials do App Registration.' } else { Write-BootstrapLog 'Certificado já estava presente no keyCredentials; nenhuma alteração necessária.' }
 
     try { Ensure-GraphApplicationPermissions -ApplicationId $selectedApp.Id -ServicePrincipalId $sp.Id }
-    catch { Write-Step "Falha ao conceder admin consent automático: $($_.Exception.Message)" }
+    catch { Write-BootstrapLog "Falha ao conceder admin consent automático: $($_.Exception.Message)" }
 
     $settings = Get-DefaultSettings
     $settings.TenantId = $tenantId
     $settings.ClientId = $selectedApp.AppId
     $settings.CertificateThumbprint = $cert.Thumbprint
     Save-Settings -Settings $settings -Path $SettingsPath
-    Write-Step "Configuração salva em: $SettingsPath"
+    Write-BootstrapLog "Configuração salva em: $SettingsPath"
 
+    Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
     Connect-MgGraph -ClientId $settings.ClientId -TenantId $settings.TenantId -CertificateThumbprint $settings.CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
     Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
-    Write-Step 'Teste app-only concluído com sucesso.'
+    Write-BootstrapLog 'Teste app-only concluído com sucesso.'
     exit 0
 } catch {
-    Write-Error "Falha na configuração automática: $($_.Exception.Message)"
-    exit 1
+    Write-BootstrapLog "ERRO: $($_.Exception.Message)"
+    throw
 } finally {
     Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
 }

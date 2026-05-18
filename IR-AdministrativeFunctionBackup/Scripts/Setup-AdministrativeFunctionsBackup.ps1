@@ -288,13 +288,15 @@ function Start-AutomaticTenantSetup {
         $bootstrapScript = Join-Path $PSScriptRoot 'Start-TenantBootstrapInteractive.ps1'
         if (-not (Test-Path $bootstrapScript)) { throw "Script não encontrado: $bootstrapScript" }
 
-        Set-Status 'Abrindo nova janela PowerShell para autenticação Device Code e bootstrap do tenant...'
+        Set-Status 'Iniciando processo externo para autenticação Device Code e bootstrap do tenant...'
 
-        $escapedScript = $bootstrapScript.Replace("'","''")
-        $escapedSettings = $SettingsPath.Replace("'","''")
-        $command = "& '$escapedScript' -SettingsPath '$escapedSettings' -CertificateValidityMonths $([int]$numMonths.Value);`nif (`$LASTEXITCODE -ne 0) { Write-Host ''; Write-Host 'Processo finalizado com erro.' -ForegroundColor Red } else { Write-Host ''; Write-Host 'Processo finalizado com sucesso.' -ForegroundColor Green };`nWrite-Host ''; Read-Host 'Pressione ENTER para fechar'"
-
-        $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-Command',$command) -PassThru -WindowStyle Normal
+        $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+            '-NoProfile',
+            '-ExecutionPolicy','Bypass',
+            '-File',$bootstrapScript,
+            '-SettingsPath',$SettingsPath,
+            '-CertificateValidityMonths',$([int]$numMonths.Value)
+        ) -PassThru -WindowStyle Normal
         $proc.WaitForExit()
 
         Set-Status 'Processo externo finalizado. Recarregando settings.json...'
