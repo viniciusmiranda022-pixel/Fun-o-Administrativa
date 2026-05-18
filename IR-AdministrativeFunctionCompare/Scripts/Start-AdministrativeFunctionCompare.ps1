@@ -18,7 +18,9 @@ $XamlPath = Join-Path $BasePath "Xaml\MainWindow.xaml"
 $LogDirectory = Join-Path $BasePath "Logs"
 if (-not (Test-Path $LogDirectory)) { New-Item -Path $LogDirectory -ItemType Directory -Force | Out-Null }
 $LogPath = Join-Path $LogDirectory "Compare-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
-$BackupExportsPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Exports"
+$BackupSettingsPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json"
+$DefaultBackupRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups"
+$BackupRoot = $DefaultBackupRoot
 $RestoreScriptPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Scripts\Restore-CustomRole-Full.ps1"
 
 $DefaultTenantId = ""
@@ -297,12 +299,36 @@ function Load-CurrentTenantData {
     }
 }
 
+function Resolve-BackupRoot {
+    if (Test-Path $BackupSettingsPath) {
+        try {
+            $settings = Get-Content $BackupSettingsPath -Raw | ConvertFrom-Json
+            if (-not [string]::IsNullOrWhiteSpace([string]$settings.BackupRoot)) {
+                return [string]$settings.BackupRoot
+            }
+
+            Write-Log "settings.json found at $BackupSettingsPath, but BackupRoot is empty. Using default: $DefaultBackupRoot" -Severity "WARN"
+        }
+        catch {
+            Write-Log ("Unable to read BackupRoot from settings.json at {0}: {1}. Using default: {2}" -f $BackupSettingsPath, $_.Exception.Message, $DefaultBackupRoot) -Severity "WARN"
+        }
+    }
+    else {
+        Write-Log "settings.json not found at $BackupSettingsPath. Using default backup root: $DefaultBackupRoot" -Severity "WARN"
+    }
+
+    return $DefaultBackupRoot
+}
+
 function Get-BackupSnapshots {
-    if (-not (Test-Path $BackupExportsPath)) {
+    $script:BackupRoot = Resolve-BackupRoot
+
+    if (-not (Test-Path $script:BackupRoot)) {
+        Write-Log "Backup root does not exist yet: $script:BackupRoot" -Severity "WARN"
         return @()
     }
 
-    $items = Get-ChildItem -Path $BackupExportsPath -Directory -ErrorAction SilentlyContinue |
+    $items = Get-ChildItem -Path $script:BackupRoot -Directory -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
         ForEach-Object {
             $manifestPath = Join-Path $_.FullName "manifest.json"
@@ -768,6 +794,10 @@ function Invoke-ExternalRestore {
     }
 }
 
+if (-not (Test-Path $XamlPath)) {
+    throw "Main XAML file not found at expected path: $XamlPath"
+}
+
 [xml]$xaml = Get-Content $XamlPath -Raw
 $reader = New-Object System.Xml.XmlNodeReader $xaml
 $window = [Windows.Markup.XamlReader]::Load($reader)
@@ -837,13 +867,13 @@ $loadBackupsAction = {
     $GridBackups.ItemsSource = $snapshots
 
     if ($snapshots.Count -eq 0) {
-        $TxtStatus.Text = "Status: no backup found in $BackupExportsPath"
+        $TxtStatus.Text = "Status: no backup found in $BackupRoot. The interface remains available; run a backup or select a snapshot manually."
     }
     else {
         $TxtStatus.Text = "Status: $($snapshots.Count) backup(s) loaded."
     }
 
-    Write-Log "Backups reloaded from fixed folder: $BackupExportsPath"
+    Write-Log "Backups reloaded from backup root: $BackupRoot"
     Add-TaskEntry -Task "Load Backups" -Status "Completed" -Details "$($snapshots.Count) snapshot(s) loaded"
 }
 
@@ -1091,7 +1121,9 @@ if ($GridEvents) {
         })
 }
 
-Write-Log "Panel started. Monitored backup directory: $BackupExportsPath"
+$BackupRoot = Resolve-BackupRoot
+Write-Log "Panel started. XAML path: $XamlPath"
+Write-Log "Panel started. Monitored backup directory: $BackupRoot"
 Add-TaskEntry -Task "Start Panel" -Status "Completed" -Details "Application started"
 
 & $loadBackupsAction
