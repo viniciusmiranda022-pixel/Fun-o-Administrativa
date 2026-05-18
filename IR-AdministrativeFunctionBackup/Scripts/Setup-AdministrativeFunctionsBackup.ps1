@@ -14,6 +14,9 @@ try {
 
 $ErrorActionPreference = 'Stop'
 
+$InstallRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup'
+$BootstrapLogPath = Join-Path $InstallRoot 'Logs\tenant-bootstrap.log'
+
 $AppDisplayName = 'Quest Recovery Function - Administrative Roles Backup'
 $GraphAppId = '00000003-0000-0000-c000-000000000000'
 $RequiredInteractiveScopes = @(
@@ -33,6 +36,48 @@ $OptionalApplicationPermissions = @(
     'AppRoleAssignment.ReadWrite.All'
 )
 
+
+
+function Ensure-MicrosoftGraphPowerShell {
+    $requiredCommands = @('Connect-MgGraph','Disconnect-MgGraph','Get-MgApplication','New-MgApplication','Update-MgApplication','Get-MgServicePrincipal','New-MgServicePrincipal','Get-MgRoleManagementDirectoryRoleDefinition')
+    $missingCommands = @($requiredCommands | Where-Object { -not (Get-Command $_ -ErrorAction SilentlyContinue) })
+    if ($missingCommands.Count -eq 0) { return }
+
+    Write-Host "Microsoft Graph PowerShell não está disponível. Instalando módulo Microsoft.Graph automaticamente..." -ForegroundColor Yellow
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    } catch {}
+
+    try {
+        if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Null
+        }
+    } catch {
+        Write-Host "WARNING: não foi possível preparar o provider NuGet automaticamente: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+
+    try {
+        Install-Module Microsoft.Graph -Scope AllUsers -Force -AllowClobber -Repository PSGallery
+    } catch {
+        Write-Host "Instalação em AllUsers falhou; tentando CurrentUser. Detalhes: $($_.Exception.Message)" -ForegroundColor Yellow
+        Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber -Repository PSGallery
+    }
+
+    Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
+    Import-Module Microsoft.Graph.Applications -ErrorAction Stop
+    Import-Module Microsoft.Graph.Identity.DirectoryManagement -ErrorAction SilentlyContinue
+    Import-Module Microsoft.Graph.Identity.Governance -ErrorAction SilentlyContinue
+}
+
+function Initialize-BackupDirectories {
+    foreach ($folder in @('Config','Logs','Backups','Certificates','Assets')) {
+        $path = Join-Path $InstallRoot $folder
+        if (-not (Test-Path $path)) {
+            New-Item -ItemType Directory -Path $path -Force | Out-Null
+        }
+    }
+}
+
 function Get-DefaultSettings {
     [ordered]@{
         TenantId = ''
@@ -40,9 +85,9 @@ function Get-DefaultSettings {
         AppDisplayName = $AppDisplayName
         CertificateThumbprint = ''
         CertificateStore = 'LocalMachine\\My'
-        BackupRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups'
-        LogRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs'
-        LogoPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Assets\quest-logo.png'
+        BackupRoot = (Join-Path $InstallRoot 'Backups')
+        LogRoot = (Join-Path $InstallRoot 'Logs')
+        LogoPath = (Join-Path $InstallRoot 'Assets\quest-logo.png')
     }
 }
 
@@ -55,7 +100,7 @@ function Save-Settings {
 
 function Export-PublicCertificate {
     param([string]$Thumbprint)
-    $certDir = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Certificates'
+    $certDir = (Join-Path $InstallRoot 'Certificates')
     $cerPath = Join-Path $certDir 'public-certificate.cer'
     New-Item -ItemType Directory -Path $certDir -Force | Out-Null
     $cert = Get-Item "Cert:\LocalMachine\My\$Thumbprint"
@@ -64,10 +109,30 @@ function Export-PublicCertificate {
 }
 
 function Test-GraphConnection {
-    param([string]$TenantId,[string]$ClientId,[string]$Thumbprint)
-    Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
-    Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
-    Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+    param(
+        [string]$TenantId,
+        [string]$ClientId,
+        [string]$Thumbprint,
+        [int]$MaxAttempts = 8,
+        [int]$DelaySeconds = 15
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+        try {
+            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+            Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
+            Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+            return
+        } catch {
+            $lastError = $_.Exception.Message
+            Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+            if ($attempt -eq $MaxAttempts) {
+                throw "Configuração salva. A validação app-only final falhou, possivelmente por propagação do certificado no Microsoft Entra ID. Aguarde alguns minutos e teste novamente. Último erro: $lastError"
+            }
+            Start-Sleep -Seconds $DelaySeconds
+        }
+    }
 }
 
 function Add-CertificateToApplication {
@@ -138,6 +203,9 @@ function Ensure-GraphApplicationPermissions {
         }
     }
 }
+
+Initialize-BackupDirectories
+Ensure-MicrosoftGraphPowerShell
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -325,18 +393,17 @@ function Start-AutomaticTenantSetup {
         $proc.WaitForExit()
 
         if ($proc.ExitCode -ne 0) {
-            $bootstrapLogPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs\tenant-bootstrap.log'
+            $bootstrapLogPath = $BootstrapLogPath
             $tail = ''
             if (Test-Path $bootstrapLogPath) {
                 $tail = (Get-Content -Path $bootstrapLogPath -Tail 20) -join [Environment]::NewLine
             }
 
-            $message = "Bootstrap do tenant falhou com código $($proc.ExitCode)."
-            if (-not [string]::IsNullOrWhiteSpace($tail)) {
-                $message = "$message Últimas linhas do log:\r\n$tail"
+            if ([string]::IsNullOrWhiteSpace($tail)) {
+                throw 'O bootstrap falhou antes de inicializar o log. Verifique o caminho do script Start-TenantBootstrapInteractive.ps1 e os parâmetros usados pelo wizard.'
             }
 
-            throw $message
+            throw "Bootstrap do tenant falhou com código $($proc.ExitCode). Causa real nas últimas linhas do log:`r`n$tail"
         }
 
         Set-Status 'Processo externo finalizado. Recarregando settings.json...'
@@ -347,9 +414,15 @@ function Start-AutomaticTenantSetup {
         $txtClient.Text = $settings.ClientId
         $txtThumb.Text = $settings.CertificateThumbprint
 
-        Test-GraphConnection -TenantId $settings.TenantId -ClientId $settings.ClientId -Thumbprint $settings.CertificateThumbprint
-        Set-Status 'Configuração concluída com sucesso'
-        [System.Windows.Forms.MessageBox]::Show('Configuração concluída com sucesso','Sucesso','OK','Information') | Out-Null
+        try {
+            Test-GraphConnection -TenantId $settings.TenantId -ClientId $settings.ClientId -Thumbprint $settings.CertificateThumbprint
+            Set-Status 'Configuração concluída com sucesso'
+            [System.Windows.Forms.MessageBox]::Show('Configuração concluída com sucesso','Sucesso','OK','Information') | Out-Null
+        } catch {
+            $warning = 'Configuração salva. A validação app-only final falhou, possivelmente por propagação do certificado no Microsoft Entra ID. Aguarde alguns minutos e teste novamente.'
+            Set-Status "$warning Detalhes: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show($warning, 'Configuração salva com aviso', 'OK', 'Warning') | Out-Null
+        }
     } catch {
         $errorMessage = $_.Exception.Message
         if (Test-IsBootstrapPrivilegeError -Message $errorMessage) {

@@ -14,6 +14,49 @@ Write-Host "Executando scripts em: $basePath" -ForegroundColor Cyan
 $setupScript = Join-Path $scriptRoot 'Setup-AdministrativeFunctionsBackup.ps1'
 $exportScript = Join-Path $scriptRoot 'Export-AdministrativeFunctions.ps1'
 
+
+function Ensure-MicrosoftGraphPowerShell {
+    $requiredCommands = @('Connect-MgGraph','Disconnect-MgGraph','Get-MgApplication','New-MgApplication','Update-MgApplication','Get-MgServicePrincipal','New-MgServicePrincipal','Get-MgRoleManagementDirectoryRoleDefinition')
+    $missingCommands = @($requiredCommands | Where-Object { -not (Get-Command $_ -ErrorAction SilentlyContinue) })
+    if ($missingCommands.Count -eq 0) { return }
+
+    Write-Host "Microsoft Graph PowerShell não está disponível. Instalando módulo Microsoft.Graph automaticamente..." -ForegroundColor Yellow
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    } catch {}
+
+    try {
+        if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Null
+        }
+    } catch {
+        Write-Host "WARNING: não foi possível preparar o provider NuGet automaticamente: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+
+    try {
+        Install-Module Microsoft.Graph -Scope AllUsers -Force -AllowClobber -Repository PSGallery
+    } catch {
+        Write-Host "Instalação em AllUsers falhou; tentando CurrentUser. Detalhes: $($_.Exception.Message)" -ForegroundColor Yellow
+        Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber -Repository PSGallery
+    }
+
+    Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
+    Import-Module Microsoft.Graph.Applications -ErrorAction Stop
+    Import-Module Microsoft.Graph.Identity.DirectoryManagement -ErrorAction SilentlyContinue
+    Import-Module Microsoft.Graph.Identity.Governance -ErrorAction SilentlyContinue
+}
+
+function Initialize-BackupDirectories {
+    param([string]$RootPath)
+
+    foreach ($folder in @('Config','Logs','Backups','Certificates','Assets')) {
+        $path = Join-Path $RootPath $folder
+        if (-not (Test-Path $path)) {
+            New-Item -ItemType Directory -Path $path -Force | Out-Null
+        }
+    }
+}
+
 function Test-BackupPrerequisites {
     param([string]$SettingsFile)
 
@@ -54,7 +97,7 @@ function Test-BackupPrerequisites {
     if (-not [string]::IsNullOrWhiteSpace($settings.CertificateThumbprint)) {
         $cert = Get-Item "Cert:\LocalMachine\My\$($settings.CertificateThumbprint)" -ErrorAction SilentlyContinue
         if (-not $cert) {
-            $reasons.Add('Certificado configurado não existe em Cert:\LocalMachine\My.')
+            $reasons.Add('Certificado configurado não existe em Cert:\LocalMachine\My. Use o assistente para recriar automaticamente ou importar um PFX com chave privada.')
         }
         else {
             if (-not $cert.HasPrivateKey) { $reasons.Add('Certificado sem chave privada (HasPrivateKey=False).') }
@@ -66,12 +109,37 @@ function Test-BackupPrerequisites {
 }
 
 function Test-GraphConnection {
-    param([string]$TenantId,[string]$ClientId,[string]$Thumbprint)
-    Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-    Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome | Out-Null
-    Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
-    Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+    param(
+        [string]$TenantId,
+        [string]$ClientId,
+        [string]$Thumbprint,
+        [int]$MaxAttempts = 8,
+        [int]$DelaySeconds = 15
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+        try {
+            Write-Host "Validando conexão app-only com Microsoft Graph (tentativa $attempt de $MaxAttempts)..." -ForegroundColor Cyan
+            Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+            Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
+            Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+            return
+        } catch {
+            $lastError = $_.Exception.Message
+            Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+            if ($attempt -eq $MaxAttempts) {
+                throw "Falha ao validar app-only após $MaxAttempts tentativas. Último erro: $lastError"
+            }
+            Write-Host "Validação app-only ainda não disponível: $lastError" -ForegroundColor Yellow
+            Write-Host "Aguardando $DelaySeconds segundos para possível propagação no Microsoft Entra ID..." -ForegroundColor Yellow
+            Start-Sleep -Seconds $DelaySeconds
+        }
+    }
 }
+
+Initialize-BackupDirectories -RootPath $basePath
+Ensure-MicrosoftGraphPowerShell
 
 $validation = Test-BackupPrerequisites -SettingsFile $configPath
 if (-not $validation.IsValid) {
