@@ -59,8 +59,9 @@ function Test-BackupPrerequisites {
 
 function Test-GraphConnection {
     param([string]$TenantId,[string]$ClientId,[string]$Thumbprint)
-    Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
-    Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
+    Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+    Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome | Out-Null
+    Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
     Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
 }
 
