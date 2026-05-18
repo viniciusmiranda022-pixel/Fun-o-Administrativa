@@ -1,3 +1,10 @@
+﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+try {
+    chcp 65001 | Out-Null
+} catch {}
+
 [CmdletBinding()]
 param(
     [string]$SettingsPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json',
@@ -281,11 +288,17 @@ try {
 
     Write-BootstrapLog "Configuração salva em: $settingsPath"
 
-    Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-    Connect-MgGraph -ClientId $settings.ClientId -TenantId $settings.TenantId -CertificateThumbprint $settings.CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
-    Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
-    Write-BootstrapLog 'Teste app-only concluído com sucesso.'
-    exit 0
+    Write-BootstrapLog 'Iniciando validação app-only final...'
+    try {
+        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+        Connect-MgGraph -ClientId $settings.ClientId -TenantId $settings.TenantId -CertificateThumbprint $settings.CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
+        Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
+        Write-BootstrapLog 'Teste app-only concluído com sucesso.'
+        exit 0
+    } catch {
+        Write-BootstrapLog "WARNING: Configuração salva, mas a validação app-only final falhou. Aguarde a propagação no Microsoft Entra ID e teste novamente. Detalhes: $($_.Exception.Message)"
+        exit 0
+    }
 } catch {
     $errorMsg = $_.Exception.Message
     if (Test-IsAuthorizationDenied -Message $errorMsg) {

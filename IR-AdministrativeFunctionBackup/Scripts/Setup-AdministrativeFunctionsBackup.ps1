@@ -1,3 +1,10 @@
+﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+try {
+    chcp 65001 | Out-Null
+} catch {}
+
 [CmdletBinding()]
 param(
     [string]$SettingsPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json',
@@ -318,7 +325,18 @@ function Start-AutomaticTenantSetup {
         $proc.WaitForExit()
 
         if ($proc.ExitCode -ne 0) {
-            throw "Bootstrap do tenant falhou com código $($proc.ExitCode)."
+            $bootstrapLogPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs\tenant-bootstrap.log'
+            $tail = ''
+            if (Test-Path $bootstrapLogPath) {
+                $tail = (Get-Content -Path $bootstrapLogPath -Tail 20) -join [Environment]::NewLine
+            }
+
+            $message = "Bootstrap do tenant falhou com código $($proc.ExitCode)."
+            if (-not [string]::IsNullOrWhiteSpace($tail)) {
+                $message = "$message Últimas linhas do log:\r\n$tail"
+            }
+
+            throw $message
         }
 
         Set-Status 'Processo externo finalizado. Recarregando settings.json...'
