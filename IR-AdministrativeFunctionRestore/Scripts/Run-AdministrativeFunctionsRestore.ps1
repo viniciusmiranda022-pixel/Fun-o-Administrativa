@@ -1,3 +1,10 @@
+﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+try {
+    chcp 65001 | Out-Null
+} catch {}
+
 $TenantId = "ca9b03ea-578e-4277-b684-969fa2a34a9a"
 $ClientId = "3c1e0342-a7c1-434e-bd70-04ace3dfd88d"
 $Thumb = "FDD65BA99EB803D11BFBDD1F02424EBA39CBC91B"
