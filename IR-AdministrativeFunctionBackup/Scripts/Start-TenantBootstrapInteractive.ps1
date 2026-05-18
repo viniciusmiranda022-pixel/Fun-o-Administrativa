@@ -2,12 +2,16 @@
 param(
     [string]$SettingsPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json',
     [int]$CertificateValidityMonths = 24,
-    [string]$AppDisplayName = 'Quest Recovery Function - Administrative Roles Backup'
+    [string]$AppDisplayName = 'Quest Recovery Function - Administrative Roles Backup',
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$TenantId
 )
 
 $ErrorActionPreference = 'Stop'
 $GraphAppId = '00000003-0000-0000-c000-000000000000'
 $BootstrapLogPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs\tenant-bootstrap.log'
+$LogoPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Assets\quest-logo.png'
 $RequiredInteractiveScopes = @(
     'Application.ReadWrite.All'
     'AppRoleAssignment.ReadWrite.All'
@@ -46,6 +50,7 @@ function Get-DefaultSettings {
         CertificateStore = 'LocalMachine\My'
         BackupRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups'
         LogRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs'
+        LogoPath = $LogoPath
     }
 }
 
@@ -125,6 +130,49 @@ function New-InsufficientPrivilegeErrorMessage {
     return 'A autenticação foi concluída, mas a conta usada não possui permissões suficientes para configurar o App Registration. Execute novamente com uma conta Global Administrator ou uma conta com permissões para gerenciar App Registrations, Service Principals e consentimento administrativo do Microsoft Graph.'
 }
 
+
+function Test-GraphContextScopes {
+    param([string[]]$ExpectedScopes)
+    $ctx = Get-MgContext
+    if (-not $ctx.Account) { throw 'Falha na validação pós-login: conta autenticada não identificada.' }
+    if (-not $ctx.TenantId) { throw 'Falha na validação pós-login: tenant autenticado não identificado.' }
+    if ($ctx.TenantId -ne $TenantId) { throw "Falha na validação pós-login: tenant autenticado ($($ctx.TenantId)) difere do TenantId informado ($TenantId)." }
+
+    $missing = @($ExpectedScopes | Where-Object { $_ -notin $ctx.Scopes })
+    if ($missing.Count -gt 0) { throw "Falha na validação pós-login: scopes ausentes: $($missing -join ', ')." }
+
+    Write-BootstrapLog "Conta autenticada: $($ctx.Account)"
+    Write-BootstrapLog "Tenant autenticado: $($ctx.TenantId)"
+    Write-BootstrapLog "Scopes concedidos: $($ctx.Scopes -join ', ')"
+}
+
+function Set-AppLogoIfAvailable {
+    param([string]$ApplicationId)
+    if (-not (Test-Path $LogoPath)) {
+        Write-BootstrapLog "Logo não encontrado em $LogoPath. Prosseguindo sem aplicar identidade visual."
+        return
+    }
+
+    $file = Get-Item $LogoPath
+    $allowedExtensions = @('.png','.jpg','.jpeg','.gif','.bmp')
+    if ($file.Extension.ToLowerInvariant() -notin $allowedExtensions) {
+        Write-BootstrapLog "WARNING: Formato de logo não suportado para upload ($($file.Extension))."
+        return
+    }
+
+    if ($file.Length -gt 102400KB) {
+        Write-BootstrapLog 'WARNING: Logo excede tamanho máximo esperado para upload (100 MB). Ignorando upload.'
+        return
+    }
+
+    try {
+        Set-MgApplicationLogo -ApplicationId $ApplicationId -InFile $LogoPath
+        Write-BootstrapLog 'Logo aplicado com sucesso no App Registration.'
+    } catch {
+        Write-BootstrapLog "WARNING: Falha ao aplicar logo no App Registration: $($_.Exception.Message)"
+    }
+}
+
 function Test-IsAuthorizationDenied {
     param([string]$Message)
     if ([string]::IsNullOrWhiteSpace($Message)) { return $false }
@@ -132,17 +180,19 @@ function Test-IsAuthorizationDenied {
 }
 
 try {
+    Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
     Write-BootstrapLog 'Iniciando autenticação interativa (Device Code) no Microsoft Graph...'
-    Connect-MgGraph -Scopes $RequiredInteractiveScopes -UseDeviceCode -NoWelcome
-    $ctx = Get-MgContext
-    $tenantId = $ctx.TenantId
+    Connect-MgGraph -TenantId $TenantId -Scopes $RequiredInteractiveScopes -UseDeviceCode -NoWelcome
+    Test-GraphContextScopes -ExpectedScopes $RequiredInteractiveScopes
+    $tenantId = $TenantId
     Write-BootstrapLog "Autenticação concluída. Tenant: $tenantId"
 
     $existingApps = Get-MgApplication -Filter "displayName eq '$AppDisplayName'" -ConsistencyLevel eventual
     $selectedApp = $null
     if ($existingApps) {
         $selectedApp = $existingApps | Select-Object -First 1
-        Write-BootstrapLog "Reutilizando App Registration existente. AppId: $($selectedApp.AppId)"
+        $null = Get-MgApplication -ApplicationId $selectedApp.Id -Property Id,AppId,DisplayName
+        Write-BootstrapLog "App Registration existente localizado e reutilizado. AppId: $($selectedApp.AppId)"
     }
     if (-not $selectedApp) {
         $selectedApp = New-MgApplication -DisplayName $AppDisplayName -SignInAudience 'AzureADMyOrg'
@@ -170,12 +220,15 @@ try {
 
     try {
         Ensure-GraphApplicationPermissions -ApplicationId $selectedApp.Id -ServicePrincipalId $sp.Id
+        Write-BootstrapLog 'Permissões Graph adicionadas ao App Registration.'
     } catch {
         $permMsg = $_.Exception.Message
         Write-BootstrapLog "falha ao adicionar permissões Graph: $permMsg"
         if (Test-IsAuthorizationDenied -Message $permMsg) { throw (New-InsufficientPrivilegeErrorMessage) }
         throw
     }
+
+    Set-AppLogoIfAvailable -ApplicationId $selectedApp.Id
 
     $configRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config"
 
@@ -193,6 +246,7 @@ try {
         CertificateStore = "LocalMachine\My"
         BackupRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups"
         LogRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs"
+        LogoPath = $LogoPath
     }
 
     $settings | ConvertTo-Json -Depth 10 | Set-Content -Path $settingsPath -Encoding UTF8
