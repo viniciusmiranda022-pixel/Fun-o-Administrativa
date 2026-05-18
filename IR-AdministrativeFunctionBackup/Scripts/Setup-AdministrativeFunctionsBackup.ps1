@@ -285,94 +285,32 @@ $btnCreate.Add_Click({
 
 function Start-AutomaticTenantSetup {
     try {
-        Set-Status 'Iniciando autenticação interativa (Device Code) no Microsoft Graph...'
-        Set-Status 'Quando o código for exibido, acesse https://microsoft.com/devicelogin em qualquer navegador e conclua o login administrativo do tenant.'
-        $deviceCodeOutput = @(Connect-MgGraph -Scopes $RequiredInteractiveScopes -UseDeviceCode -NoWelcome -ContextScope Process 6>&1)
-        foreach ($entry in $deviceCodeOutput) {
-            $message = $null
-            if ($entry -is [System.Management.Automation.InformationRecord]) {
-                $message = [string]$entry.MessageData
-            } elseif ($entry) {
-                $message = [string]$entry
-            }
+        $bootstrapScript = Join-Path $PSScriptRoot 'Start-TenantBootstrapInteractive.ps1'
+        if (-not (Test-Path $bootstrapScript)) { throw "Script não encontrado: $bootstrapScript" }
 
-            if ($message) {
-                Set-Status $message
-                if ($message -match '(?i)code\s*[:]?\s*([A-Z0-9-]{6,})') {
-                    Set-Status "Código Device Login detectado: $($Matches[1])"
-                }
-            }
-        }
-        Set-Status 'Autenticação Device Code concluída no Microsoft Graph.'
+        Set-Status 'Abrindo nova janela PowerShell para autenticação Device Code e bootstrap do tenant...'
 
-        Set-Status 'Iniciando autenticação interativa no Microsoft Graph...'
-        Connect-MgGraph -Scopes $RequiredInteractiveScopes -NoWelcome -ContextScope Process | Out-Null
-        $ctx = Get-MgContext
-        $tenantId = $ctx.TenantId
-        $txtTenant.Text = $tenantId
+        $escapedScript = $bootstrapScript.Replace("'","''")
+        $escapedSettings = $SettingsPath.Replace("'","''")
+        $command = "& '$escapedScript' -SettingsPath '$escapedSettings' -CertificateValidityMonths $([int]$numMonths.Value);`nif (`$LASTEXITCODE -ne 0) { Write-Host ''; Write-Host 'Processo finalizado com erro.' -ForegroundColor Red } else { Write-Host ''; Write-Host 'Processo finalizado com sucesso.' -ForegroundColor Green };`nWrite-Host ''; Read-Host 'Pressione ENTER para fechar'"
 
-        $existingApps = Get-MgApplication -Filter "displayName eq '$AppDisplayName'" -ConsistencyLevel eventual
-        $selectedApp = $null
-        if ($existingApps) {
-            $reuse = [System.Windows.Forms.MessageBox]::Show("Já existe App Registration com nome '$AppDisplayName'. Deseja reutilizar?",'Reutilizar aplicativo existente', 'YesNo', 'Question')
-            if ($reuse -eq [System.Windows.Forms.DialogResult]::Yes) {
-                $selectedApp = $existingApps | Select-Object -First 1
-                Set-Status "Reutilizando App Registration existente. AppId: $($selectedApp.AppId)"
-            }
-        }
+        $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-Command',$command) -PassThru -WindowStyle Normal
+        $proc.WaitForExit()
 
-        if (-not $selectedApp) {
-            $selectedApp = New-MgApplication -DisplayName $AppDisplayName -SignInAudience 'AzureADMyOrg'
-            Set-Status "Novo App Registration criado. AppId: $($selectedApp.AppId)"
-        }
+        Set-Status 'Processo externo finalizado. Recarregando settings.json...'
+        if (-not (Test-Path $SettingsPath)) { throw "Arquivo de configuração não encontrado em: $SettingsPath" }
 
-        $txtClient.Text = $selectedApp.AppId
-
-        $sp = Get-MgServicePrincipal -Filter "appId eq '$($selectedApp.AppId)'"
-        if (-not $sp) {
-            $sp = New-MgServicePrincipal -AppId $selectedApp.AppId
-            Set-Status 'Service Principal criado no tenant.'
-        } else {
-            Set-Status 'Service Principal existente localizado no tenant.'
-        }
-
-        $friendlyName = 'Quest Recovery Function - Administrative Roles Backup'
-        $cert = New-SelfSignedCertificate -DnsName 'IR-AdministrativeFunctionBackup' -FriendlyName $friendlyName -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddMonths([int]$numMonths.Value) -KeyExportPolicy Exportable -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
-        $txtThumb.Text = $cert.Thumbprint
-        Set-Status "Certificado self-signed criado. Thumbprint: $($cert.Thumbprint)"
-
-        $cerPath = Export-PublicCertificate -Thumbprint $cert.Thumbprint
-        Set-Status "Certificado público exportado para: $cerPath"
-
-        $added = Add-CertificateToApplication -ApplicationId $selectedApp.Id -Certificate $cert
-        if ($added) {
-            Set-Status 'Certificado público adicionado ao keyCredentials do App Registration.'
-        } else {
-            Set-Status 'Certificado já estava presente no keyCredentials; nenhuma alteração necessária.'
-        }
-
-        try {
-            Ensure-GraphApplicationPermissions -ApplicationId $selectedApp.Id -ServicePrincipalId $sp.Id -StatusWriter ${function:Set-Status}
-        } catch {
-            Set-Status "Falha ao conceder admin consent automático: $($_.Exception.Message)"
-            Set-Status 'Conceda admin consent manualmente no portal do Microsoft Entra ID para as permissões application do Microsoft Graph.'
-        }
-
-        $settings = Get-DefaultSettings
-        $settings.TenantId = $tenantId
-        $settings.ClientId = $selectedApp.AppId
-        $settings.CertificateThumbprint = $cert.Thumbprint
-        Save-Settings -Settings $settings -Path $SettingsPath
-        Set-Status "Configuração salva em: $SettingsPath"
+        $settings = Get-Content -Path $SettingsPath -Raw | ConvertFrom-Json
+        $txtTenant.Text = $settings.TenantId
+        $txtClient.Text = $settings.ClientId
+        $txtThumb.Text = $settings.CertificateThumbprint
 
         Test-GraphConnection -TenantId $settings.TenantId -ClientId $settings.ClientId -Thumbprint $settings.CertificateThumbprint
-        Set-Status 'Configuração concluída com sucesso. A solução está pronta para executar o backup.'
-        [System.Windows.Forms.MessageBox]::Show('Configuração concluída com sucesso. A solução está pronta para executar o backup.','Sucesso', 'OK', 'Information') | Out-Null
+        Set-Status 'Configuração concluída com sucesso'
+        [System.Windows.Forms.MessageBox]::Show('Configuração concluída com sucesso','Sucesso','OK','Information') | Out-Null
     } catch {
         Set-Status "Erro na configuração automática: $($_.Exception.Message)"
         [System.Windows.Forms.MessageBox]::Show("Erro na configuração automática: $($_.Exception.Message)", 'Erro', 'OK', 'Error') | Out-Null
-    } finally {
-        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
     }
 }
 
