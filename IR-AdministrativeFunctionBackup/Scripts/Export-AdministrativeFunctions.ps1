@@ -47,7 +47,7 @@ function Connect-AppOnlyGraphWithRetry {
         try {
             Write-Log "App Registration replication in progress - attempt $attempt of $MaxAttempts."
             Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
-            Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
+            Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
             Write-Log "App-only connection established on attempt $attempt."
             return
         }

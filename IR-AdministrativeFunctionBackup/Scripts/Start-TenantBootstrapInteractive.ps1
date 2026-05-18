@@ -283,7 +283,7 @@ try {
 
     Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
     Connect-MgGraph -ClientId $settings.ClientId -TenantId $settings.TenantId -CertificateThumbprint $settings.CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
-    Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
+    Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
     Write-BootstrapLog 'Teste app-only concluído com sucesso.'
     exit 0
 } catch {

@@ -159,7 +159,7 @@ function Connect-AppOnlyWithRetry {
             }
 
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
-            Get-MgRoleManagementDirectoryRoleDefinition -Top 1 | Out-Null
+            Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
             Write-Log "${Operation}: app-only connection succeeded on attempt $attempt."
 
             if ($StatusCallback) {
