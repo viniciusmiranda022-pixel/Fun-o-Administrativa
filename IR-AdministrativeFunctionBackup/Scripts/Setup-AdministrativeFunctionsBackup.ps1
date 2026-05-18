@@ -286,13 +286,13 @@ $btnCreate.Add_Click({
 
 
 function Get-BootstrapInsufficientPrivilegeMessage {
-    return 'A autenticação foi concluída, mas a conta usada não possui permissões suficientes para configurar o App Registration. Execute novamente com uma conta Global Administrator ou uma conta com permissões para gerenciar App Registrations, Service Principals e consentimento administrativo do Microsoft Graph.'
+    return 'A autenticação foi concluída, mas a operação foi negada pelo Microsoft Graph (Authorization_RequestDenied/Insufficient privileges). Valide as permissões efetivas no tenant, políticas de acesso e restrições administrativas para atualização do objeto Application.'
 }
 
 function Test-IsBootstrapPrivilegeError {
     param([string]$Message)
     if ([string]::IsNullOrWhiteSpace($Message)) { return $false }
-    return ($Message -match 'Authorization_RequestDenied' -or $Message -match 'Insufficient privileges' -or $Message -match 'não possui permissões suficientes para configurar o App Registration')
+    return ($Message -match 'Authorization_RequestDenied' -or $Message -match 'Insufficient privileges' -or $Message -match 'insufficient privileges')
 }
 
 function Start-AutomaticTenantSetup {
