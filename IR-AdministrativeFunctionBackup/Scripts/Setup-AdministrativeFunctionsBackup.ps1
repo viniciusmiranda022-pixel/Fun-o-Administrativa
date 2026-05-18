@@ -1,16 +1,16 @@
-﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
-
-try {
-    chcp 65001 | Out-Null
-} catch {}
-
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$SettingsPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json',
     [int]$CertificateValidityMonths = 24,
     [switch]$SkipGraphTest
 )
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+try {
+    chcp 65001 | Out-Null
+} catch {}
 
 $ErrorActionPreference = 'Stop'
 
