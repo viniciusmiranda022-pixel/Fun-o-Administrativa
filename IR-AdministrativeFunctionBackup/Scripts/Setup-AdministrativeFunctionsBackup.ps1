@@ -283,6 +283,17 @@ $btnCreate.Add_Click({
     }
 })
 
+
+function Get-BootstrapInsufficientPrivilegeMessage {
+    return 'A autenticação foi concluída, mas a conta usada não possui permissões suficientes para configurar o App Registration. Execute novamente com uma conta Global Administrator ou uma conta com permissões para gerenciar App Registrations, Service Principals e consentimento administrativo do Microsoft Graph.'
+}
+
+function Test-IsBootstrapPrivilegeError {
+    param([string]$Message)
+    if ([string]::IsNullOrWhiteSpace($Message)) { return $false }
+    return ($Message -match 'Authorization_RequestDenied' -or $Message -match 'Insufficient privileges' -or $Message -match 'não possui permissões suficientes para configurar o App Registration')
+}
+
 function Start-AutomaticTenantSetup {
     try {
         $bootstrapScript = Join-Path $PSScriptRoot 'Start-TenantBootstrapInteractive.ps1'
@@ -299,6 +310,10 @@ function Start-AutomaticTenantSetup {
         ) -PassThru -WindowStyle Normal
         $proc.WaitForExit()
 
+        if ($proc.ExitCode -ne 0) {
+            throw "Bootstrap do tenant falhou com código $($proc.ExitCode)."
+        }
+
         Set-Status 'Processo externo finalizado. Recarregando settings.json...'
         if (-not (Test-Path $SettingsPath)) { throw "Arquivo de configuração não encontrado em: $SettingsPath" }
 
@@ -311,8 +326,15 @@ function Start-AutomaticTenantSetup {
         Set-Status 'Configuração concluída com sucesso'
         [System.Windows.Forms.MessageBox]::Show('Configuração concluída com sucesso','Sucesso','OK','Information') | Out-Null
     } catch {
-        Set-Status "Erro na configuração automática: $($_.Exception.Message)"
-        [System.Windows.Forms.MessageBox]::Show("Erro na configuração automática: $($_.Exception.Message)", 'Erro', 'OK', 'Error') | Out-Null
+        $errorMessage = $_.Exception.Message
+        if (Test-IsBootstrapPrivilegeError -Message $errorMessage) {
+            $friendly = Get-BootstrapInsufficientPrivilegeMessage
+            Set-Status $friendly
+            [System.Windows.Forms.MessageBox]::Show($friendly, 'Permissões insuficientes', 'OK', 'Warning') | Out-Null
+        } else {
+            Set-Status "Erro na configuração automática: $errorMessage"
+            [System.Windows.Forms.MessageBox]::Show("Erro na configuração automática: $errorMessage", 'Erro', 'OK', 'Error') | Out-Null
+        }
     }
 }
 

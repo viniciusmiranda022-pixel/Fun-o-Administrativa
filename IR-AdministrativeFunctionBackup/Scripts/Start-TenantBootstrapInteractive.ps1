@@ -108,10 +108,27 @@ function Ensure-GraphApplicationPermissions {
     foreach ($pair in $roleMap.GetEnumerator()) {
         $already = $existingAssignments | Where-Object { $_.ResourceId -eq $graphSp.Id -and $_.AppRoleId -eq $pair.Value }
         if (-not $already) {
-            New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ServicePrincipalId -PrincipalId $ServicePrincipalId -ResourceId $graphSp.Id -AppRoleId $pair.Value | Out-Null
-            Write-BootstrapLog "Admin consent concedido automaticamente para: $($pair.Key)"
+            try {
+                New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ServicePrincipalId -PrincipalId $ServicePrincipalId -ResourceId $graphSp.Id -AppRoleId $pair.Value | Out-Null
+                Write-BootstrapLog "Admin consent concedido automaticamente para: $($pair.Key)"
+            } catch {
+                $consentMsg = $_.Exception.Message
+                Write-BootstrapLog "falha ao conceder admin consent: $consentMsg"
+                throw
+            }
         }
     }
+}
+
+
+function New-InsufficientPrivilegeErrorMessage {
+    return 'A autenticação foi concluída, mas a conta usada não possui permissões suficientes para configurar o App Registration. Execute novamente com uma conta Global Administrator ou uma conta com permissões para gerenciar App Registrations, Service Principals e consentimento administrativo do Microsoft Graph.'
+}
+
+function Test-IsAuthorizationDenied {
+    param([string]$Message)
+    if ([string]::IsNullOrWhiteSpace($Message)) { return $false }
+    return ($Message -match 'Authorization_RequestDenied' -or $Message -match 'Insufficient privileges' -or $Message -match 'insufficient privileges')
 }
 
 try {
@@ -141,10 +158,24 @@ try {
     $cerPath = Export-PublicCertificate -Thumbprint $cert.Thumbprint
     Write-BootstrapLog "Certificado público exportado para: $cerPath"
 
-    $added = Add-CertificateToApplication -ApplicationId $selectedApp.Id -Certificate $cert
-    if ($added) { Write-BootstrapLog 'Certificado público adicionado ao keyCredentials do App Registration.' } else { Write-BootstrapLog 'Certificado já estava presente no keyCredentials; nenhuma alteração necessária.' }
+    try {
+        $added = Add-CertificateToApplication -ApplicationId $selectedApp.Id -Certificate $cert
+        if ($added) { Write-BootstrapLog 'Certificado público adicionado ao keyCredentials do App Registration.' } else { Write-BootstrapLog 'Certificado já estava presente no keyCredentials; nenhuma alteração necessária.' }
+    } catch {
+        $certMsg = $_.Exception.Message
+        Write-BootstrapLog "falha ao adicionar certificado ao App Registration: $certMsg"
+        if (Test-IsAuthorizationDenied -Message $certMsg) { throw (New-InsufficientPrivilegeErrorMessage) }
+        throw
+    }
 
-    Ensure-GraphApplicationPermissions -ApplicationId $selectedApp.Id -ServicePrincipalId $sp.Id
+    try {
+        Ensure-GraphApplicationPermissions -ApplicationId $selectedApp.Id -ServicePrincipalId $sp.Id
+    } catch {
+        $permMsg = $_.Exception.Message
+        Write-BootstrapLog "falha ao adicionar permissões Graph: $permMsg"
+        if (Test-IsAuthorizationDenied -Message $permMsg) { throw (New-InsufficientPrivilegeErrorMessage) }
+        throw
+    }
 
     $configRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config"
 
@@ -178,7 +209,14 @@ try {
     Write-BootstrapLog 'Teste app-only concluído com sucesso.'
     exit 0
 } catch {
-    Write-BootstrapLog "ERRO: $($_.Exception.Message)"
+    $errorMsg = $_.Exception.Message
+    if (Test-IsAuthorizationDenied -Message $errorMsg) {
+        $friendlyMsg = New-InsufficientPrivilegeErrorMessage
+        Write-BootstrapLog "ERRO: $friendlyMsg"
+        throw $friendlyMsg
+    }
+
+    Write-BootstrapLog "ERRO: $errorMsg"
     throw
 } finally {
     Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
