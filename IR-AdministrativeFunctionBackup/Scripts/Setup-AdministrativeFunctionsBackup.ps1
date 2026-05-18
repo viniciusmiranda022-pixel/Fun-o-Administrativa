@@ -35,6 +35,7 @@ function Get-DefaultSettings {
         CertificateStore = 'LocalMachine\\My'
         BackupRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups'
         LogRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Logs'
+        LogoPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Assets\quest-logo.png'
     }
 }
 
@@ -299,6 +300,11 @@ function Start-AutomaticTenantSetup {
         $bootstrapScript = Join-Path $PSScriptRoot 'Start-TenantBootstrapInteractive.ps1'
         if (-not (Test-Path $bootstrapScript)) { throw "Script não encontrado: $bootstrapScript" }
 
+        $tenantId = $txtTenant.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($tenantId)) {
+            throw 'Tenant ID é obrigatório para iniciar o bootstrap automático.'
+        }
+
         Set-Status 'Iniciando processo externo para autenticação Device Code e bootstrap do tenant...'
 
         $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
@@ -306,7 +312,8 @@ function Start-AutomaticTenantSetup {
             '-ExecutionPolicy','Bypass',
             '-File',$bootstrapScript,
             '-SettingsPath',$SettingsPath,
-            '-CertificateValidityMonths',$([int]$numMonths.Value)
+            '-CertificateValidityMonths',$([int]$numMonths.Value),
+            '-TenantId',$tenantId
         ) -PassThru -WindowStyle Normal
         $proc.WaitForExit()
 
