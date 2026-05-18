@@ -1,4 +1,9 @@
-﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+﻿[CmdletBinding()]
+param(
+    [switch]$RmadMode
+)
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 try {
@@ -10,10 +15,168 @@ $ErrorActionPreference = 'Stop'
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $basePath = Split-Path -Parent $scriptRoot
 $configPath = Join-Path $basePath 'Config\settings.json'
-Write-Host "Executando scripts em: $basePath" -ForegroundColor Cyan
 $setupScript = Join-Path $scriptRoot 'Setup-AdministrativeFunctionsBackup.ps1'
 $exportScript = Join-Path $scriptRoot 'Export-AdministrativeFunctions.ps1'
 
+
+
+function Test-RmadInvocation {
+    if ($RmadMode) { return $true }
+
+    try {
+        if (-not [Environment]::UserInteractive) { return $true }
+    } catch {}
+
+    try {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId = $PID" -ErrorAction Stop
+        for ($i = 0; $i -lt 10 -and $process -and $process.ParentProcessId; $i++) {
+            $process = Get-CimInstance Win32_Process -Filter "ProcessId = $($process.ParentProcessId)" -ErrorAction SilentlyContinue
+            if (-not $process) { break }
+
+            if ($process.Name -ieq 'BackupServer.exe') { return $true }
+            if ($process.CommandLine -and ($process.CommandLine -match 'Run-AdministrativeFunctionsBackup-RMAD\.cmd')) { return $true }
+        }
+    } catch {}
+
+    return $false
+}
+
+function Write-RmadLog {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    if (-not $script:RmadLogFile) { return }
+    $line = "[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message
+    Add-Content -Path $script:RmadLogFile -Value $line -Encoding UTF8
+}
+
+function Get-MicrosoftGraphAvailability {
+    $modules = @(Get-Module -ListAvailable -Name Microsoft.Graph, Microsoft.Graph.Authentication -ErrorAction SilentlyContinue |
+        Sort-Object Name, Version -Descending |
+        Select-Object Name, Version, Path)
+    $connectCommand = Get-Command Connect-MgGraph -ErrorAction SilentlyContinue
+    $disconnectCommand = Get-Command Disconnect-MgGraph -ErrorAction SilentlyContinue
+
+    return [pscustomobject]@{
+        ModuleAvailable = ($modules.Count -gt 0)
+        Modules = $modules
+        ConnectMgGraphAvailable = [bool]$connectCommand
+        DisconnectMgGraphAvailable = [bool]$disconnectCommand
+    }
+}
+
+function Write-RmadDiagnostics {
+    param(
+        [string]$SettingsFile,
+        [object]$Settings = $null
+    )
+
+    Write-RmadLog "Usuário de execução: $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)"
+    Write-RmadLog "Arquitetura do PowerShell: $([IntPtr]::Size * 8)-bit"
+    Write-RmadLog "Caminho do PowerShell: $((Get-Process -Id $PID).Path)"
+    Write-RmadLog "settings.json existe: $(Test-Path $SettingsFile) ($SettingsFile)"
+
+    $thumbprint = $null
+    if ($Settings -and -not [string]::IsNullOrWhiteSpace($Settings.CertificateThumbprint)) {
+        $thumbprint = $Settings.CertificateThumbprint
+    }
+
+    if ($thumbprint) {
+        $cert = Get-Item "Cert:\LocalMachine\My\$thumbprint" -ErrorAction SilentlyContinue
+        Write-RmadLog "Certificado existe: $([bool]$cert) (Cert:\LocalMachine\My\$thumbprint)"
+        if ($cert) {
+            Write-RmadLog "HasPrivateKey: $($cert.HasPrivateKey)"
+            Write-RmadLog "Certificado expira em: $($cert.NotAfter.ToString('yyyy-MM-dd HH:mm:ss'))"
+        } else {
+            Write-RmadLog "HasPrivateKey: n/a"
+        }
+    } else {
+        Write-RmadLog 'Certificado existe: n/a (CertificateThumbprint ausente no settings.json)'
+        Write-RmadLog 'HasPrivateKey: n/a'
+    }
+
+    $graph = Get-MicrosoftGraphAvailability
+    Write-RmadLog "Microsoft.Graph disponível: $($graph.ModuleAvailable)"
+    Write-RmadLog "Connect-MgGraph disponível: $($graph.ConnectMgGraphAvailable)"
+    Write-RmadLog "Disconnect-MgGraph disponível: $($graph.DisconnectMgGraphAvailable)"
+    foreach ($module in $graph.Modules) {
+        Write-RmadLog "Microsoft.Graph módulo: $($module.Name) $($module.Version) - $($module.Path)"
+    }
+}
+
+function Get-ValidBackupFolder {
+    param(
+        [string]$BackupRoot,
+        [datetime]$NotBefore
+    )
+
+    if (-not (Test-Path $BackupRoot)) { return $null }
+
+    $requiredFiles = @('manifest.json','roleDefinitions.json','roleAssignments.json')
+    $folders = @(Get-ChildItem -Path $BackupRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.CreationTime -ge $NotBefore.AddSeconds(-5) -or $_.LastWriteTime -ge $NotBefore.AddSeconds(-5) } |
+        Sort-Object LastWriteTime -Descending)
+
+    foreach ($folder in $folders) {
+        $missing = @($requiredFiles | Where-Object { -not (Test-Path (Join-Path $folder.FullName $_)) })
+        if ($missing.Count -eq 0) { return $folder.FullName }
+    }
+
+    return $null
+}
+
+function Invoke-RmadBackup {
+    Initialize-BackupDirectories -RootPath $basePath
+
+    $logRoot = Join-Path $basePath 'Logs'
+    New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+    $script:RmadLogFile = Join-Path $logRoot ("rmad-custom-script-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    New-Item -ItemType File -Path $script:RmadLogFile -Force | Out-Null
+
+    Write-RmadLog 'Iniciando execução RMAD/non-interactive do backup de funções administrativas.'
+    Write-RmadDiagnostics -SettingsFile $configPath
+
+    try {
+        Ensure-MicrosoftGraphPowerShell *>&1 | ForEach-Object { Write-RmadLog "GRAPH-SETUP: $_" }
+        Write-RmadLog 'Disponibilidade do Microsoft.Graph após preparação:'
+        $graph = Get-MicrosoftGraphAvailability
+        Write-RmadLog "Microsoft.Graph disponível: $($graph.ModuleAvailable)"
+        Write-RmadLog "Connect-MgGraph disponível: $($graph.ConnectMgGraphAvailable)"
+        Write-RmadLog "Disconnect-MgGraph disponível: $($graph.DisconnectMgGraphAvailable)"
+
+        $validation = Test-BackupPrerequisites -SettingsFile $configPath
+        Write-RmadDiagnostics -SettingsFile $configPath -Settings $validation.Settings
+
+        if (-not $validation.IsValid) {
+            Write-RmadLog "Pré-validação falhou: $($validation.Reasons -join '; ')"
+            Write-RmadLog 'Assistente interativo não será aberto em modo RMAD.'
+            exit 1
+        }
+
+        Test-GraphConnection -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -Thumbprint $validation.Settings.CertificateThumbprint *>&1 | ForEach-Object { Write-RmadLog "GRAPH-TEST: $_" }
+
+        $backupStart = Get-Date
+        Write-RmadLog 'Iniciando export do backup.'
+        & $exportScript -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -CertificateThumbprint $validation.Settings.CertificateThumbprint -BasePath $basePath *>&1 | ForEach-Object { Write-RmadLog "EXPORT: $_" }
+
+        $backupFolder = Get-ValidBackupFolder -BackupRoot (Join-Path $basePath 'Backups') -NotBefore $backupStart
+        if ($backupFolder) {
+            Write-RmadLog "Caminho do backup gerado: $backupFolder"
+            Write-RmadLog 'Backup RMAD concluído com sucesso; manifest.json, roleDefinitions.json e roleAssignments.json foram criados.'
+            exit 0
+        }
+
+        Write-RmadLog 'Export terminou sem erro, mas os arquivos obrigatórios não foram encontrados em um novo backup.'
+        exit 1
+    }
+    catch {
+        Write-RmadLog "Falha real no export/preparação RMAD: $($_.Exception.Message)"
+        if ($_.ScriptStackTrace) { Write-RmadLog "StackTrace: $($_.ScriptStackTrace)" }
+        exit 1
+    }
+}
 
 function Ensure-MicrosoftGraphPowerShell {
     $requiredCommands = @('Connect-MgGraph','Disconnect-MgGraph','Get-MgApplication','New-MgApplication','Update-MgApplication','Get-MgServicePrincipal','New-MgServicePrincipal','Get-MgRoleManagementDirectoryRoleDefinition')
@@ -138,6 +301,11 @@ function Test-GraphConnection {
     }
 }
 
+if (Test-RmadInvocation) {
+    Invoke-RmadBackup
+}
+
+Write-Host "Executando scripts em: $basePath" -ForegroundColor Cyan
 Initialize-BackupDirectories -RootPath $basePath
 Ensure-MicrosoftGraphPowerShell
 

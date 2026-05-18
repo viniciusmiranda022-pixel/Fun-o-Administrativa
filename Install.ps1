@@ -47,5 +47,11 @@ if (-not (Test-Path $runScript)) {
     throw "Instalação incompleta: script de execução não encontrado em $runScript"
 }
 
+$rmadWrapper = Join-Path $InstallRoot 'Scripts\Run-AdministrativeFunctionsBackup-RMAD.cmd'
+if (-not (Test-Path $rmadWrapper)) {
+    throw "Instalação incompleta: wrapper RMAD não encontrado em $rmadWrapper"
+}
+
 Write-Host 'Instalação concluída.' -ForegroundColor Green
 Write-Host "Execute: powershell -ExecutionPolicy Bypass -STA -File `"$runScript`"" -ForegroundColor Green
+Write-Host "RMAD Custom Script: $rmadWrapper" -ForegroundColor Green
