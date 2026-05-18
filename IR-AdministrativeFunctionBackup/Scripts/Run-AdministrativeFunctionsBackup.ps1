@@ -7,9 +7,10 @@ try {
 
 $ErrorActionPreference = 'Stop'
 
-$basePath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup'
-$configPath = Join-Path $basePath 'Config\settings.json'
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$basePath = Split-Path -Parent $scriptRoot
+$configPath = Join-Path $basePath 'Config\settings.json'
+Write-Host "Executando scripts em: $basePath" -ForegroundColor Cyan
 $setupScript = Join-Path $scriptRoot 'Setup-AdministrativeFunctionsBackup.ps1'
 $exportScript = Join-Path $scriptRoot 'Export-AdministrativeFunctions.ps1'
 
