@@ -73,16 +73,34 @@ function Export-PublicCertificate {
 
 function Add-CertificateToApplication {
     param(
-        [string]$ApplicationId,
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
+        [Microsoft.Graph.PowerShell.Models.IMicrosoftGraphApplication]$Application,
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+        [string]$CertificatePath
     )
 
-    $existing = Get-MgApplication -ApplicationId $ApplicationId -Property KeyCredentials
-    $match = $existing.KeyCredentials | Where-Object { $_.CustomKeyIdentifier -and ([System.Convert]::ToBase64String($_.CustomKeyIdentifier) -eq [System.Convert]::ToBase64String($Certificate.GetCertHash())) }
+    $app = Get-MgApplication -ApplicationId $Application.Id -Property Id,AppId,DisplayName,KeyCredentials
+    Write-BootstrapLog "Application ObjectId: $($app.Id)"
+    Write-BootstrapLog "Application AppId/ClientId: $($app.AppId)"
+
+    $match = $app.KeyCredentials | Where-Object { $_.CustomKeyIdentifier -and ([System.Convert]::ToBase64String($_.CustomKeyIdentifier) -eq [System.Convert]::ToBase64String($Certificate.GetCertHash())) }
     if ($match) { return $false }
 
-    $params = @{ keyCredential = @{ type = 'AsymmetricX509Cert'; usage = 'Verify'; key = [System.Convert]::ToBase64String($Certificate.RawData); displayName = 'Primary certificate' } }
-    Add-MgApplicationKey -ApplicationId $ApplicationId -BodyParameter $params | Out-Null
+    $certBytes = [System.IO.File]::ReadAllBytes($CertificatePath)
+    $newKeyCredential = @{
+        Type = 'AsymmetricX509Cert'
+        Usage = 'Verify'
+        Key = $certBytes
+        DisplayName = 'Quest Recovery Function - Administrative Roles Backup'
+        StartDateTime = $Certificate.NotBefore.ToUniversalTime()
+        EndDateTime = $Certificate.NotAfter.ToUniversalTime()
+    }
+
+    $existingKeys = @()
+    if ($app.KeyCredentials) { $existingKeys = @($app.KeyCredentials) }
+    $updatedKeys = @($existingKeys + $newKeyCredential)
+
+    Write-BootstrapLog "Atualizando certificado no Application ObjectId: $($app.Id)"
+    Update-MgApplication -ApplicationId $app.Id -KeyCredentials $updatedKeys
     return $true
 }
 
@@ -127,7 +145,7 @@ function Ensure-GraphApplicationPermissions {
 
 
 function New-InsufficientPrivilegeErrorMessage {
-    return 'A autenticação foi concluída, mas a conta usada não possui permissões suficientes para configurar o App Registration. Execute novamente com uma conta Global Administrator ou uma conta com permissões para gerenciar App Registrations, Service Principals e consentimento administrativo do Microsoft Graph.'
+    return 'A autenticação foi concluída, mas a operação foi negada pelo Microsoft Graph (Authorization_RequestDenied/Insufficient privileges). Valide as permissões efetivas no tenant, políticas de acesso e restrições administrativas para atualização do objeto Application.'
 }
 
 
@@ -187,12 +205,18 @@ try {
     $tenantId = $TenantId
     Write-BootstrapLog "Autenticação concluída. Tenant: $tenantId"
 
-    $existingApps = Get-MgApplication -Filter "displayName eq '$AppDisplayName'" -ConsistencyLevel eventual
+    $existingApps = @(Get-MgApplication -Filter "displayName eq '$AppDisplayName'" -ConsistencyLevel eventual)
     $selectedApp = $null
-    if ($existingApps) {
-        $selectedApp = $existingApps | Select-Object -First 1
+    if ($existingApps.Count -gt 1) {
+        $appList = ($existingApps | ForEach-Object { "$($_.DisplayName) [ObjectId=$($_.Id); AppId=$($_.AppId)]" }) -join '; '
+        $multiMsg = "Foram encontrados múltiplos App Registrations com o mesmo displayName '$AppDisplayName'. Não é seguro reutilizar automaticamente. Selecione explicitamente o App Registration correto ou crie um novo com sufixo único. Encontrados: $appList"
+        Write-BootstrapLog $multiMsg
+        throw $multiMsg
+    }
+    if ($existingApps.Count -eq 1) {
+        $selectedApp = $existingApps[0]
         $null = Get-MgApplication -ApplicationId $selectedApp.Id -Property Id,AppId,DisplayName
-        Write-BootstrapLog "App Registration existente localizado e reutilizado. AppId: $($selectedApp.AppId)"
+        Write-BootstrapLog "App Registration existente localizado e reutilizado. ObjectId: $($selectedApp.Id) | AppId: $($selectedApp.AppId)"
     }
     if (-not $selectedApp) {
         $selectedApp = New-MgApplication -DisplayName $AppDisplayName -SignInAudience 'AzureADMyOrg'
@@ -209,11 +233,11 @@ try {
     Write-BootstrapLog "Certificado público exportado para: $cerPath"
 
     try {
-        $added = Add-CertificateToApplication -ApplicationId $selectedApp.Id -Certificate $cert
+        $added = Add-CertificateToApplication -Application $selectedApp -Certificate $cert -CertificatePath $cerPath
         if ($added) { Write-BootstrapLog 'Certificado público adicionado ao keyCredentials do App Registration.' } else { Write-BootstrapLog 'Certificado já estava presente no keyCredentials; nenhuma alteração necessária.' }
     } catch {
         $certMsg = $_.Exception.Message
-        Write-BootstrapLog "falha ao adicionar certificado ao App Registration: $certMsg"
+        Write-BootstrapLog "falha ao adicionar certificado ao App Registration (comando: Update-MgApplication -ApplicationId $($selectedApp.Id) -KeyCredentials ... ; ObjectId=$($selectedApp.Id)): $certMsg"
         if (Test-IsAuthorizationDenied -Message $certMsg) { throw (New-InsufficientPrivilegeErrorMessage) }
         throw
     }
