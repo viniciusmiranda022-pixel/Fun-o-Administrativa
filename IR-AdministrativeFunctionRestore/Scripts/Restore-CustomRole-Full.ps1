@@ -36,7 +36,10 @@ $ErrorActionPreference = "Stop"
 
 Import-Module Microsoft.Graph.Authentication
 Import-Module Microsoft.Graph.Identity.Governance
-$sharedModulePath = Join-Path $PSScriptRoot "..\..\IR-AdministrativeFunctionBackup\Scripts\IR-AdministrativeFunctions.psm1"
+$sharedModulePath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Scripts\IR-AdministrativeFunctions.psm1"
+if (-not (Test-Path $sharedModulePath)) {
+    throw "Módulo compartilhado não encontrado em: $sharedModulePath"
+}
 Import-Module $sharedModulePath -Force
 
 $RestoreInstallRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore"
@@ -96,24 +99,24 @@ function Test-SnapshotIntegrity {
     $roleAssignmentsPath = Join-Path $SnapshotFolder "roleAssignments.json"
 
     if (-not (Test-Path $manifestPath)) {
-        throw "manifest.json was not found in $SnapshotFolder"
+        throw "manifest.json não encontrado em: $SnapshotFolder"
     }
 
     $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
 
     if (-not $manifest.RoleDefinitionsHash) {
-        throw "RoleDefinitionsHash was not found in manifest.json"
+        throw "Campo RoleDefinitionsHash ausente no manifest.json"
     }
 
     $roleDefinitionsHashCurrent = (Get-FileHash $roleDefinitionsPath -Algorithm SHA256).Hash
     if ($roleDefinitionsHashCurrent -ne [string]$manifest.RoleDefinitionsHash) {
-        throw "Integrity failed: roleDefinitions.json was changed."
+        throw "Falha de integridade: roleDefinitions.json foi modificado após o backup."
     }
 
     if ($manifest.RoleAssignmentsHash) {
         $roleAssignmentsHashCurrent = (Get-FileHash $roleAssignmentsPath -Algorithm SHA256).Hash
         if ($roleAssignmentsHashCurrent -ne [string]$manifest.RoleAssignmentsHash) {
-            throw "Integrity failed: roleAssignments.json was changed."
+            throw "Falha de integridade: roleAssignments.json foi modificado após o backup."
         }
     }
 }
