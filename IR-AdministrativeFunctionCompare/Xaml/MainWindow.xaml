@@ -70,7 +70,7 @@
                     </Grid>
                 </Border>
 
-                <TabControl x:Name="MainTabs" Grid.Row="1" Background="White" BorderThickness="0" SelectedIndex="1">
+                <TabControl x:Name="MainTabs" Grid.Row="1" Background="White" BorderThickness="0" SelectedIndex="3">
                     <TabControl.Resources>
                         <Style TargetType="TabItem">
                             <Setter Property="FontSize" Value="12"/>
@@ -107,13 +107,93 @@
 
                 <Border Grid.Row="2" Background="#F8F8F8" BorderBrush="#CFCFCF" BorderThickness="0,1,0,1">
                     <StackPanel Orientation="Horizontal">
-                        <Button x:Name="BtnLoadBackups" Content="MANAGE BACKUPS" Style="{StaticResource ActionButton}"/>
-                        <Button x:Name="BtnRefreshBackups" Content="MANAGE RESTORES" Style="{StaticResource ActionButton}"/>
-                        <Button x:Name="BtnCompare" Content="CREATE BACKUP" Style="{StaticResource ActionButton}"/>
-                        <Button x:Name="BtnBrowseSnapshot" Content="UNPACK BACKUP" Style="{StaticResource ActionButton}"/>
-                        <Button x:Name="BtnConnect" Content="CONFIGURE CONNECTION" Style="{StaticResource ActionButton}" Visibility="Visible"/>
+                        <Button x:Name="BtnLoadBackups" Content="MANAGE BACKUPS" Style="{StaticResource ActionButton}" Visibility="Collapsed"/>
+                        <Button x:Name="BtnRefreshBackups" Content="MANAGE RESTORES" Style="{StaticResource ActionButton}" Visibility="Collapsed"/>
+                        <Button x:Name="BtnCompare" Content="CREATE BACKUP" Style="{StaticResource ActionButton}" Visibility="Collapsed"/>
+                        <Button x:Name="BtnBrowseSnapshot" Content="UNPACK BACKUP" Style="{StaticResource ActionButton}" Visibility="Collapsed"/>
+                        <Button x:Name="BtnConnect" Content="CONFIGURE CONNECTION" Style="{StaticResource ActionButton}" Visibility="Collapsed"/>
                     </StackPanel>
                 </Border>
+
+                <Grid x:Name="DifferencesView" Grid.Row="3" Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="62"/>
+                        <RowDefinition Height="42"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="20,14,20,12">
+                        <DockPanel LastChildFill="False">
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                                <Button Content="List View" Height="30" Width="75" Background="#0078A8" Foreground="White" BorderBrush="#0078A8" FontSize="12"/>
+                                <Button Content="Differences" Height="30" Width="90" Background="White" Foreground="#0078A8" BorderBrush="#0078A8" FontSize="12"/>
+                                <TextBlock Text="Last Refresh 14 minutes ago" VerticalAlignment="Center" FontSize="12" Foreground="#333333" Margin="16,0,0,0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                                <TextBlock Text="Tenant:" VerticalAlignment="Center" FontSize="12" Margin="0,0,6,0"/>
+                                <ComboBox Width="90" Height="28" SelectedIndex="0" FontSize="12" Margin="0,0,10,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Contoso"/></ComboBox>
+                                <TextBlock Text="Backup:" VerticalAlignment="Center" FontSize="12" Margin="0,0,6,0"/>
+                                <ComboBox Width="90" Height="28" SelectedIndex="0" FontSize="12" Margin="0,0,10,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Latest unpacked backup"/><ComboBoxItem Content="Today at 12:00 PM"/><ComboBoxItem Content="Today at 6:00 AM"/><ComboBoxItem Content="Yesterday at 6:00 PM"/></ComboBox>
+                                <TextBlock Text="Type:" VerticalAlignment="Center" FontSize="12" Margin="0,0,6,0"/>
+                                <ComboBox Width="90" Height="28" SelectedIndex="0" FontSize="12" Margin="0,0,10,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="User"/><ComboBoxItem Content="Group"/><ComboBoxItem Content="Service Principal"/><ComboBoxItem Content="Application"/><ComboBoxItem Content="Administrative Role"/><ComboBoxItem Content="Role Definition"/><ComboBoxItem Content="Role Assignment"/><ComboBoxItem Content="Policy"/></ComboBox>
+                                <TextBlock Text="Change Type:" VerticalAlignment="Center" FontSize="12" Margin="0,0,6,0"/>
+                                <ComboBox Width="90" Height="28" SelectedIndex="0" FontSize="12" Margin="0,0,10,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Created"/><ComboBoxItem Content="Deleted"/><ComboBoxItem Content="Modified"/><ComboBoxItem Content="Hard Deleted"/><ComboBoxItem Content="Attribute Changed"/><ComboBoxItem Content="Assignment Added"/><ComboBoxItem Content="Assignment Removed"/><ComboBoxItem Content="Permission Added"/><ComboBoxItem Content="Permission Removed"/></ComboBox>
+                                <TextBlock Text="Top 5 attributes:" VerticalAlignment="Center" FontSize="12" Margin="0,0,6,0"/>
+                                <ComboBox Width="90" Height="28" SelectedIndex="0" FontSize="12"><ComboBoxItem Content="Any"/><ComboBoxItem Content="displayName"/><ComboBoxItem Content="description"/><ComboBoxItem Content="rolePermissions"/><ComboBoxItem Content="allowedResourceActions"/><ComboBoxItem Content="principalId"/><ComboBoxItem Content="roleDefinitionId"/><ComboBoxItem Content="directoryScopeId"/></ComboBox>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Grid.Row="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1">
+                        <Grid Margin="12,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="↺ RESTORE" Foreground="#B7B7B7" FontSize="12" FontWeight="SemiBold" Margin="0,0,24,0"/>
+                                <TextBlock Text="↗ EXPORT" Foreground="#B7B7B7" FontSize="12" FontWeight="SemiBold" Margin="0,0,24,0"/>
+                                <TextBlock Text="↻ REFRESH" Foreground="#0078A8" FontSize="12" FontWeight="SemiBold" Margin="0,0,24,0"/>
+                                <TextBlock Text="⚙ EDIT COLUMNS" Foreground="#0078A8" FontSize="12" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="No objects" Foreground="#333333" FontSize="12" Margin="0,0,12,0"/>
+                                <TextBox Width="190" Height="28" Text="Search" FontSize="12"/>
+                                <Button Content="Search" Width="70" Height="28" Margin="8,0,0,0" Background="#0078A8" Foreground="White" BorderBrush="#0078A8" FontSize="12"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="38"/></Grid.RowDefinitions>
+                        <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderBrush="#D0D0D0" BorderThickness="1" HeadersVisibility="Column">
+                            <DataGrid.Resources>
+                                <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#F2F2F2"/><Setter Property="Foreground" Value="#333333"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="12"/><Setter Property="Height" Value="34"/></Style>
+                                <Style TargetType="DataGridRow"><Setter Property="Height" Value="34"/><Setter Property="FontSize" Value="12"/><Setter Property="Background" Value="White"/><Setter Property="Foreground" Value="#222222"/></Style>
+                            </DataGrid.Resources>
+                            <DataGrid.Columns>
+                                <DataGridCheckBoxColumn Width="42"/>
+                                <DataGridTextColumn Header="" Width="42"/>
+                                <DataGridTextColumn Header="Name" Width="260"/>
+                                <DataGridTextColumn Header="Tenant" Width="110"/>
+                                <DataGridTextColumn Header="Change" Width="180"/>
+                                <DataGridTextColumn Header="Object Type" Width="210"/>
+                                <DataGridTextColumn Header="Attribute" Width="160"/>
+                                <DataGridTextColumn Header="Difference" Width="270"/>
+                                <DataGridTextColumn Header="Backup" Width="260"/>
+                                <DataGridTextColumn Header="Refresh" Width="120"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Border Grid.Row="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1,0,1,1">
+                            <Grid Margin="8,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="No items to display" VerticalAlignment="Center" FontSize="12" Foreground="#333333"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Show" FontSize="12" Margin="0,0,6,0" Foreground="#333333"/>
+                                    <ComboBox Width="58" Height="24" SelectedIndex="3"><ComboBoxItem Content="25"/><ComboBoxItem Content="50"/><ComboBoxItem Content="100"/><ComboBoxItem Content="400"/></ComboBox>
+                                    <TextBlock Text=" ⏮  ◀ " Foreground="#C0C0C0" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    <TextBox Text="0" Width="36" Height="24" BorderBrush="#CFCFCF" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                                    <TextBlock Text=" / 0 " Foreground="#333333" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="▶  ⏭" Foreground="#C0C0C0" FontSize="12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
 
 
                 <Border x:Name="ProcessingBanner" Grid.Row="3" Width="420" Height="54" Background="#43AD4B" CornerRadius="2" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10,0,0" Visibility="Collapsed" Panel.ZIndex="20">
@@ -161,7 +241,7 @@
                     </UniformGrid>
                 </ScrollViewer>
 
-                <Grid x:Name="BackupsView" Grid.Row="3" Margin="12">
+                <Grid x:Name="BackupsView" Grid.Row="3" Margin="12" Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="170"/>
