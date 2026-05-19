@@ -59,7 +59,6 @@ function Connect-AppOnlyGraphWithRetry {
             }
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
             Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
-            Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
             return
         } catch {
             $lastError = $_.Exception.Message
@@ -87,7 +86,11 @@ function Test-GraphConnection {
         [switch]$VerboseOutput
     )
 
-    Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -MaxAttempts $MaxAttempts -DelaySeconds $DelaySeconds -FailureMessage $FailureMessage -VerboseOutput:$VerboseOutput
+    try {
+        Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -MaxAttempts $MaxAttempts -DelaySeconds $DelaySeconds -FailureMessage $FailureMessage -VerboseOutput:$VerboseOutput
+    } finally {
+        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+    }
 }
 
 Export-ModuleMember -Function Ensure-MicrosoftGraphPowerShell, Initialize-BackupDirectories, Connect-AppOnlyGraphWithRetry, Test-GraphConnection
