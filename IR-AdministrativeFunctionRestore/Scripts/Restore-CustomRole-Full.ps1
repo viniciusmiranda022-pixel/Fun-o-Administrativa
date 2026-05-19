@@ -34,9 +34,47 @@ $ErrorActionPreference = "Stop"
 Import-Module Microsoft.Graph.Authentication
 Import-Module Microsoft.Graph.Identity.Governance
 
+function Initialize-StructuredLog {
+    param(
+        [string]$TenantId,
+        [string]$RoleName,
+        [string]$SnapshotFolder
+    )
+
+    $logDirectory = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Logs"
+    New-Item -Path $logDirectory -ItemType Directory -Force | Out-Null
+
+    $logFileName = "restore-{0}.log" -f (Get-Date -Format "yyyy-MM-dd_HH-mm-ss")
+    $script:StructuredLogPath = Join-Path $logDirectory $logFileName
+    $script:RestoreOperator = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $script:RestoreTenant = $TenantId
+    $script:RestoreRoleTarget = $RoleName
+    $script:RestoreSnapshot = (Resolve-Path $SnapshotFolder).Path
+}
+
+function Write-StructuredLog {
+    param(
+        [string]$Message,
+        [string]$Result = "INFO"
+    )
+
+    $entry = [ordered]@{
+        timestamp    = (Get-Date).ToString("o")
+        roleTarget   = $script:RestoreRoleTarget
+        snapshotUsed = $script:RestoreSnapshot
+        operator     = $script:RestoreOperator
+        tenant       = $script:RestoreTenant
+        result       = $Result
+        message      = $Message
+    }
+
+    $entry | ConvertTo-Json -Compress | Add-Content -Path $script:StructuredLogPath -Encoding UTF8
+}
+
 function Write-Log {
     param([string]$Message)
     Write-Host ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message)
+    Write-StructuredLog -Message $Message
 }
 
 
@@ -120,6 +158,7 @@ function Get-AssignmentKey {
 }
 
 try {
+    Initialize-StructuredLog -TenantId $TenantId -RoleName $RoleName -SnapshotFolder $SnapshotFolder
     Write-Log "Connecting to Microsoft Graph (with retry for App Registration replication)"
     Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint
 
@@ -317,6 +356,12 @@ try {
     else {
         Write-Log "Preview completed. Role does not currently exist and would be created in Apply mode."
     }
+
+    Write-StructuredLog -Message "Restore flow completed successfully." -Result "SUCCESS"
+}
+catch {
+    Write-StructuredLog -Message ("Restore flow failed: {0}" -f $_.Exception.Message) -Result "FAILED"
+    throw
 }
 finally {
     Disconnect-MgGraph | Out-Null
