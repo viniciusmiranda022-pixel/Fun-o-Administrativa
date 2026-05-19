@@ -356,19 +356,47 @@
                             <TextBlock Text="Status:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <ComboBox Width="88" Height="28" SelectedIndex="0" Margin="0,0,14,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Queued"/><ComboBoxItem Content="Running"/><ComboBoxItem Content="Completed"/><ComboBoxItem Content="Failed"/><ComboBoxItem Content="Cancelled"/></ComboBox>
                             <TextBlock Text="Type:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <ComboBox Width="88" Height="28" SelectedIndex="0" Margin="0,0,14,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Backup"/><ComboBoxItem Content="Unpacking"/><ComboBoxItem Content="Differences"/><ComboBoxItem Content="Restore"/><ComboBoxItem Content="Validation"/></ComboBox>
-                            <Border x:Name="TaskNameFilterChip" Background="#0078A8" CornerRadius="14" Height="24" Padding="10,3" VerticalAlignment="Center" Visibility="Collapsed"><StackPanel Orientation="Horizontal"><TextBlock Text="Task name: Unpack backups" Foreground="White" FontSize="12"/><TextBlock Text="  ×" Foreground="White" FontSize="12"/></StackPanel></Border>
+                            <ComboBox Width="88" Height="28" SelectedIndex="0" Margin="0,0,14,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Backup"/><ComboBoxItem Content="Unpacking"/><ComboBoxItem Content="DiffRefresh"/><ComboBoxItem Content="DiffRestore"/><ComboBoxItem Content="Restore"/><ComboBoxItem Content="Validation"/><ComboBoxItem Content="Export"/><ComboBoxItem Content="Configuration"/></ComboBox>
                         </StackPanel>
                     </Border>
                     <Border Grid.Row="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="12,0">
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Text="⚙ EDIT COLUMNS" Foreground="#0078A8" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="TxtTasksCount" Text="0 task" FontSize="12" Margin="0,0,12,0"/><TextBox Width="190" Height="28" Text="Search"/><Button Content="Search" Width="70" Height="28" Margin="8,0,0,0" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/></StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="TxtTasksCount" Text="52 tasks" FontSize="12" Margin="0,0,12,0"/><TextBox Width="190" Height="28" Text="Search"/><Button Content="Search" Width="70" Height="28" Margin="8,0,0,0" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/></StackPanel>
                         </Grid>
                     </Border>
-                    <DataGrid x:Name="GridTasksMain" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderBrush="#D0D0D0" BorderThickness="1" HeadersVisibility="Column">
-                        <DataGrid.Columns><DataGridTextColumn Header="" Binding="{Binding StatusIcon}" Width="45"/><DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="280"/><DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="170"/><DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="260"/><DataGridTextColumn Header="Modified" Binding="{Binding Modified}" Width="260"/><DataGridTextColumn Header="Created" Binding="{Binding Created}" Width="260"/><DataGridTextColumn Header="Operation" Binding="{Binding Operation}" Width="280"/></DataGrid.Columns>
-                    </DataGrid>
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="38"/></Grid.RowDefinitions>
+                        <DataGrid x:Name="GridTasksMain" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderBrush="#D0D0D0" BorderThickness="1" HeadersVisibility="Column" CanUserSortColumns="True" CanUserResizeColumns="True" SelectionMode="Single" RowHeaderWidth="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Resources>
+                                <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#F2F2F2"/><Setter Property="Foreground" Value="#333333"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="12"/><Setter Property="Height" Value="34"/></Style>
+                                <Style TargetType="DataGridRow"><Setter Property="Height" Value="34"/><Setter Property="FontSize" Value="12"/><Setter Property="Background" Value="White"/><Setter Property="Foreground" Value="#222222"/></Style>
+                            </DataGrid.Resources>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="" Binding="{Binding StatusIcon}" Width="45"/>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="280"/>
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="260"/>
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="260"/>
+                                <DataGridTextColumn Header="Modified" Binding="{Binding Modified}" Width="260"/>
+                                <DataGridTextColumn Header="Created" Binding="{Binding Created}" Width="260"/>
+                                <DataGridTextColumn Header="Operation" Binding="{Binding Operation}" Width="300"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Border Grid.Row="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1,0,1,1">
+                            <Grid Margin="8,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="1-52 of 52 Results" VerticalAlignment="Center" FontSize="12" Foreground="#333333"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Show" FontSize="12" Margin="0,0,6,0" Foreground="#333333"/>
+                                    <ComboBox Width="58" Height="24" SelectedIndex="3"><ComboBoxItem Content="25"/><ComboBoxItem Content="50"/><ComboBoxItem Content="100"/><ComboBoxItem Content="400"/></ComboBox>
+                                    <TextBlock Text=" ⏮  ◀ " Foreground="#C0C0C0" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    <TextBox Text="1" Width="36" Height="24" BorderBrush="#CFCFCF" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                                    <TextBlock Text=" / 1 " Foreground="#333333" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="▶  ⏭" Foreground="#C0C0C0" FontSize="12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
 
                 <ScrollViewer x:Name="DashboardView" Grid.Row="3" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
