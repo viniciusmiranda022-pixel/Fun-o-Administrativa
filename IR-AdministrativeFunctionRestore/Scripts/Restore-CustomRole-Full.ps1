@@ -66,6 +66,40 @@ function Connect-AppOnlyGraphWithRetry {
     }
 }
 
+
+function Test-SnapshotIntegrity {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SnapshotFolder
+    )
+
+    $manifestPath = Join-Path $SnapshotFolder "manifest.json"
+    $roleDefinitionsPath = Join-Path $SnapshotFolder "roleDefinitions.json"
+    $roleAssignmentsPath = Join-Path $SnapshotFolder "roleAssignments.json"
+
+    if (-not (Test-Path $manifestPath)) {
+        throw "manifest.json was not found in $SnapshotFolder"
+    }
+
+    $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+
+    if (-not $manifest.RoleDefinitionsHash) {
+        throw "RoleDefinitionsHash was not found in manifest.json"
+    }
+
+    $roleDefinitionsHashCurrent = (Get-FileHash $roleDefinitionsPath -Algorithm SHA256).Hash
+    if ($roleDefinitionsHashCurrent -ne [string]$manifest.RoleDefinitionsHash) {
+        throw "Integrity failed: roleDefinitions.json was changed."
+    }
+
+    if ($manifest.RoleAssignmentsHash) {
+        $roleAssignmentsHashCurrent = (Get-FileHash $roleAssignmentsPath -Algorithm SHA256).Hash
+        if ($roleAssignmentsHashCurrent -ne [string]$manifest.RoleAssignmentsHash) {
+            throw "Integrity failed: roleAssignments.json was changed."
+        }
+    }
+}
+
 function Get-AssignmentKey {
     param($Assignment)
 
@@ -92,6 +126,9 @@ try {
     if (-not (Test-Path $roleAssignmentsPath)) {
         throw "roleAssignments.json was not found in $SnapshotFolder"
     }
+
+    Write-Log "Validating snapshot integrity"
+    Test-SnapshotIntegrity -SnapshotFolder $SnapshotFolder
 
     Write-Log "Loading snapshot files"
     $definitions = Get-Content $roleDefinitionsPath -Raw | ConvertFrom-Json
