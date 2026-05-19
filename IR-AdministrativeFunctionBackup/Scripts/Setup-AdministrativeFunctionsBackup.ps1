@@ -2,7 +2,8 @@
 param(
     [string]$SettingsPath = (Join-Path 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup' 'Config\settings.json'),
     [int]$CertificateValidityMonths = 24,
-    [switch]$SkipGraphTest
+    [switch]$SkipGraphTest,
+    [switch]$IncludeElevatedPermissions
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -31,10 +32,12 @@ $RequiredInteractiveScopes = @(
     'Directory.ReadWrite.All'
     'RoleManagement.ReadWrite.Directory'
 )
-$RequiredApplicationPermissions = @(
+$DailyApplicationPermissions = @(
     'RoleManagement.Read.Directory'
-    'RoleManagement.ReadWrite.Directory'
     'Directory.Read.All'
+)
+$ElevatedApplicationPermissions = @(
+    'RoleManagement.ReadWrite.Directory'
     'Directory.ReadWrite.All'
 )
 $OptionalApplicationPermissions = @(
@@ -110,7 +113,13 @@ function Ensure-GraphApplicationPermissions {
     $currentApp = Get-MgApplication -ApplicationId $ApplicationId -Property RequiredResourceAccess
     $currentAccess = @($currentApp.RequiredResourceAccess | Where-Object { $_.ResourceAppId -eq $GraphAppId } | ForEach-Object { $_.ResourceAccess })
 
-    $requiredRoles = @($RequiredApplicationPermissions + $OptionalApplicationPermissions)
+    $selectedProfile = if ($IncludeElevatedPermissions) { 'elevated' } else { 'daily-readonly' }
+    & $StatusWriter "Perfil de permissão selecionado: $selectedProfile"
+
+    $requiredRoles = @($DailyApplicationPermissions + $OptionalApplicationPermissions)
+    if ($IncludeElevatedPermissions) {
+        $requiredRoles += $ElevatedApplicationPermissions
+    }
     $roleMap = @{}
     foreach ($value in $requiredRoles) {
         $role = $graphSp.AppRoles | Where-Object { $_.Value -eq $value -and $_.AllowedMemberTypes -contains 'Application' }
