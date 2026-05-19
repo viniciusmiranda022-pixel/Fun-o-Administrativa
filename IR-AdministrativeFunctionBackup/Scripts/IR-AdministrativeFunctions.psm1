@@ -40,7 +40,7 @@ function Initialize-BackupDirectories {
     }
 }
 
-function Test-GraphConnection {
+function Connect-AppOnlyGraphWithRetry {
     param(
         [string]$TenantId,
         [string]$ClientId,
@@ -76,4 +76,18 @@ function Test-GraphConnection {
     }
 }
 
-Export-ModuleMember -Function Ensure-MicrosoftGraphPowerShell, Initialize-BackupDirectories, Test-GraphConnection
+function Test-GraphConnection {
+    param(
+        [string]$TenantId,
+        [string]$ClientId,
+        [string]$Thumbprint,
+        [int]$MaxAttempts = 8,
+        [int]$DelaySeconds = 15,
+        [string]$FailureMessage = 'Falha ao validar app-only após {0} tentativas. Último erro: {1}',
+        [switch]$VerboseOutput
+    )
+
+    Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -MaxAttempts $MaxAttempts -DelaySeconds $DelaySeconds -FailureMessage $FailureMessage -VerboseOutput:$VerboseOutput
+}
+
+Export-ModuleMember -Function Ensure-MicrosoftGraphPowerShell, Initialize-BackupDirectories, Connect-AppOnlyGraphWithRetry, Test-GraphConnection
