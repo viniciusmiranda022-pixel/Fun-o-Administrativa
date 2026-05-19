@@ -70,7 +70,33 @@
                     </Grid>
                 </Border>
 
-                <TabControl x:Name="MainTabs" Grid.Row="1" Background="White" BorderThickness="0">
+                <TabControl x:Name="MainTabs" Grid.Row="1" Background="White" BorderThickness="0" SelectedIndex="1">
+                    <TabControl.Resources>
+                        <Style TargetType="TabItem">
+                            <Setter Property="FontSize" Value="12"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Foreground" Value="#333333"/>
+                            <Setter Property="Padding" Value="12,8"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="TabItem">
+                                        <Border Background="Transparent">
+                                            <Grid>
+                                                <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2,0,2,4"/>
+                                                <Border x:Name="ActiveUnderline" Height="3" Background="#0096D6" VerticalAlignment="Bottom" Visibility="Collapsed"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="ActiveUnderline" Property="Visibility" Value="Visible"/>
+                                                <Setter Property="Foreground" Value="#0078A8"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </TabControl.Resources>
                     <TabItem Header="DASHBOARD"/>
                     <TabItem Header="BACKUPS"/>
                     <TabItem Header="UNPACKED OBJECTS"/>
@@ -89,7 +115,7 @@
                     </StackPanel>
                 </Border>
 
-                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer x:Name="DashboardView" Grid.Row="3" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <UniformGrid Columns="3" Margin="12">
                         <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Margin="6" Padding="14"><StackPanel><TextBlock Text="Tenant is protected" FontSize="20"/><TextBlock Text="Name  Contoso" Foreground="#0078A8" Margin="0,8,0,0"/><TextBlock Text="Backup schedule  Enabled" Foreground="#0078A8"/><TextBlock Text="Retention  1825" Foreground="#0078A8"/></StackPanel></Border>
                         <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Margin="6" Padding="14"><StackPanel><TextBlock Text="143 backups" FontSize="20"/><Rectangle Height="120" Fill="#F1F5F9" Margin="0,10,0,10"/><TextBlock Text="SHOW ALL" Foreground="#0078A8"/></StackPanel></Border>
@@ -99,6 +125,74 @@
                         <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Margin="6" Padding="14"><StackPanel><TextBlock Text="94 errors" FontSize="20"/><TextBlock Text="✖ Role assignment could not be restored" Foreground="#E53935"/><TextBlock Text="✖ Snapshot integrity validation failed" Foreground="#E53935"/><TextBlock Text="SHOW ALL" Foreground="#0078A8" Margin="0,8,0,0"/></StackPanel></Border>
                     </UniformGrid>
                 </ScrollViewer>
+
+                <Grid x:Name="BackupsView" Grid.Row="3" Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="170"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2.4*"/>
+                                <ColumnDefinition Width="1.2*"/>
+                                <ColumnDefinition Width="1.4*"/>
+                                <ColumnDefinition Width="1.2*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,10,0">
+                                <TextBlock Text="Search backups" FontSize="11" Foreground="#666666"/>
+                                <TextBox Height="30" Text="contoso" Padding="8,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                <TextBlock Text="Status" FontSize="11" Foreground="#666666"/>
+                                <ComboBox Height="30" SelectedIndex="0"><ComboBoxItem Content="All"/><ComboBoxItem Content="Completed"/><ComboBoxItem Content="Failed"/></ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Margin="0,0,10,0">
+                                <TextBlock Text="Period" FontSize="11" Foreground="#666666"/>
+                                <ComboBox Height="30" SelectedIndex="0"><ComboBoxItem Content="Last 30 days"/><ComboBoxItem Content="Last 90 days"/><ComboBoxItem Content="Last 180 days"/></ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="Type" FontSize="11" Foreground="#666666"/>
+                                <ComboBox Height="30" SelectedIndex="0"><ComboBoxItem Content="Compressed"/><ComboBoxItem Content="All"/></ComboBox>
+                            </StackPanel>
+                            <Button Grid.Column="4" Content="Apply" Width="80" Height="30" Margin="12,18,0,0" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/>
+                        </Grid>
+                    </Border>
+                    <Border Grid.Row="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Margin="0,10,0,10" Padding="14">
+                        <Grid>
+                            <TextBlock Text="Backup history (temporal)" FontSize="14" FontWeight="SemiBold" Foreground="#333333" VerticalAlignment="Top"/>
+                            <Polyline Stroke="#0096D6" StrokeThickness="3" Points="20,110 120,95 220,100 320,70 420,84 520,60 620,40 720,58" Margin="0,20,0,0"/>
+                            <Line X1="20" Y1="125" X2="740" Y2="125" Stroke="#BFBFBF" StrokeThickness="1" Margin="0,20,0,0"/>
+                        </Grid>
+                    </Border>
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="1.8*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="10">
+                            <DataGrid x:Name="GridBackupsCompressedList" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Backup timestamp" Width="1.2*" Binding="{Binding Timestamp}"/>
+                                    <DataGridTextColumn Header="Tenant" Width="*" Binding="{Binding Tenant}"/>
+                                    <DataGridTextColumn Header="Type" Width="*" Binding="{Binding Type}"/>
+                                    <DataGridTextColumn Header="Size" Width="*" Binding="{Binding Size}"/>
+                                    <DataGridTextColumn Header="Status" Width="*" Binding="{Binding Status}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                        <Border Grid.Column="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="12" Margin="10,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Backup details" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="Snapshot ID: BKP-2026-05-18-0021" Margin="0,12,0,0"/>
+                                <TextBlock Text="Tenant: Contoso"/>
+                                <TextBlock Text="Compressed objects: 12,435"/>
+                                <TextBlock Text="Status: Completed"/>
+                                <TextBlock Text="Retention: 1825 days"/>
+                                <Button Content="UNPACK BACKUP" Margin="0,16,0,0" Height="32" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
 
                 <Grid x:Name="ManageBackupsOverlay" Grid.RowSpan="4" Background="#40000000" Visibility="Collapsed">
                     <Border x:Name="ManageBackupsModal" Width="780" Height="510" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
