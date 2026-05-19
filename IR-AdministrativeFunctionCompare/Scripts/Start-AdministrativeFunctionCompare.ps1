@@ -49,9 +49,26 @@ function Write-Log {
                 Severity = $Severity
                 Message  = $Message
             })
-        $GridEvents.ItemsSource = $null
-        $GridEvents.ItemsSource = $script:EventEntries
+        Set-ItemsSourceSafe -Control $GridEvents -Items $script:EventEntries
     }
+}
+
+
+function Set-ItemsSourceSafe {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Control,
+
+        [AllowNull()]
+        $Items
+    )
+
+    if ($null -eq $Items) {
+        $Control.ItemsSource = @()
+        return
+    }
+
+    $Control.ItemsSource = @($Items)
 }
 
 function Set-UiState {
@@ -149,8 +166,7 @@ function Add-TaskEntry {
             Status  = $Status
             Details = $Details
         })
-    $GridTasks.ItemsSource = $null
-    $GridTasks.ItemsSource = $script:TaskEntries
+    Set-ItemsSourceSafe -Control $GridTasks -Items $script:TaskEntries
 }
 
 function Connect-AppOnlyWithRetry {
@@ -459,7 +475,7 @@ function Update-UnpackedObjectsGrid {
 
     $rows = New-Object System.Collections.Generic.List[object]
     if (-not $Item) {
-        $GridUnpackedObjects.ItemsSource = $null
+        Set-ItemsSourceSafe -Control $GridUnpackedObjects -Items @()
         return
     }
 
@@ -483,8 +499,7 @@ function Update-UnpackedObjectsGrid {
             CurrentValue = [string](@($Item.CurrentAssignments).Count)
         })
 
-    $GridUnpackedObjects.ItemsSource = $null
-    $GridUnpackedObjects.ItemsSource = $rows
+    Set-ItemsSourceSafe -Control $GridUnpackedObjects -Items $rows
 }
 
 function Compare-Roles {
@@ -778,8 +793,7 @@ function Run-ComparisonWorkflow {
         $script:CompareResults = Compare-Roles -SnapshotData $script:SnapshotData -CurrentData $script:CurrentData
         $script:FilteredResults = Apply-RoleFilter -Data $script:CompareResults -NameFilter $TxtFilterRoleName.Text -StatusFilter (Get-SelectedStatusFilter)
 
-        $GridRoles.ItemsSource = $null
-        $GridRoles.ItemsSource = $script:FilteredResults
+        Set-ItemsSourceSafe -Control $GridRoles -Items $script:FilteredResults
 
         $TxtStatus.Text = Update-StatusText -Data $script:FilteredResults
         $TxtBackupDetails.Text = ""
@@ -923,8 +937,7 @@ $loadBackupsAction = {
     }
 
     $snapshots = Get-BackupSnapshots
-    $GridBackups.ItemsSource = $null
-    $GridBackups.ItemsSource = $snapshots
+    Set-ItemsSourceSafe -Control $GridBackups -Items $snapshots
 
     if ($snapshots.Count -eq 0) {
         $TxtStatus.Text = "Status: no valid backup snapshot found in $script:BackupRoot."
@@ -943,8 +956,8 @@ $BtnLoadBackups.Add_Click({
         $MainTabs.SelectedIndex = 0
     }
     catch {
-        [System.Windows.MessageBox]::Show($_.Exception.Message, "Error")
-        Write-Log ("Error loading backups: " + $_.Exception.Message) -Severity "ERROR"
+        [System.Windows.MessageBox]::Show("Não foi possível carregar automaticamente a lista de backups. Verifique o log do Compare.", "UI binding error")
+        Write-Log ("UI binding error while loading backups: " + $_.Exception.ToString()) -Severity "ERROR"
         Add-TaskEntry -Task "Load Backups" -Status "Failed" -Details $_.Exception.Message
     }
 })
@@ -954,8 +967,8 @@ $BtnRefreshBackups.Add_Click({
         & $loadBackupsAction
     }
     catch {
-        [System.Windows.MessageBox]::Show($_.Exception.Message, "Error")
-        Write-Log ("Error refreshing backups: " + $_.Exception.Message) -Severity "ERROR"
+        [System.Windows.MessageBox]::Show("Não foi possível carregar automaticamente a lista de backups. Verifique o log do Compare.", "Error loading backup list")
+        Write-Log ("Error loading backup list: " + $_.Exception.ToString()) -Severity "ERROR"
         Add-TaskEntry -Task "Refresh Backups" -Status "Failed" -Details $_.Exception.Message
     }
 })
@@ -1071,8 +1084,7 @@ $BtnApplyFilter.Add_Click({
     try {
         $script:FilteredResults = Apply-RoleFilter -Data $script:CompareResults -NameFilter $TxtFilterRoleName.Text -StatusFilter (Get-SelectedStatusFilter)
 
-        $GridRoles.ItemsSource = $null
-        $GridRoles.ItemsSource = $script:FilteredResults
+        Set-ItemsSourceSafe -Control $GridRoles -Items $script:FilteredResults
 
         $TxtStatus.Text = Update-StatusText -Data $script:FilteredResults
         Refresh-RestoreButtonState -SelectedItem $GridRoles.SelectedItem
