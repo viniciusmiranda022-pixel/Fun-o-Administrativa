@@ -914,6 +914,8 @@ $ChkOpt3 = $window.FindName("ChkOpt3")
 $ChkOpt4 = $window.FindName("ChkOpt4")
 $DashboardView = $window.FindName("DashboardView")
 $BackupsView = $window.FindName("BackupsView")
+$UnpackedObjectsView = $window.FindName("UnpackedObjectsView")
+$GridUnpackedObjectsMain = $window.FindName("GridUnpackedObjectsMain")
 $GridBackupsCompressedList = $window.FindName("GridBackupsCompressedList")
 $BtnUnpackBackup = $window.FindName("BtnUnpackBackup")
 $ProcessingBanner = $window.FindName("ProcessingBanner")
@@ -987,14 +989,24 @@ if ($GridBackupsCompressedList) { $GridBackupsCompressedList.ItemsSource = $scri
 
 $setMainViewByTab = {
     switch ($MainTabs.SelectedIndex) {
-        0 { $DashboardView.Visibility = "Visible"; $BackupsView.Visibility = "Collapsed"; $TasksView.Visibility = "Collapsed" }
-        1 { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Visible"; $TasksView.Visibility = "Collapsed" }
-        5 { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Collapsed"; $TasksView.Visibility = "Visible" }
-        default { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Collapsed"; $TasksView.Visibility = "Collapsed" }
+        0 { $DashboardView.Visibility = "Visible"; $BackupsView.Visibility = "Collapsed"; $UnpackedObjectsView.Visibility = "Collapsed"; $TasksView.Visibility = "Collapsed" }
+        1 { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Visible"; $UnpackedObjectsView.Visibility = "Collapsed"; $TasksView.Visibility = "Collapsed" }
+        2 { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Collapsed"; $UnpackedObjectsView.Visibility = "Visible"; $TasksView.Visibility = "Collapsed" }
+        5 { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Collapsed"; $UnpackedObjectsView.Visibility = "Collapsed"; $TasksView.Visibility = "Visible" }
+        default { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Collapsed"; $UnpackedObjectsView.Visibility = "Collapsed"; $TasksView.Visibility = "Collapsed" }
     }
 }
 $MainTabs.Add_SelectionChanged({ & $setMainViewByTab })
 & $setMainViewByTab
+
+if ($GridUnpackedObjectsMain) {
+    Set-ItemsSourceSafe -Control $GridUnpackedObjectsMain -Items @(
+        [PSCustomObject]@{ Selected = $false; Icon = "◻"; Name = "AAD App Management"; UserName = ""; Type = "S..."; BackupDate = "Today at 12:00 ..."; Mail = "-"; EntraConnect = "Cloud Only"; MFA = "-"; City = "-"; Department = "-"; JobTitle = "-"; Description = "-"; UserType = "-"; MailEnabled = "" },
+        [PSCustomObject]@{ Selected = $false; Icon = "👤"; Name = "Adele Vance"; UserName = "AdeleV@M365x2407..."; Type = "U..."; BackupDate = "Today at 12:00 ..."; Mail = "AdeleV@M365x2407..."; EntraConnect = "Cloud Only"; MFA = "Disabled"; City = "Belle..."; Department = "Retail"; JobTitle = "Retail..."; Description = "-"; UserType = "Work..."; MailEnabled = "Enabled" },
+        [PSCustomObject]@{ Selected = $false; Icon = "👥"; Name = "All Company"; UserName = ""; Type = "M..."; BackupDate = "Today at 12:00 ..."; Mail = "allcompany@M365x..."; EntraConnect = "Cloud Only"; MFA = "-"; City = "-"; Department = "-"; JobTitle = "-"; Description = "This i..."; UserType = ""; MailEnabled = "Enabled" },
+        [PSCustomObject]@{ Selected = $false; Icon = "⚙"; Name = "Authentication flows policy"; UserName = ""; Type = "U..."; BackupDate = "Today at 12:00 ..."; Mail = "-"; EntraConnect = "Cloud Only"; MFA = "-"; City = "-"; Department = "-"; JobTitle = "-"; Description = "Auth..."; UserType = ""; MailEnabled = "" }
+    )
+}
 
 $TxtTenantNotes.Text = "Security: every compare/restore operation uses Service Principal + Certificate (app-only)." +
 "`r`n`r`nInteractive sign-in: for setup and initial validation, the provided tenant is required and the connection enforces Connect-MgGraph -TenantId." +
