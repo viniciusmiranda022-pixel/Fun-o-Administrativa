@@ -912,6 +912,9 @@ $ChkOpt1 = $window.FindName("ChkOpt1")
 $ChkOpt2 = $window.FindName("ChkOpt2")
 $ChkOpt3 = $window.FindName("ChkOpt3")
 $ChkOpt4 = $window.FindName("ChkOpt4")
+$DashboardView = $window.FindName("DashboardView")
+$BackupsView = $window.FindName("BackupsView")
+$GridBackupsCompressedList = $window.FindName("GridBackupsCompressedList")
 
 $TxtTenantId.Text = $DefaultTenantId
 $TxtClientId.Text = $DefaultClientId
@@ -967,6 +970,22 @@ $script:ManageRestoreData.Add([pscustomobject]@{
 })
 $GridManageRestoreTenants.ItemsSource = $script:ManageRestoreData
 $GridManageRestoreTenants.SelectedIndex = 0
+
+$script:BackupsCompressedData = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+$script:BackupsCompressedData.Add([pscustomobject]@{ Timestamp = "2026-05-18 21:05 UTC"; Tenant = "Contoso"; Type = "Full"; Size = "1.8 GB"; Status = "Completed" })
+$script:BackupsCompressedData.Add([pscustomobject]@{ Timestamp = "2026-05-17 21:03 UTC"; Tenant = "Contoso"; Type = "Incremental"; Size = "612 MB"; Status = "Completed" })
+$script:BackupsCompressedData.Add([pscustomobject]@{ Timestamp = "2026-05-16 21:02 UTC"; Tenant = "Contoso"; Type = "Incremental"; Size = "598 MB"; Status = "Completed" })
+if ($GridBackupsCompressedList) { $GridBackupsCompressedList.ItemsSource = $script:BackupsCompressedData }
+
+$setMainViewByTab = {
+    switch ($MainTabs.SelectedIndex) {
+        0 { $DashboardView.Visibility = "Visible"; $BackupsView.Visibility = "Collapsed" }
+        1 { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Visible" }
+        default { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Collapsed" }
+    }
+}
+$MainTabs.Add_SelectionChanged({ & $setMainViewByTab })
+& $setMainViewByTab
 
 $TxtTenantNotes.Text = "Security: every compare/restore operation uses Service Principal + Certificate (app-only)." +
 "`r`n`r`nInteractive sign-in: for setup and initial validation, the provided tenant is required and the connection enforces Connect-MgGraph -TenantId." +
