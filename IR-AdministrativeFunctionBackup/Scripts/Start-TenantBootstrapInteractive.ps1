@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [string]$SettingsPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json',
+    [string]$SettingsPath = (Join-Path 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup' 'Config\settings.json'),
     [int]$CertificateValidityMonths = 24,
     [string]$AppDisplayName = 'Quest Recovery Function - Administrative Roles Backup',
     [Parameter(Mandatory = $true)]
@@ -15,12 +15,15 @@ try {
     chcp 65001 | Out-Null
 } catch {}
 
+$ProgramDataQuestRoot = 'C:\ProgramData\Quest'
+$BackupInstallRoot = Join-Path $ProgramDataQuestRoot 'IR-AdministrativeFunctionBackup'
+
 $ErrorActionPreference = 'Stop'
 
 $sharedModulePath = Join-Path $PSScriptRoot 'IR-AdministrativeFunctions.psm1'
 Import-Module $sharedModulePath -Force
 $GraphAppId = '00000003-0000-0000-c000-000000000000'
-$InstallRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup'
+$InstallRoot = $BackupInstallRoot
 $BootstrapLogPath = Join-Path $InstallRoot 'Logs\tenant-bootstrap.log'
 $LogoPath = Join-Path $InstallRoot 'Assets\quest-logo.png'
 $RequiredInteractiveScopes = @(

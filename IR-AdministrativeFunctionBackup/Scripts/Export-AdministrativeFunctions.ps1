@@ -9,11 +9,13 @@
     [string]$CertificateThumbprint,
 
     [Parameter(Mandatory = $false)]
-    [string]$BasePath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup"
+    [string]$BasePath = (Join-Path "C:\ProgramData\Quest" "IR-AdministrativeFunctionBackup")
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
+
+ $ProgramDataQuestRoot = "C:\ProgramData\Quest"
 
 try {
     chcp 65001 | Out-Null

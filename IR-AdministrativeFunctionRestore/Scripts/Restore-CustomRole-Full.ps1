@@ -34,6 +34,9 @@ $ErrorActionPreference = "Stop"
 Import-Module Microsoft.Graph.Authentication
 Import-Module Microsoft.Graph.Identity.Governance
 
+$ProgramDataQuestRoot = "C:\ProgramData\Quest"
+$RestoreInstallRoot = Join-Path $ProgramDataQuestRoot "IR-AdministrativeFunctionRestore"
+
 function Initialize-StructuredLog {
     param(
         [string]$TenantId,
@@ -41,7 +44,7 @@ function Initialize-StructuredLog {
         [string]$SnapshotFolder
     )
 
-    $logDirectory = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Logs"
+    $logDirectory = Join-Path $RestoreInstallRoot "Logs"
     New-Item -Path $logDirectory -ItemType Directory -Force | Out-Null
 
     $logFileName = "restore-{0}.log" -f (Get-Date -Format "yyyy-MM-dd_HH-mm-ss")

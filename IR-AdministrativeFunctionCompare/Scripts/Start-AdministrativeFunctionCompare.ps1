@@ -13,15 +13,20 @@ Add-Type -AssemblyName System.Windows.Forms
 Import-Module Microsoft.Graph.Authentication
 Import-Module Microsoft.Graph.Identity.Governance
 
-$BasePath = "C:\ProgramData\Quest\IR-AdministrativeFunctionCompare"
+$ProgramDataQuestRoot = "C:\ProgramData\Quest"
+$BackupInstallRoot = Join-Path $ProgramDataQuestRoot "IR-AdministrativeFunctionBackup"
+$CompareInstallRoot = Join-Path $ProgramDataQuestRoot "IR-AdministrativeFunctionCompare"
+$RestoreInstallRoot = Join-Path $ProgramDataQuestRoot "IR-AdministrativeFunctionRestore"
+
+$BasePath = $CompareInstallRoot
 $XamlPath = Join-Path $BasePath "Xaml\MainWindow.xaml"
 $LogDirectory = Join-Path $BasePath "Logs"
 if (-not (Test-Path $LogDirectory)) { New-Item -Path $LogDirectory -ItemType Directory -Force | Out-Null }
 $LogPath = Join-Path $LogDirectory "Compare-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
-$BackupSettingsPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json"
-$DefaultBackupRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups"
+$BackupSettingsPath = Join-Path $BackupInstallRoot "Config\settings.json"
+$DefaultBackupRoot = Join-Path $BackupInstallRoot "Backups"
 $BackupRoot = $DefaultBackupRoot
-$RestoreScriptPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Scripts\Restore-CustomRole-Full.ps1"
+$RestoreScriptPath = Join-Path $RestoreInstallRoot "Scripts\Restore-CustomRole-Full.ps1"
 
 $DefaultTenantId = ""
 $DefaultClientId = ""
@@ -767,7 +772,7 @@ function Run-ComparisonWorkflow {
         throw "Select a snapshot folder first."
     }
     if (-not (Test-ValidAdministrativeFunctionBackup -Path $TxtSnapshotFolder.Text)) {
-        throw "A pasta selecionada não é um snapshot válido. Selecione uma pasta dentro de C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups que contenha manifest.json, roleDefinitions.json e roleAssignments.json."
+        throw "A pasta selecionada não é um snapshot válido. Selecione uma pasta dentro de $DefaultBackupRoot que contenha manifest.json, roleDefinitions.json e roleAssignments.json."
     }
 
     Set-UiState -StatusText "Status: preparing comparison..." -Busy $true
@@ -1023,7 +1028,7 @@ $BtnBrowseSnapshot.Add_Click({
             Add-TaskEntry -Task "Select Snapshot" -Status "Completed" -Details $dialog.SelectedPath
         }
         else {
-            $message = "A pasta selecionada não é um snapshot válido. Selecione uma pasta dentro de C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups que contenha manifest.json, roleDefinitions.json e roleAssignments.json."
+            $message = "A pasta selecionada não é um snapshot válido. Selecione uma pasta dentro de $DefaultBackupRoot que contenha manifest.json, roleDefinitions.json e roleAssignments.json."
             [System.Windows.MessageBox]::Show($message, "Snapshot inválido")
             $TxtStatus.Text = "Status: invalid snapshot folder selected."
             Write-Log "Invalid snapshot selected manually: $($dialog.SelectedPath)" -Severity "WARN"
