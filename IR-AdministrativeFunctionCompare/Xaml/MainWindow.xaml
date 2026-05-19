@@ -128,6 +128,57 @@
                     </Grid>
                 </Border>
 
+                <Grid x:Name="UnpackedObjectsView" Grid.Row="3" Margin="12" Visibility="Collapsed">
+                    <Grid.RowDefinitions><RowDefinition Height="58"/><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="20,14,20,12">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ToggleButton Content="List View" IsChecked="True" Width="75" Height="30" Background="#0078A8" Foreground="White" BorderBrush="#0078A8" FontSize="12"/>
+                            <ToggleButton Content="Objects" Width="70" Height="30" Margin="6,0,14,0" Background="White" Foreground="#0078A8" BorderBrush="#0078A8" FontSize="12"/>
+                            <TextBlock Text="Backup:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="96" Height="28" SelectedIndex="0" Margin="0,0,10,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Latest unpacked backup"/><ComboBoxItem Content="Today at 12:00 PM"/></ComboBox>
+                            <TextBlock Text="Type:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="96" Height="28" SelectedIndex="0" Margin="0,0,10,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="User"/><ComboBoxItem Content="Group"/><ComboBoxItem Content="Service Principal"/><ComboBoxItem Content="Role Definition"/><ComboBoxItem Content="Role Assignment"/></ComboBox>
+                            <TextBlock Text="User Type:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="96" Height="28" SelectedIndex="0" Margin="0,0,10,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Member"/><ComboBoxItem Content="Guest"/></ComboBox>
+                            <TextBlock Text="Microsoft Entra Connect:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="110" Height="28" SelectedIndex="0" Margin="0,0,10,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Cloud Only"/><ComboBoxItem Content="Synced"/></ComboBox>
+                            <TextBlock Text="MFA:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="86" Height="28" SelectedIndex="0" Margin="0,0,10,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Enabled"/><ComboBoxItem Content="Disabled"/></ComboBox>
+                            <TextBlock Text="Mail Enabled:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="86" Height="28" SelectedIndex="0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Enabled"/><ComboBoxItem Content="Disabled"/></ComboBox>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Row="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="12,0">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="↻ RESTORE" Foreground="#B7B7B7" FontSize="12" FontWeight="SemiBold" Margin="0,0,18,0"/>
+                                <TextBlock Text="↗ EXPORT" Foreground="#B7B7B7" FontSize="12" FontWeight="SemiBold" Margin="0,0,18,0"/>
+                                <TextBlock Text="⚙ EDIT COLUMNS" Foreground="#0078A8" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="TxtUnpackedCount" Text="337 objects" FontSize="12" Margin="0,0,12,0"/><TextBox Width="190" Height="28" Text="Search"/><Button Content="Search" Width="70" Height="28" Margin="8,0,0,0" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/></StackPanel>
+                        </Grid>
+                    </Border>
+                    <DataGrid x:Name="GridUnpackedObjectsMain" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderBrush="#D0D0D0" BorderThickness="1" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="" Binding="{Binding Selected}" Width="42"/>
+                            <DataGridTextColumn Header="" Binding="{Binding Icon}" Width="42"/>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="320"/>
+                            <DataGridTextColumn Header="User Name" Binding="{Binding UserName}" Width="140"/>
+                            <DataGridTextColumn Header="T..." Binding="{Binding Type}" Width="50"/>
+                            <DataGridTextColumn Header="Backup Date" Binding="{Binding BackupDate}" Width="130"/>
+                            <DataGridTextColumn Header="Mail" Binding="{Binding Mail}" Width="150"/>
+                            <DataGridTextColumn Header="Microsoft Entra Connect" Binding="{Binding EntraConnect}" Width="200"/>
+                            <DataGridTextColumn Header="MFA" Binding="{Binding MFA}" Width="80"/>
+                            <DataGridTextColumn Header="City" Binding="{Binding City}" Width="75"/>
+                            <DataGridTextColumn Header="Depa..." Binding="{Binding Department}" Width="80"/>
+                            <DataGridTextColumn Header="Job T..." Binding="{Binding JobTitle}" Width="80"/>
+                            <DataGridTextColumn Header="Desc..." Binding="{Binding Description}" Width="80"/>
+                            <DataGridTextColumn Header="User ..." Binding="{Binding UserType}" Width="80"/>
+                            <DataGridTextColumn Header="Mail Enabled" Binding="{Binding MailEnabled}" Width="110"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
                 <Grid x:Name="TasksView" Grid.Row="3" Margin="12" Visibility="Collapsed">
                     <Grid.RowDefinitions><RowDefinition Height="58"/><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="20,14,20,12">
