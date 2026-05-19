@@ -1,19 +1,60 @@
-﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+﻿[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$RoleName,
+
+    [Parameter(Mandatory = $false)]
+    [string]$SnapshotFolder
+)
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 try {
     chcp 65001 | Out-Null
 } catch {}
 
-$TenantId = "ca9b03ea-578e-4277-b684-969fa2a34a9a"
-$ClientId = "3c1e0342-a7c1-434e-bd70-04ace3dfd88d"
-$Thumb = "FDD65BA99EB803D11BFBDD1F02424EBA39CBC91B"
-$SnapshotFolder = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups\2026-04-18_14-36-05"
-$RoleName = "POC App Registration Operator"
+$SettingsPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json"
+$DefaultBackupRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups"
+$RestoreScriptPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Scripts\Restore-CustomRole-Full.ps1"
 
-powershell.exe -ExecutionPolicy Bypass -File "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Restore-CustomRole-Full.ps1" `
-  -TenantId $TenantId `
-  -ClientId $ClientId `
-  -CertificateThumbprint $Thumb `
-  -SnapshotFolder $SnapshotFolder `
-  -RoleName $RoleName
+if (-not (Test-Path $SettingsPath)) {
+    throw "settings.json not found at $SettingsPath. Run backup setup first."
+}
+
+$settings = Get-Content $SettingsPath -Raw | ConvertFrom-Json
+$tenantId = [string]$settings.TenantId
+$clientId = [string]$settings.ClientId
+$thumb = [string]$settings.CertificateThumbprint
+$backupRoot = if (-not [string]::IsNullOrWhiteSpace([string]$settings.BackupRoot)) { [string]$settings.BackupRoot } else { $DefaultBackupRoot }
+
+if ([string]::IsNullOrWhiteSpace($tenantId)) { throw "TenantId vazio. Verifique settings.json." }
+if ([string]::IsNullOrWhiteSpace($clientId)) { throw "ClientId vazio. Verifique settings.json." }
+if ([string]::IsNullOrWhiteSpace($thumb)) { throw "CertificateThumbprint vazio. Verifique settings.json." }
+
+if ([string]::IsNullOrWhiteSpace($SnapshotFolder)) {
+    if (-not (Test-Path $backupRoot)) {
+        throw "BackupRoot does not exist: $backupRoot"
+    }
+
+    $latest = Get-ChildItem -Path $backupRoot -Directory -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+
+    if (-not $latest) {
+        throw "No backup snapshots found under $backupRoot"
+    }
+
+    $SnapshotFolder = $latest.FullName
+}
+
+if (-not (Test-Path $RestoreScriptPath)) {
+    throw "Restore script not found at $RestoreScriptPath"
+}
+
+& powershell.exe -ExecutionPolicy Bypass -File $RestoreScriptPath `
+    -TenantId $tenantId `
+    -ClientId $clientId `
+    -CertificateThumbprint $thumb `
+    -SnapshotFolder $SnapshotFolder `
+    -RoleName $RoleName

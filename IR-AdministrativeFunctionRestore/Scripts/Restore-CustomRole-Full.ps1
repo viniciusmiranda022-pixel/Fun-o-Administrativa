@@ -1,10 +1,4 @@
-﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
-
-try {
-    chcp 65001 | Out-Null
-} catch {}
-
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [string]$TenantId,
@@ -21,6 +15,12 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RoleName
 )
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+try {
+    chcp 65001 | Out-Null
+} catch {}
 
 $ErrorActionPreference = "Stop"
 
