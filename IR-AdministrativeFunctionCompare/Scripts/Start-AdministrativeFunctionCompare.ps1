@@ -887,6 +887,21 @@ $MnuOpenTenantsTab = $window.FindName("MnuOpenTenantsTab")
 $MnuManageBackups = $window.FindName("MnuManageBackups")
 $MnuRunCompare = $window.FindName("MnuRunCompare")
 $MnuRestoreSelected = $window.FindName("MnuRestoreSelected")
+$ManageBackupsOverlay = $window.FindName("ManageBackupsOverlay")
+$ConfigureBackupOverlay = $window.FindName("ConfigureBackupOverlay")
+$BtnCloseManageBackups = $window.FindName("BtnCloseManageBackups")
+$BtnFinishManageBackups = $window.FindName("BtnFinishManageBackups")
+$BtnEditBackup = $window.FindName("BtnEditBackup")
+$GridManageBackupsTenants = $window.FindName("GridManageBackupsTenants")
+$BtnCloseConfigureBackup = $window.FindName("BtnCloseConfigureBackup")
+$BtnCancelConfigureBackup = $window.FindName("BtnCancelConfigureBackup")
+$BtnSaveConfigureBackup = $window.FindName("BtnSaveConfigureBackup")
+$TxtRetentionPolicy = $window.FindName("TxtRetentionPolicy")
+$CmbBackupSchedule = $window.FindName("CmbBackupSchedule")
+$ChkOpt1 = $window.FindName("ChkOpt1")
+$ChkOpt2 = $window.FindName("ChkOpt2")
+$ChkOpt3 = $window.FindName("ChkOpt3")
+$ChkOpt4 = $window.FindName("ChkOpt4")
 
 $TxtTenantId.Text = $DefaultTenantId
 $TxtClientId.Text = $DefaultClientId
@@ -921,6 +936,16 @@ $script:CompareResults = @()
 $script:FilteredResults = @()
 $script:EventEntries = New-Object 'System.Collections.Generic.List[object]'
 $script:TaskEntries = New-Object 'System.Collections.Generic.List[object]'
+$script:ManageBackupData = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+$script:ManageBackupData.Add([pscustomobject]@{
+    Tenant = "Contoso"
+    Schedule = "Enabled"
+    Retention = "1825"
+    AdvancedData = "Enabled"
+    Completed = "✅"
+})
+$GridManageBackupsTenants.ItemsSource = $script:ManageBackupData
+$GridManageBackupsTenants.SelectedIndex = 0
 
 $TxtTenantNotes.Text = "Security: every compare/restore operation uses Service Principal + Certificate (app-only)." +
 "`r`n`r`nInteractive sign-in: for setup and initial validation, the provided tenant is required and the connection enforces Connect-MgGraph -TenantId." +
@@ -959,11 +984,74 @@ $BtnLoadBackups.Add_Click({
     try {
         & $loadBackupsAction
         $MainTabs.SelectedIndex = 0
+        $ManageBackupsOverlay.Visibility = "Visible"
     }
     catch {
         [System.Windows.MessageBox]::Show("Não foi possível carregar automaticamente a lista de backups. Verifique o log do Compare.", "UI binding error")
         Write-Log ("UI binding error while loading backups: " + $_.Exception.ToString()) -Severity "ERROR"
         Add-TaskEntry -Task "Load Backups" -Status "Failed" -Details $_.Exception.Message
+    }
+})
+
+$closeManageBackups = {
+    $ManageBackupsOverlay.Visibility = "Collapsed"
+    $ConfigureBackupOverlay.Visibility = "Collapsed"
+}
+
+$openConfigureBackup = {
+    if (-not $GridManageBackupsTenants.SelectedItem) {
+        [System.Windows.MessageBox]::Show("Nenhum tenant configurado foi encontrado.", "Manage backups")
+        return
+    }
+    $ConfigureBackupOverlay.Visibility = "Visible"
+}
+
+$closeConfigureBackup = {
+    $ConfigureBackupOverlay.Visibility = "Collapsed"
+}
+
+$BtnCloseManageBackups.Add_Click($closeManageBackups)
+$BtnFinishManageBackups.Add_Click($closeManageBackups)
+$BtnEditBackup.Add_Click($openConfigureBackup)
+$BtnCloseConfigureBackup.Add_Click($closeConfigureBackup)
+$BtnCancelConfigureBackup.Add_Click($closeConfigureBackup)
+
+$BtnSaveConfigureBackup.Add_Click({
+    $retentionValue = 0
+    if (-not [int]::TryParse($TxtRetentionPolicy.Text, [ref]$retentionValue) -or $retentionValue -le 0) {
+        [System.Windows.MessageBox]::Show("A política de retenção deve ser informada em dias e precisa ser maior que zero.", "Configure backup")
+        return
+    }
+    if (-not ($ChkOpt1.IsChecked -or $ChkOpt2.IsChecked -or $ChkOpt3.IsChecked -or $ChkOpt4.IsChecked)) {
+        [System.Windows.MessageBox]::Show("Selecione pelo menos uma opção de backup.", "Configure backup")
+        return
+    }
+
+    $selected = $GridManageBackupsTenants.SelectedItem
+    if ($selected) {
+        $selected.Schedule = $CmbBackupSchedule.Text
+        $selected.Retention = [string]$retentionValue
+        $selected.AdvancedData = "Enabled"
+        $selected.Completed = "✅"
+        $GridManageBackupsTenants.Items.Refresh()
+    }
+    Write-Log "Backup configuration updated for tenant Contoso."
+    Add-TaskEntry -Task "Update Backup Configuration" -Status "Completed" -Details "Tenant Contoso"
+    [System.Windows.MessageBox]::Show("Configuração de backup salva com sucesso.", "Configure backup")
+    & $closeConfigureBackup
+})
+
+$window.Add_PreviewKeyDown({
+    param($sender, $e)
+    if ($e.Key -eq [System.Windows.Input.Key]::Escape) {
+        if ($ConfigureBackupOverlay.Visibility -eq "Visible") {
+            & $closeConfigureBackup
+            $e.Handled = $true
+        }
+        elseif ($ManageBackupsOverlay.Visibility -eq "Visible") {
+            & $closeManageBackups
+            $e.Handled = $true
+        }
     }
 })
 

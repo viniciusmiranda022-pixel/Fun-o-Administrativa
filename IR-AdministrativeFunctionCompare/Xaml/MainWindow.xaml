@@ -100,6 +100,80 @@
                     </UniformGrid>
                 </ScrollViewer>
 
+                <Grid x:Name="ManageBackupsOverlay" Grid.RowSpan="4" Background="#40000000" Visibility="Collapsed">
+                    <Border x:Name="ManageBackupsModal" Width="780" Height="510" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid Margin="24,24,24,12">
+                                <TextBlock Text="Manage backups" FontSize="26" Foreground="#333333"/>
+                                <Button x:Name="BtnCloseManageBackups" Content="×" FontSize="22" FontWeight="SemiBold" Foreground="#0078A8" Background="Transparent" BorderThickness="0" HorizontalAlignment="Right" Cursor="Hand"/>
+                            </Grid>
+                            <Grid Grid.Row="1" Margin="24,8,24,12">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Border BorderBrush="#D6D6D6" BorderThickness="0,0,1,0">
+                                    <Grid Height="28" VerticalAlignment="Top">
+                                        <Border Width="4" Background="#FF7900" HorizontalAlignment="Left"/>
+                                        <TextBlock Text="Tenants" Margin="18,0,0,0" VerticalAlignment="Center" FontSize="12" Foreground="#333333"/>
+                                    </Grid>
+                                </Border>
+                                <Grid Grid.Column="1" Margin="22,0,0,0">
+                                    <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="24"/><RowDefinition Height="*"/><RowDefinition Height="56"/></Grid.RowDefinitions>
+                                    <TextBox Text="Search" Padding="28,0,0,0" BorderBrush="#BFBFBF" BorderThickness="1" FontSize="12"/>
+                                    <Button x:Name="BtnEditBackup" Grid.Row="1" Content="✎  EDIT" HorizontalAlignment="Left" Background="Transparent" Foreground="#0078A8" BorderThickness="0" FontWeight="SemiBold" FontSize="12" Cursor="Hand"/>
+                                    <DataGrid x:Name="GridManageBackupsTenants" Grid.Row="2" AutoGenerateColumns="False" HeadersVisibility="Column" Margin="0,6,0,0" CanUserAddRows="False" IsReadOnly="True">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Tenant" Binding="{Binding Tenant}" Width="180"/>
+                                            <DataGridTextColumn Header="Sc..." Binding="{Binding Schedule}" Width="90"/>
+                                            <DataGridTextColumn Header="Ret..." Binding="{Binding Retention}" Width="90"/>
+                                            <DataGridTextColumn Header="Advanced d..." Binding="{Binding AdvancedData}" Width="140"/>
+                                            <DataGridTextColumn Header="Co..." Binding="{Binding Completed}" Width="90"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <Grid Grid.Row="3">
+                                        <TextBlock Text="1-1 of 1 Results" VerticalAlignment="Center" FontSize="12" Foreground="#333333"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBlock Text="Show" FontSize="12" Margin="0,0,6,0"/>
+                                            <ComboBox Width="50" Height="24" SelectedIndex="1"><ComboBoxItem Content="10"/><ComboBoxItem Content="25"/><ComboBoxItem Content="50"/><ComboBoxItem Content="100"/></ComboBox>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Grid>
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,24,16">
+                                <Button x:Name="BtnFinishManageBackups" Content="Finish" Width="62" Height="32" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid x:Name="ConfigureBackupOverlay" Background="#30000000" Visibility="Collapsed">
+                        <Border Width="600" Height="440" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Grid Margin="26,24,26,24">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Grid>
+                                    <TextBlock Text="Configure backup" FontSize="26" Foreground="#333333"/>
+                                    <Button x:Name="BtnCloseConfigureBackup" Content="×" FontSize="22" FontWeight="SemiBold" Foreground="#0078A8" Background="Transparent" BorderThickness="0" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <StackPanel Grid.Row="1" Margin="0,16,0,0">
+                                    <TextBlock Text="Schedule" FontSize="12"/>
+                                    <ComboBox x:Name="CmbBackupSchedule" Height="26" SelectedIndex="0"><ComboBoxItem Content="Enabled"/><ComboBoxItem Content="Disabled"/></ComboBox>
+                                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,10,0,8" Text="Specify the backup retention period using the retention policy option. The backup retention policy is also applied to backups started manually. Specify the retention policy in the number of days. If no policy is set, the default is 5 years (1825 days). Warning: When changing the retention period, the new policy will only affect new backups."/>
+                                    <TextBlock Text="Retention policy" FontSize="12"/>
+                                    <TextBox x:Name="TxtRetentionPolicy" Height="26" Text="1825"/>
+                                    <Separator Margin="0,12,0,10"/>
+                                    <TextBlock Text="Backup options" FontSize="15" FontWeight="SemiBold"/>
+                                    <CheckBox x:Name="ChkOpt1" Content="Back up linkage between users and inactive mailboxes" IsChecked="True" FontSize="12"/>
+                                    <CheckBox x:Name="ChkOpt2" Content="Back up Application Proxy settings and connector groups" IsChecked="True" FontSize="12"/>
+                                    <CheckBox x:Name="ChkOpt3" Content="Back up Custom Claims Policy settings" IsChecked="True" FontSize="12"/>
+                                    <CheckBox x:Name="ChkOpt4" Content="Back up Organization settings" IsChecked="True" FontSize="12"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button x:Name="BtnSaveConfigureBackup" Content="Save" Width="55" Height="32" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/>
+                                    <Button x:Name="BtnCancelConfigureBackup" Content="Cancel" Width="65" Height="32" Margin="6,0,0,0" Background="White" Foreground="#0078A8" BorderBrush="#0078A8"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
                 <Grid Visibility="Collapsed">
                     <TextBox x:Name="TxtSnapshotFolder"/>
                     <Button x:Name="BtnRestoreSelected"/>
