@@ -63,7 +63,7 @@ function Install-GraphPrerequisites {
     Write-Step 'Instalando pré-requisitos Microsoft.Graph...'
     Set-ExecutionPolicy Bypass -Scope Process -Force
     Install-PackageProvider NuGet -Force | Out-Null
-    Install-Module Microsoft.Graph -Scope AllUsers -Force -AllowClobber
+    Install-Module Microsoft.Graph -MinimumVersion "2.0.0" -Scope AllUsers -Force -AllowClobber
     Import-Module Microsoft.Graph.Authentication -Force
 
     Get-Command Connect-MgGraph -ErrorAction Stop | Out-Null
