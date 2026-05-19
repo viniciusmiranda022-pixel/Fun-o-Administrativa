@@ -915,6 +915,14 @@ $ChkOpt4 = $window.FindName("ChkOpt4")
 $DashboardView = $window.FindName("DashboardView")
 $BackupsView = $window.FindName("BackupsView")
 $GridBackupsCompressedList = $window.FindName("GridBackupsCompressedList")
+$BtnUnpackBackup = $window.FindName("BtnUnpackBackup")
+$ProcessingBanner = $window.FindName("ProcessingBanner")
+$BtnCloseProcessingBanner = $window.FindName("BtnCloseProcessingBanner")
+$BtnProcessingViewDetails = $window.FindName("BtnProcessingViewDetails")
+$TaskNameFilterChip = $window.FindName("TaskNameFilterChip")
+$TasksView = $window.FindName("TasksView")
+$GridTasksMain = $window.FindName("GridTasksMain")
+$TxtTasksCount = $window.FindName("TxtTasksCount")
 
 $TxtTenantId.Text = $DefaultTenantId
 $TxtClientId.Text = $DefaultClientId
@@ -979,9 +987,10 @@ if ($GridBackupsCompressedList) { $GridBackupsCompressedList.ItemsSource = $scri
 
 $setMainViewByTab = {
     switch ($MainTabs.SelectedIndex) {
-        0 { $DashboardView.Visibility = "Visible"; $BackupsView.Visibility = "Collapsed" }
-        1 { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Visible" }
-        default { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Collapsed" }
+        0 { $DashboardView.Visibility = "Visible"; $BackupsView.Visibility = "Collapsed"; $TasksView.Visibility = "Collapsed" }
+        1 { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Visible"; $TasksView.Visibility = "Collapsed" }
+        5 { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Collapsed"; $TasksView.Visibility = "Visible" }
+        default { $DashboardView.Visibility = "Collapsed"; $BackupsView.Visibility = "Collapsed"; $TasksView.Visibility = "Collapsed" }
     }
 }
 $MainTabs.Add_SelectionChanged({ & $setMainViewByTab })
@@ -1444,4 +1453,37 @@ catch {
     $TxtStatus.Text = "Status: missing settings.json. Run backup setup first."
     Write-Log ("Initial backup load failed: " + $_.Exception.Message) -Severity "ERROR"
 }
+
+$BtnCloseProcessingBanner.Add_Click({ $ProcessingBanner.Visibility = "Collapsed" })
+$BtnProcessingViewDetails.Add_Click({
+    $MainTabs.SelectedIndex = 5
+    $TaskNameFilterChip.Visibility = "Visible"
+})
+
+$BtnUnpackBackup.Add_Click({
+    $started = Get-Date
+    $taskName = "Unpack backup " + $started.ToString("yyyy-MM-dd HH:mm:ss")
+    $task = [pscustomobject]@{
+        StatusIcon = "🔵"
+        Name = $taskName
+        Status = "Running"
+        Type = "Unpacking"
+        Modified = "Today at " + $started.ToString("h:mm tt")
+        Created = "Today at " + $started.ToString("h:mm tt")
+        Operation = "Extracting backup package."
+    }
+    $rows = @($GridTasksMain.ItemsSource)
+    $GridTasksMain.ItemsSource = ,$task + $rows
+    $TxtTasksCount.Text = "$($GridTasksMain.Items.Count) task"
+    $ProcessingBanner.Visibility = "Visible"
+
+    $completed = Get-Date
+    $task.StatusIcon = "🟢"
+    $task.Status = "Completed"
+    $task.Modified = "Today at " + $completed.ToString("h:mm tt")
+    $task.Operation = "Unpacking delta changes..."
+    $GridTasksMain.Items.Refresh()
+    Add-TaskEntry -Task "Unpack backups" -Status "Completed" -Details $taskName
+})
+
 $window.ShowDialog() | Out-Null
