@@ -157,6 +157,110 @@ function Get-AssignmentKey {
     return "$principalId|$directoryScopeId|$appScopeId|$condition|$conditionVersion"
 }
 
+function Get-PermissionList {
+    param($RoleDefinition)
+
+    $actions = @()
+    if ($RoleDefinition -and $RoleDefinition.rolePermissions) {
+        foreach ($rp in $RoleDefinition.rolePermissions) {
+            if ($rp.allowedResourceActions) {
+                $actions += @($rp.allowedResourceActions)
+            }
+        }
+    }
+    return @($actions | Sort-Object -Unique)
+}
+
+function Export-PreRestoreReport {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SnapshotFolder,
+        [Parameter(Mandatory = $true)]
+        [string]$RoleName,
+        [Parameter(Mandatory = $true)]
+        [string]$Mode,
+        [Parameter(Mandatory = $true)]
+        [bool]$RemoveExtraAssignments,
+        $DesiredRole,
+        $CurrentRole,
+        [array]$DesiredAssignments,
+        [array]$CurrentAssignments
+    )
+
+    $desiredPermissions = Get-PermissionList -RoleDefinition $DesiredRole
+    $currentPermissions = Get-PermissionList -RoleDefinition $CurrentRole
+
+    $permissionsToAdd = @($desiredPermissions | Where-Object { $_ -notin $currentPermissions })
+    $permissionsToRemove = @($currentPermissions | Where-Object { $_ -notin $desiredPermissions })
+
+    $desiredMap = @{}
+    foreach ($a in $DesiredAssignments) {
+        $key = Get-AssignmentKey -Assignment $a
+        $desiredMap[$key] = $a
+    }
+
+    $currentMap = @{}
+    foreach ($a in $CurrentAssignments) {
+        $key = Get-AssignmentKey -Assignment $a
+        $currentMap[$key] = $a
+    }
+
+    $assignmentsToCreate = @()
+    foreach ($key in $desiredMap.Keys) {
+        if (-not $currentMap.ContainsKey($key)) {
+            $a = $desiredMap[$key]
+            $assignmentsToCreate += [ordered]@{
+                key              = $key
+                principalId      = [string]$a.principalId
+                directoryScopeId = [string]$a.directoryScopeId
+                appScopeId       = [string]$a.appScopeId
+                condition        = [string]$a.condition
+                conditionVersion = [string]$a.conditionVersion
+            }
+        }
+    }
+
+    $assignmentsToRemove = @()
+    foreach ($key in $currentMap.Keys) {
+        if (-not $desiredMap.ContainsKey($key)) {
+            $a = $currentMap[$key]
+            $assignmentsToRemove += [ordered]@{
+                key              = $key
+                id               = [string]$a.Id
+                principalId      = [string]$a.principalId
+                directoryScopeId = [string]$a.directoryScopeId
+                appScopeId       = [string]$a.appScopeId
+                condition        = [string]$a.condition
+                conditionVersion = [string]$a.conditionVersion
+                willBeRemoved    = ($Mode -eq "Apply" -and $RemoveExtraAssignments)
+            }
+        }
+    }
+
+    $report = [ordered]@{
+        generatedAt             = (Get-Date).ToString("o")
+        roleTarget              = $RoleName
+        mode                    = $Mode
+        removeExtraAssignments  = $RemoveExtraAssignments
+        roleExistsInTenant      = [bool]($null -ne $CurrentRole)
+        snapshotFolder          = (Resolve-Path $SnapshotFolder).Path
+        permissions             = [ordered]@{
+            toAdd    = $permissionsToAdd
+            toRemove = $permissionsToRemove
+        }
+        assignments             = [ordered]@{
+            toCreate = $assignmentsToCreate
+            toRemove = $assignmentsToRemove
+        }
+    }
+
+    $reportDirectory = Join-Path $SnapshotFolder "restore-preview"
+    New-Item -Path $reportDirectory -ItemType Directory -Force | Out-Null
+    $reportPath = Join-Path $reportDirectory ("pre-restore-report-{0}.json" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
+    $report | ConvertTo-Json -Depth 20 | Out-File -FilePath $reportPath -Encoding utf8
+    return $reportPath
+}
+
 try {
     Initialize-StructuredLog -TenantId $TenantId -RoleName $RoleName -SnapshotFolder $SnapshotFolder
     Write-Log "Connecting to Microsoft Graph (with retry for App Registration replication)"
@@ -265,6 +369,28 @@ try {
     }
     else {
         $currentAssignments = @()
+    }
+
+    $preRestoreReportPath = Export-PreRestoreReport `
+        -SnapshotFolder $SnapshotFolder `
+        -RoleName $RoleName `
+        -Mode $Mode `
+        -RemoveExtraAssignments ([bool]$RemoveExtraAssignments) `
+        -DesiredRole $desiredRole `
+        -CurrentRole $currentRole `
+        -DesiredAssignments $desiredAssignments `
+        -CurrentAssignments $currentAssignments
+
+    Write-Log "Pre-restore report exported: $preRestoreReportPath"
+
+    if ($Mode -eq "Apply") {
+        Write-Host ""
+        Write-Host "Pre-restore report generated at: $preRestoreReportPath" -ForegroundColor Yellow
+        $confirmation = Read-Host "Type CONFIRM to continue with restore changes"
+        if ($confirmation -ne "CONFIRM") {
+            throw "Restore cancelled by operator. Review the report and run again when ready."
+        }
+        Write-Log "Operator confirmed restore execution after report review."
     }
 
     $desiredMap = @{}
