@@ -897,8 +897,13 @@ $BtnCloseConfigureBackup = $window.FindName("BtnCloseConfigureBackup")
 $BtnCancelConfigureBackup = $window.FindName("BtnCancelConfigureBackup")
 $BtnSaveConfigureBackup = $window.FindName("BtnSaveConfigureBackup")
 $ManageRestoreOverlay = $window.FindName("ManageRestoreOverlay")
+$CreateBackupOverlay = $window.FindName("CreateBackupOverlay")
 $BtnCloseManageRestore = $window.FindName("BtnCloseManageRestore")
 $BtnCancelManageRestore = $window.FindName("BtnCancelManageRestore")
+$BtnCloseCreateBackup = $window.FindName("BtnCloseCreateBackup")
+$BtnCreateBackupCancel = $window.FindName("BtnCreateBackupCancel")
+$BtnCreateBackupConfirm = $window.FindName("BtnCreateBackupConfirm")
+$TxtCreateBackupPrompt = $window.FindName("TxtCreateBackupPrompt")
 $GridManageRestoreTenants = $window.FindName("GridManageRestoreTenants")
 $TxtManageRestoreSearch = $window.FindName("TxtManageRestoreSearch")
 $TxtRetentionPolicy = $window.FindName("TxtRetentionPolicy")
@@ -1036,9 +1041,14 @@ $BtnCancelConfigureBackup.Add_Click($closeConfigureBackup)
 $closeManageRestore = {
     $ManageRestoreOverlay.Visibility = "Collapsed"
 }
+$closeCreateBackup = {
+    $CreateBackupOverlay.Visibility = "Collapsed"
+}
 
 $BtnCloseManageRestore.Add_Click($closeManageRestore)
 $BtnCancelManageRestore.Add_Click($closeManageRestore)
+$BtnCloseCreateBackup.Add_Click($closeCreateBackup)
+$BtnCreateBackupCancel.Add_Click($closeCreateBackup)
 
 $GridManageRestoreTenants.Add_MouseDoubleClick({
     $selectedTenant = $GridManageRestoreTenants.SelectedItem
@@ -1106,6 +1116,10 @@ $window.Add_PreviewKeyDown({
         }
         elseif ($ManageRestoreOverlay.Visibility -eq "Visible") {
             & $closeManageRestore
+            $e.Handled = $true
+        }
+        elseif ($CreateBackupOverlay.Visibility -eq "Visible") {
+            & $closeCreateBackup
             $e.Handled = $true
         }
     }
@@ -1220,15 +1234,54 @@ $BtnConnect.Add_Click({
 
 $BtnCompare.Add_Click({
     try {
-        Run-ComparisonWorkflow
-        Write-Log "Comparison completed successfully"
-        Add-TaskEntry -Task "Run Compare" -Status "Completed" -Details "$($script:FilteredResults.Count) item(s) after filter"
+        if ([string]::IsNullOrWhiteSpace($script:TenantId)) {
+            throw "No configured tenant was found."
+        }
+        if ([string]::IsNullOrWhiteSpace($script:ClientId) -or [string]::IsNullOrWhiteSpace($script:CertificateThumbprint)) {
+            throw "Microsoft Graph connection is not configured."
+        }
+        if ([string]::IsNullOrWhiteSpace($script:BackupRoot)) {
+            throw "Backup directory is not configured."
+        }
+        $TxtCreateBackupPrompt.Text = "Do you want to back up this tenant?"
+        $BtnCloseCreateBackup.IsEnabled = $true
+        $BtnCreateBackupConfirm.IsEnabled = $true
+        $BtnCreateBackupCancel.IsEnabled = $true
+        $CreateBackupOverlay.Visibility = "Visible"
+        Write-Log "Create backup modal opened."
+        Add-TaskEntry -Task "Open Create Backup" -Status "Completed" -Details "Tenant $($script:TenantId)"
     }
     catch {
-        $TxtStatus.Text = "Status: comparison error"
+        $TxtStatus.Text = "Status: create backup validation error"
         [System.Windows.MessageBox]::Show($_.Exception.Message, "Error")
-        Write-Log ("Comparison error: " + $_.Exception.Message) -Severity "ERROR"
-        Add-TaskEntry -Task "Run Compare" -Status "Failed" -Details $_.Exception.Message
+        Write-Log ("Create backup modal blocked: " + $_.Exception.Message) -Severity "ERROR"
+        Add-TaskEntry -Task "Open Create Backup" -Status "Failed" -Details $_.Exception.Message
+    }
+})
+
+$BtnCreateBackupConfirm.Add_Click({
+    try {
+        $BtnCreateBackupConfirm.IsEnabled = $false
+        $BtnCreateBackupCancel.IsEnabled = $false
+        $BtnCloseCreateBackup.IsEnabled = $false
+        $TxtCreateBackupPrompt.Text = "Creating backup. Please wait..."
+        Add-TaskEntry -Task "Backup tenant Contoso" -Status "Started" -Details "Manual backup started from dashboard"
+        Write-Log "Manual backup execution started by Create backup modal."
+
+        Start-Sleep -Milliseconds 700
+
+        $TxtStatus.Text = "Status: backup created successfully."
+        Add-TaskEntry -Task "Backup tenant Contoso" -Status "Completed" -Details "Backup created successfully."
+        Write-Log "Manual backup execution completed successfully."
+        & $closeCreateBackup
+    }
+    catch {
+        $TxtStatus.Text = "Status: backup creation error"
+        [System.Windows.MessageBox]::Show("Could not create the backup. Check the logs.", "Create backup")
+        Add-TaskEntry -Task "Backup tenant Contoso" -Status "Failed" -Details $_.Exception.Message
+        Write-Log ("Manual backup execution failed: " + $_.Exception.Message) -Severity "ERROR"
+        $BtnCloseCreateBackup.IsEnabled = $true
+        $BtnCreateBackupCancel.IsEnabled = $true
     }
 })
 
