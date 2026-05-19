@@ -26,6 +26,8 @@ $RestoreScriptPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Scri
 $DefaultTenantId = ""
 $DefaultClientId = ""
 $DefaultThumbprint = ""
+$script:SettingsLoaded = $false
+$script:SettingsErrorMessage = ""
 
 function Write-Log {
     param(
@@ -320,8 +322,29 @@ function Resolve-BackupRoot {
     return $DefaultBackupRoot
 }
 
+function Test-ValidAdministrativeFunctionBackup {
+    param([string]$Path)
+
+    return (
+        (Test-Path (Join-Path $Path "manifest.json")) -and
+        (Test-Path (Join-Path $Path "roleDefinitions.json")) -and
+        (Test-Path (Join-Path $Path "roleAssignments.json"))
+    )
+}
+
+function Load-BackupSettings {
+    if (-not (Test-Path $BackupSettingsPath)) {
+        throw "settings.json not found at $BackupSettingsPath. Run the Administrative Function Backup setup first."
+    }
+
+    return (Get-Content $BackupSettingsPath -Raw | ConvertFrom-Json)
+}
+
 function Get-BackupSnapshots {
-    $script:BackupRoot = Resolve-BackupRoot
+    if (-not $script:SettingsLoaded) {
+        Write-Log "Cannot load backups because settings.json is unavailable." -Severity "WARN"
+        return @()
+    }
 
     if (-not (Test-Path $script:BackupRoot)) {
         Write-Log "Backup root does not exist yet: $script:BackupRoot" -Severity "WARN"
@@ -331,6 +354,10 @@ function Get-BackupSnapshots {
     $items = Get-ChildItem -Path $script:BackupRoot -Directory -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
         ForEach-Object {
+            if (-not (Test-ValidAdministrativeFunctionBackup -Path $_.FullName)) {
+                return
+            }
+
             $manifestPath = Join-Path $_.FullName "manifest.json"
             $collectedAt = "-"
 
@@ -720,6 +747,9 @@ function Run-ComparisonWorkflow {
     if (-not $TxtSnapshotFolder.Text) {
         throw "Select a snapshot folder first."
     }
+    if (-not (Test-ValidAdministrativeFunctionBackup -Path $TxtSnapshotFolder.Text)) {
+        throw "A pasta selecionada não é um snapshot válido. Selecione uma pasta dentro de C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups que contenha manifest.json, roleDefinitions.json e roleAssignments.json."
+    }
 
     Set-UiState -StatusText "Status: preparing comparison..." -Busy $true
 
@@ -840,6 +870,22 @@ $TxtClientId.Text = $DefaultClientId
 $TxtThumbprint.Text = $DefaultThumbprint
 $BtnRestoreSelected.IsEnabled = $false
 
+try {
+    $settings = Load-BackupSettings
+    $TxtTenantId.Text = [string]$settings.TenantId
+    $TxtClientId.Text = [string]$settings.ClientId
+    $TxtThumbprint.Text = [string]$settings.CertificateThumbprint
+    $script:BackupRoot = if (-not [string]::IsNullOrWhiteSpace([string]$settings.BackupRoot)) { [string]$settings.BackupRoot } else { $DefaultBackupRoot }
+    $script:SettingsLoaded = $true
+    Write-Log "Settings loaded successfully from $BackupSettingsPath"
+}
+catch {
+    $script:BackupRoot = $DefaultBackupRoot
+    $script:SettingsLoaded = $false
+    $script:SettingsErrorMessage = $_.Exception.Message
+    Write-Log "Failed to load settings.json: $($script:SettingsErrorMessage)" -Severity "ERROR"
+}
+
 $script:SnapshotData = $null
 $script:CurrentData = $null
 $script:CompareResults = @()
@@ -862,18 +908,22 @@ if (Test-IsElevated) {
 }
 
 $loadBackupsAction = {
+    if (-not $script:SettingsLoaded) {
+        throw $script:SettingsErrorMessage
+    }
+
     $snapshots = Get-BackupSnapshots
     $GridBackups.ItemsSource = $null
     $GridBackups.ItemsSource = $snapshots
 
     if ($snapshots.Count -eq 0) {
-        $TxtStatus.Text = "Status: no backup found in $BackupRoot. The interface remains available; run a backup or select a snapshot manually."
+        $TxtStatus.Text = "Status: no valid backup snapshot found in $script:BackupRoot."
     }
     else {
         $TxtStatus.Text = "Status: $($snapshots.Count) backup(s) loaded."
     }
 
-    Write-Log "Backups reloaded from backup root: $BackupRoot"
+    Write-Log "Backups reloaded from backup root: $script:BackupRoot"
     Add-TaskEntry -Task "Load Backups" -Status "Completed" -Details "$($snapshots.Count) snapshot(s) loaded"
 }
 
@@ -940,12 +990,22 @@ $GridBackups.Add_SelectionChanged({
 $BtnBrowseSnapshot.Add_Click({
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
     $dialog.Description = "Select snapshot folder"
+    $dialog.SelectedPath = $script:BackupRoot
 
     if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $TxtSnapshotFolder.Text = $dialog.SelectedPath
-        $TxtStatus.Text = "Status: snapshot selected manually."
-        Write-Log "Snapshot selected manually: $($dialog.SelectedPath)"
-        Add-TaskEntry -Task "Select Snapshot" -Status "Completed" -Details $dialog.SelectedPath
+        if (Test-ValidAdministrativeFunctionBackup -Path $dialog.SelectedPath) {
+            $TxtSnapshotFolder.Text = $dialog.SelectedPath
+            $TxtStatus.Text = "Status: snapshot selected manually."
+            Write-Log "Snapshot selected manually: $($dialog.SelectedPath)"
+            Add-TaskEntry -Task "Select Snapshot" -Status "Completed" -Details $dialog.SelectedPath
+        }
+        else {
+            $message = "A pasta selecionada não é um snapshot válido. Selecione uma pasta dentro de C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups que contenha manifest.json, roleDefinitions.json e roleAssignments.json."
+            [System.Windows.MessageBox]::Show($message, "Snapshot inválido")
+            $TxtStatus.Text = "Status: invalid snapshot folder selected."
+            Write-Log "Invalid snapshot selected manually: $($dialog.SelectedPath)" -Severity "WARN"
+            Add-TaskEntry -Task "Select Snapshot" -Status "Failed" -Details $message
+        }
     }
 })
 
@@ -1121,10 +1181,16 @@ if ($GridEvents) {
         })
 }
 
-$BackupRoot = Resolve-BackupRoot
 Write-Log "Panel started. XAML path: $XamlPath"
-Write-Log "Panel started. Monitored backup directory: $BackupRoot"
+Write-Log "Panel started. Monitored backup directory: $script:BackupRoot"
 Add-TaskEntry -Task "Start Panel" -Status "Completed" -Details "Application started"
 
-& $loadBackupsAction
+try {
+    & $loadBackupsAction
+}
+catch {
+    [System.Windows.MessageBox]::Show($_.Exception.Message, "Missing settings.json")
+    $TxtStatus.Text = "Status: missing settings.json. Run backup setup first."
+    Write-Log ("Initial backup load failed: " + $_.Exception.Message) -Severity "ERROR"
+}
 $window.ShowDialog() | Out-Null
