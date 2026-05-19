@@ -13,7 +13,14 @@ param(
     [string]$SnapshotFolder,
 
     [Parameter(Mandatory = $true)]
-    [string]$RoleName
+    [string]$RoleName,
+
+    [Parameter()]
+    [ValidateSet("WhatIf", "Apply")]
+    [string]$Mode = "WhatIf",
+
+    [Parameter()]
+    [switch]$RemoveExtraAssignments
 )
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -141,6 +148,11 @@ try {
     }
 
     Write-Log "Role found in snapshot: $($desiredRole.displayName)"
+    Write-Log "Execution mode: $Mode"
+
+    if ($RemoveExtraAssignments -and $Mode -eq "WhatIf") {
+        Write-Log "-RemoveExtraAssignments specified with -Mode WhatIf. No assignment removals will be performed in preview mode."
+    }
 
     $currentRole = Get-MgRoleManagementDirectoryRoleDefinition -Filter "displayName eq '$RoleName'" | Select-Object -First 1
 
@@ -149,56 +161,72 @@ try {
     }
 
     if (-not $currentRole) {
-        Write-Log "Role does not exist currently. Recreating from snapshot"
+        Write-Log "Role does not exist currently. Snapshot requires role creation."
 
-        $newRoleParams = @{
-            DisplayName     = $desiredRole.displayName
-            Description     = $desiredRole.description
-            IsEnabled       = [bool]$desiredRole.isEnabled
-            RolePermissions = @()
-        }
-
-        foreach ($rp in $desiredRole.rolePermissions) {
-            $newRoleParams.RolePermissions += @{
-                allowedResourceActions = @($rp.allowedResourceActions)
+        if ($Mode -eq "Apply") {
+            $newRoleParams = @{
+                DisplayName     = $desiredRole.displayName
+                Description     = $desiredRole.description
+                IsEnabled       = [bool]$desiredRole.isEnabled
+                RolePermissions = @()
             }
-        }
 
-        if ($desiredRole.templateId) {
-            $newRoleParams.TemplateId = [string]$desiredRole.templateId
-        }
+            foreach ($rp in $desiredRole.rolePermissions) {
+                $newRoleParams.RolePermissions += @{
+                    allowedResourceActions = @($rp.allowedResourceActions)
+                }
+            }
 
-        $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
-        Write-Log "Role recreated successfully. Current Id: $($currentRole.Id)"
+            if ($desiredRole.templateId) {
+                $newRoleParams.TemplateId = [string]$desiredRole.templateId
+            }
+
+            $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
+            Write-Log "Role recreated successfully. Current Id: $($currentRole.Id)"
+        }
+        else {
+            Write-Log "[PREVIEW] Role would be created from snapshot definition."
+        }
     }
     else {
-        Write-Log "Role exists currently. Overwriting full definition"
+        Write-Log "Role exists currently. Snapshot requires full definition overwrite."
 
-        $updateParams = @{
-            displayName     = $desiredRole.displayName
-            description     = $desiredRole.description
-            isEnabled       = [bool]$desiredRole.isEnabled
-            rolePermissions = @()
-        }
-
-        foreach ($rp in $desiredRole.rolePermissions) {
-            $updateParams.rolePermissions += @{
-                allowedResourceActions = @($rp.allowedResourceActions)
+        if ($Mode -eq "Apply") {
+            $updateParams = @{
+                displayName     = $desiredRole.displayName
+                description     = $desiredRole.description
+                isEnabled       = [bool]$desiredRole.isEnabled
+                rolePermissions = @()
             }
+
+            foreach ($rp in $desiredRole.rolePermissions) {
+                $updateParams.rolePermissions += @{
+                    allowedResourceActions = @($rp.allowedResourceActions)
+                }
+            }
+
+            Update-MgRoleManagementDirectoryRoleDefinition `
+                -UnifiedRoleDefinitionId $currentRole.Id `
+                -BodyParameter $updateParams
+
+            $currentRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $currentRole.Id
+            Write-Log "Role definition updated"
         }
-
-        Update-MgRoleManagementDirectoryRoleDefinition `
-            -UnifiedRoleDefinitionId $currentRole.Id `
-            -BodyParameter $updateParams
-
-        $currentRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $currentRole.Id
-        Write-Log "Role definition updated"
+        else {
+            Write-Log "[PREVIEW] Role definition would be updated to snapshot values."
+        }
     }
 
     Write-Log "Processing assignments from snapshot"
 
     $desiredAssignments = @($assignments | Where-Object { $_.roleDefinitionId -eq $desiredRole.id })
-    $currentAssignments = @(Get-MgRoleManagementDirectoryRoleAssignment -All | Where-Object { $_.roleDefinitionId -eq $currentRole.Id })
+
+    if ($currentRole) {
+        $currentAssignments = @(Get-MgRoleManagementDirectoryRoleAssignment -All | Where-Object { $_.roleDefinitionId -eq $currentRole.Id })
+    }
+    else {
+        $currentAssignments = @()
+    }
 
     $desiredMap = @{}
     foreach ($a in $desiredAssignments) {
@@ -238,33 +266,57 @@ try {
                 $body.conditionVersion = [string]$a.conditionVersion
             }
 
-            New-MgRoleManagementDirectoryRoleAssignment -BodyParameter $body | Out-Null
-            Write-Log "Assignment recreated: $key"
+            if ($Mode -eq "Apply") {
+                New-MgRoleManagementDirectoryRoleAssignment -BodyParameter $body | Out-Null
+                Write-Log "Assignment recreated: $key"
+            }
+            else {
+                Write-Log "[PREVIEW] Assignment would be created: $key"
+            }
         }
     }
 
-    $currentAssignments = @(Get-MgRoleManagementDirectoryRoleAssignment -All | Where-Object { $_.roleDefinitionId -eq $currentRole.Id })
+    if ($currentRole) {
+        $currentAssignments = @(Get-MgRoleManagementDirectoryRoleAssignment -All | Where-Object { $_.roleDefinitionId -eq $currentRole.Id })
+    }
 
     foreach ($a in $currentAssignments) {
         $key = Get-AssignmentKey -Assignment $a
         if (-not $desiredMap.ContainsKey($key)) {
-            Remove-MgRoleManagementDirectoryRoleAssignment -UnifiedRoleAssignmentId $a.Id -Confirm:$false
-            Write-Log "Extra assignment removed: $key"
+            if ($Mode -eq "Apply" -and $RemoveExtraAssignments) {
+                Remove-MgRoleManagementDirectoryRoleAssignment -UnifiedRoleAssignmentId $a.Id -Confirm:$false
+                Write-Log "Extra assignment removed: $key"
+            }
+            else {
+                Write-Log "[PREVIEW] Extra assignment detected (not removed): $key"
+            }
         }
     }
 
     Write-Log "Final validation"
-    $finalRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $currentRole.Id
-    $finalAssignments = @(Get-MgRoleManagementDirectoryRoleAssignment -All | Where-Object { $_.roleDefinitionId -eq $currentRole.Id })
 
-    Write-Log "Role restored: $($finalRole.DisplayName)"
-    Write-Log "Current description: $($finalRole.Description)"
-    Write-Log "Current IsEnabled: $($finalRole.IsEnabled)"
-    Write-Log "Final assignment count: $($finalAssignments.Count)"
+    if ($currentRole) {
+        $finalRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $currentRole.Id
+        $finalAssignments = @(Get-MgRoleManagementDirectoryRoleAssignment -All | Where-Object { $_.roleDefinitionId -eq $currentRole.Id })
 
-    $finalRole | Select-Object Id, DisplayName, Description, IsEnabled
-    $finalRole.RolePermissions | ConvertTo-Json -Depth 20
-    $finalAssignments | Select-Object Id, PrincipalId, RoleDefinitionId, DirectoryScopeId, AppScopeId, Condition, ConditionVersion
+        if ($Mode -eq "Apply") {
+            Write-Log "Role restored: $($finalRole.DisplayName)"
+        }
+        else {
+            Write-Log "Preview completed for role: $($finalRole.DisplayName)"
+        }
+
+        Write-Log "Current description: $($finalRole.Description)"
+        Write-Log "Current IsEnabled: $($finalRole.IsEnabled)"
+        Write-Log "Current assignment count: $($finalAssignments.Count)"
+
+        $finalRole | Select-Object Id, DisplayName, Description, IsEnabled
+        $finalRole.RolePermissions | ConvertTo-Json -Depth 20
+        $finalAssignments | Select-Object Id, PrincipalId, RoleDefinitionId, DirectoryScopeId, AppScopeId, Condition, ConditionVersion
+    }
+    else {
+        Write-Log "Preview completed. Role does not currently exist and would be created in Apply mode."
+    }
 }
 finally {
     Disconnect-MgGraph | Out-Null
