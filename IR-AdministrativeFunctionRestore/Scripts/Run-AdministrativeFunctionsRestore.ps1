@@ -18,6 +18,25 @@ $SettingsPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\set
 $DefaultBackupRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups"
 $RestoreScriptPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Scripts\Restore-CustomRole-Full.ps1"
 
+function Get-ValidBackupFolder {
+    param(
+        [string]$BackupRoot
+    )
+
+    if (-not (Test-Path $BackupRoot)) { return $null }
+
+    $requiredFiles = @('manifest.json','roleDefinitions.json','roleAssignments.json')
+    $folders = @(Get-ChildItem -Path $BackupRoot -Directory -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending)
+
+    foreach ($folder in $folders) {
+        $missing = @($requiredFiles | Where-Object { -not (Test-Path (Join-Path $folder.FullName $_)) })
+        if ($missing.Count -eq 0) { return $folder.FullName }
+    }
+
+    return $null
+}
+
 if (-not (Test-Path $SettingsPath)) {
     throw "settings.json not found at $SettingsPath. Run backup setup first."
 }
@@ -37,15 +56,11 @@ if ([string]::IsNullOrWhiteSpace($SnapshotFolder)) {
         throw "BackupRoot does not exist: $backupRoot"
     }
 
-    $latest = Get-ChildItem -Path $backupRoot -Directory -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
+    $SnapshotFolder = Get-ValidBackupFolder -BackupRoot $backupRoot
 
-    if (-not $latest) {
-        throw "No backup snapshots found under $backupRoot"
+    if (-not $SnapshotFolder) {
+        throw "No valid backup snapshots found under $backupRoot (missing manifest.json, roleDefinitions.json, or roleAssignments.json)."
     }
-
-    $SnapshotFolder = $latest.FullName
 }
 
 if (-not (Test-Path $RestoreScriptPath)) {
