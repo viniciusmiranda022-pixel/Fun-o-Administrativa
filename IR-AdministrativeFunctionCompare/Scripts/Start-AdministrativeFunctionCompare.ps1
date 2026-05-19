@@ -28,6 +28,10 @@ $DefaultClientId = ""
 $DefaultThumbprint = ""
 $script:SettingsLoaded = $false
 $script:SettingsErrorMessage = ""
+$script:TenantId = ""
+$script:ClientId = ""
+$script:CertificateThumbprint = ""
+$script:BackupRoot = $DefaultBackupRoot
 
 function Write-Log {
     param(
@@ -875,11 +879,17 @@ try {
     $TxtTenantId.Text = [string]$settings.TenantId
     $TxtClientId.Text = [string]$settings.ClientId
     $TxtThumbprint.Text = [string]$settings.CertificateThumbprint
+    $script:TenantId = [string]$settings.TenantId
+    $script:ClientId = [string]$settings.ClientId
+    $script:CertificateThumbprint = [string]$settings.CertificateThumbprint
     $script:BackupRoot = if (-not [string]::IsNullOrWhiteSpace([string]$settings.BackupRoot)) { [string]$settings.BackupRoot } else { $DefaultBackupRoot }
     $script:SettingsLoaded = $true
     Write-Log "Settings loaded successfully from $BackupSettingsPath"
 }
 catch {
+    $script:TenantId = ""
+    $script:ClientId = ""
+    $script:CertificateThumbprint = ""
     $script:BackupRoot = $DefaultBackupRoot
     $script:SettingsLoaded = $false
     $script:SettingsErrorMessage = $_.Exception.Message
@@ -1130,7 +1140,12 @@ $BtnRestoreSelected.Add_Click({
         Set-UiState -StatusText "Status: running restore for '$($item.RoleName)'..." -Busy $true
         Write-Log "Starting external restore for role '$($item.RoleName)'"
 
-        Invoke-ExternalRestore -TenantId $TxtTenantId.Text -ClientId $TxtClientId.Text -Thumbprint $TxtThumbprint.Text -RoleName $item.RoleName -SnapshotFolder $TxtSnapshotFolder.Text
+        if ([string]::IsNullOrWhiteSpace($script:TenantId)) { throw "TenantId vazio. Verifique settings.json." }
+        if ([string]::IsNullOrWhiteSpace($script:ClientId)) { throw "ClientId vazio. Verifique settings.json." }
+        if ([string]::IsNullOrWhiteSpace($script:CertificateThumbprint)) { throw "CertificateThumbprint vazio. Verifique settings.json." }
+        if ([string]::IsNullOrWhiteSpace($TxtSnapshotFolder.Text)) { throw "SnapshotFolder vazio. Selecione um backup válido." }
+
+        Invoke-ExternalRestore -TenantId $script:TenantId -ClientId $script:ClientId -Thumbprint $script:CertificateThumbprint -RoleName $item.RoleName -SnapshotFolder $TxtSnapshotFolder.Text
 
         $TxtStatus.Text = "Status: restore completed. Run a new compare to validate the result."
         [System.Windows.MessageBox]::Show("Restore completed successfully for role '$($item.RoleName)'. Run Compare to refresh the differences view.", "Restore completed")
