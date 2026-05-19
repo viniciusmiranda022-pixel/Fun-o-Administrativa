@@ -11,4 +11,4 @@ if (-not (Test-Path $installer)) {
     throw "Install.ps1 não encontrado em: $installer"
 }
 
-& $installer -SourcePath $SourcePath -InstallRoot $InstallRoot
+& $installer -PackageRoot $SourcePath -ProgramDataRoot $InstallRoot
