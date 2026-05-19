@@ -42,7 +42,7 @@ function Get-ValidBackupFolder {
 }
 
 if (-not (Test-Path $SettingsPath)) {
-    throw "settings.json not found at $SettingsPath. Run backup setup first."
+    throw "settings.json não encontrado em $SettingsPath. Execute a configuração do backup primeiro."
 }
 
 $settings = Get-Content $SettingsPath -Raw | ConvertFrom-Json
@@ -57,18 +57,18 @@ if ([string]::IsNullOrWhiteSpace($thumb)) { throw "CertificateThumbprint vazio. 
 
 if ([string]::IsNullOrWhiteSpace($SnapshotFolder)) {
     if (-not (Test-Path $backupRoot)) {
-        throw "BackupRoot does not exist: $backupRoot"
+        throw "BackupRoot não existe: $backupRoot"
     }
 
     $SnapshotFolder = Get-ValidBackupFolder -BackupRoot $backupRoot
 
     if (-not $SnapshotFolder) {
-        throw "No valid backup snapshots found under $backupRoot (missing manifest.json, roleDefinitions.json, or roleAssignments.json)."
+        throw "Nenhum snapshot de backup válido encontrado em $backupRoot (faltando manifest.json, roleDefinitions.json ou roleAssignments.json)."
     }
 }
 
 if (-not (Test-Path $RestoreScriptPath)) {
-    throw "Restore script not found at $RestoreScriptPath"
+    throw "Script de restauração não encontrado em $RestoreScriptPath"
 }
 
 & powershell.exe -ExecutionPolicy Bypass -File $RestoreScriptPath `
