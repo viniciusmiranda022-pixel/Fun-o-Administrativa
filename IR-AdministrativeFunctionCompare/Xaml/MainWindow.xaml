@@ -70,7 +70,7 @@
                     </Grid>
                 </Border>
 
-                <TabControl x:Name="MainTabs" Grid.Row="1" Background="White" BorderThickness="0" SelectedIndex="3">
+                <TabControl x:Name="MainTabs" Grid.Row="1" Background="White" BorderThickness="0" SelectedIndex="4">
                     <TabControl.Resources>
                         <Style TargetType="TabItem">
                             <Setter Property="FontSize" Value="12"/>
@@ -115,7 +115,7 @@
                     </StackPanel>
                 </Border>
 
-                <Grid x:Name="DifferencesView" Grid.Row="3" Margin="12">
+                <Grid x:Name="DifferencesView" Grid.Row="3" Margin="12" Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="62"/>
                         <RowDefinition Height="42"/>
@@ -258,6 +258,96 @@
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
+
+                <Grid x:Name="EventsView" Grid.Row="3" Margin="12">
+                    <Grid.RowDefinitions><RowDefinition Height="105"/><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="20,14,20,12">
+                        <DockPanel>
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Top">
+                                <TextBlock Text="Severity:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox Width="86" Height="28" SelectedIndex="0" FontSize="12" Margin="0,0,14,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Information"/><ComboBoxItem Content="Warning"/><ComboBoxItem Content="Error"/><ComboBoxItem Content="Critical"/><ComboBoxItem Content="Success"/></ComboBox>
+                                <TextBlock Text="Relevance:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox Width="86" Height="28" SelectedIndex="0" FontSize="12"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Acknowledged"/><ComboBoxItem Content="Unacknowledged"/><ComboBoxItem Content="Relevant"/><ComboBoxItem Content="Not Relevant"/></ComboBox>
+                            </StackPanel>
+                            <Grid DockPanel.Dock="Bottom" Margin="0,36,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Top">
+                                    <TextBlock Text="Today" Foreground="#0078A8" FontSize="12" Margin="0,0,0,3"/>
+                                    <TextBlock Text="7 days" Foreground="#0078A8" FontSize="12" Margin="0,0,0,3"/>
+                                    <TextBlock Text="30 days" Foreground="#0078A8" FontSize="12" Margin="0,0,0,3"/>
+                                    <TextBlock Text="Custom range" Foreground="#0078A8" FontSize="12"/>
+                                </StackPanel>
+                                <Canvas Grid.Column="1" Height="75" Margin="0,0,0,0">
+                                    <Line X1="0" Y1="70" X2="1460" Y2="70" Stroke="#CFCFCF" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="58" X2="1460" Y2="58" Stroke="#E5E5E5" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="46" X2="1460" Y2="46" Stroke="#E5E5E5" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="34" X2="1460" Y2="34" Stroke="#E5E5E5" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="22" X2="1460" Y2="22" Stroke="#E5E5E5" StrokeThickness="1"/>
+                                    <Line X1="0" Y1="10" X2="1460" Y2="10" Stroke="#E5E5E5" StrokeThickness="1"/>
+                                    <Rectangle Fill="#4AA3DF" Width="16" Height="24" Canvas.Left="860" Canvas.Top="46"/>
+                                    <Rectangle Fill="#76B900" Width="16" Height="16" Canvas.Left="878" Canvas.Top="54"/>
+                                    <Rectangle Fill="#FFC400" Width="16" Height="14" Canvas.Left="896" Canvas.Top="56"/>
+                                    <Rectangle Fill="#4AA3DF" Width="16" Height="64" Canvas.Left="1100" Canvas.Top="6"/>
+                                    <Rectangle Fill="#76B900" Width="16" Height="20" Canvas.Left="1118" Canvas.Top="50"/>
+                                    <Rectangle Fill="#E53935" Width="16" Height="12" Canvas.Left="1136" Canvas.Top="58"/>
+                                    <TextBlock Text="Apr 17" FontSize="11" Foreground="#666666" Canvas.Left="0" Canvas.Top="72"/>
+                                    <TextBlock Text="Apr 27" FontSize="11" Foreground="#666666" Canvas.Left="360" Canvas.Top="72"/>
+                                    <TextBlock Text="May 7" FontSize="11" Foreground="#666666" Canvas.Left="760" Canvas.Top="72"/>
+                                    <TextBlock Text="May 17" FontSize="11" Foreground="#666666" Canvas.Left="1180" Canvas.Top="72"/>
+                                    <TextBlock Text="May 19" FontSize="11" Foreground="#666666" Canvas.Left="1330" Canvas.Top="72"/>
+                                </Canvas>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+                    <Border Grid.Row="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1">
+                        <Grid Margin="12,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="↗ EXPORT" Foreground="#B7B7B7" FontSize="12" FontWeight="SemiBold" Margin="0,0,24,0"/>
+                                <TextBlock Text="☑ ACKNOWLEDGE" Foreground="#B7B7B7" FontSize="12" FontWeight="SemiBold" Margin="0,0,24,0"/>
+                                <TextBlock Text="⚙ EDIT COLUMNS" Foreground="#0078A8" FontSize="12" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="605 events" Foreground="#333333" FontSize="12" Margin="0,0,12,0"/>
+                                <TextBox Width="190" Height="28" Text="Search" FontSize="12"/>
+                                <Button Content="Search" Width="70" Height="28" Margin="8,0,0,0" Background="#0078A8" Foreground="White" BorderBrush="#0078A8" FontSize="12"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="38"/></Grid.RowDefinitions>
+                        <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderBrush="#D0D0D0" BorderThickness="1" HeadersVisibility="Column">
+                            <DataGrid.Resources>
+                                <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#F2F2F2"/><Setter Property="Foreground" Value="#333333"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="12"/><Setter Property="Height" Value="34"/></Style>
+                                <Style TargetType="DataGridRow"><Setter Property="Height" Value="34"/><Setter Property="FontSize" Value="12"/><Setter Property="Background" Value="White"/><Setter Property="Foreground" Value="#222222"/></Style>
+                            </DataGrid.Resources>
+                            <DataGrid.Columns>
+                                <DataGridCheckBoxColumn Width="42"/>
+                                <DataGridTextColumn Header="" Width="36"/>
+                                <DataGridTextColumn Header="" Width="42"/>
+                                <DataGridTextColumn Header="Time" Width="170"/>
+                                <DataGridTextColumn Header="Description" Width="620"/>
+                                <DataGridTextColumn Header="Object Name" Width="320"/>
+                                <DataGridTextColumn Header="Task Name" Width="360"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Border Grid.Row="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1,0,1,1">
+                            <Grid Margin="8,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="1-400 of 605 Results" VerticalAlignment="Center" FontSize="12" Foreground="#333333"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Show" FontSize="12" Margin="0,0,6,0" Foreground="#333333"/>
+                                    <ComboBox Width="58" Height="24" SelectedIndex="3"><ComboBoxItem Content="25"/><ComboBoxItem Content="50"/><ComboBoxItem Content="100"/><ComboBoxItem Content="400"/></ComboBox>
+                                    <TextBlock Text=" ⏮  ◀ " Foreground="#C0C0C0" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    <TextBox Text="1" Width="36" Height="24" BorderBrush="#CFCFCF" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                                    <TextBlock Text=" / 2 " Foreground="#333333" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="▶  ⏭" Foreground="#666666" FontSize="12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
 
                 <Grid x:Name="TasksView" Grid.Row="3" Margin="12" Visibility="Collapsed">
                     <Grid.RowDefinitions><RowDefinition Height="58"/><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
