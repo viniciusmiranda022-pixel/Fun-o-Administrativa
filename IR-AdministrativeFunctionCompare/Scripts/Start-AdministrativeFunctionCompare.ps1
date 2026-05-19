@@ -896,6 +896,11 @@ $GridManageBackupsTenants = $window.FindName("GridManageBackupsTenants")
 $BtnCloseConfigureBackup = $window.FindName("BtnCloseConfigureBackup")
 $BtnCancelConfigureBackup = $window.FindName("BtnCancelConfigureBackup")
 $BtnSaveConfigureBackup = $window.FindName("BtnSaveConfigureBackup")
+$ManageRestoreOverlay = $window.FindName("ManageRestoreOverlay")
+$BtnCloseManageRestore = $window.FindName("BtnCloseManageRestore")
+$BtnCancelManageRestore = $window.FindName("BtnCancelManageRestore")
+$GridManageRestoreTenants = $window.FindName("GridManageRestoreTenants")
+$TxtManageRestoreSearch = $window.FindName("TxtManageRestoreSearch")
 $TxtRetentionPolicy = $window.FindName("TxtRetentionPolicy")
 $CmbBackupSchedule = $window.FindName("CmbBackupSchedule")
 $ChkOpt1 = $window.FindName("ChkOpt1")
@@ -946,6 +951,17 @@ $script:ManageBackupData.Add([pscustomobject]@{
 })
 $GridManageBackupsTenants.ItemsSource = $script:ManageBackupData
 $GridManageBackupsTenants.SelectedIndex = 0
+
+$script:ManageRestoreData = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+$script:ManageRestoreData.Add([pscustomobject]@{
+    Tenant = "Contoso"
+    ConsentIcon = "✔"
+    ConsentColor = "#76B900"
+    ConsentTooltip = "Consentimento configurado e válido para operações de restore."
+    ConsentStatus = "Granted"
+})
+$GridManageRestoreTenants.ItemsSource = $script:ManageRestoreData
+$GridManageRestoreTenants.SelectedIndex = 0
 
 $TxtTenantNotes.Text = "Security: every compare/restore operation uses Service Principal + Certificate (app-only)." +
 "`r`n`r`nInteractive sign-in: for setup and initial validation, the provided tenant is required and the connection enforces Connect-MgGraph -TenantId." +
@@ -1016,6 +1032,42 @@ $BtnEditBackup.Add_Click($openConfigureBackup)
 $BtnCloseConfigureBackup.Add_Click($closeConfigureBackup)
 $BtnCancelConfigureBackup.Add_Click($closeConfigureBackup)
 
+
+$closeManageRestore = {
+    $ManageRestoreOverlay.Visibility = "Collapsed"
+}
+
+$BtnCloseManageRestore.Add_Click($closeManageRestore)
+$BtnCancelManageRestore.Add_Click($closeManageRestore)
+
+$GridManageRestoreTenants.Add_MouseDoubleClick({
+    $selectedTenant = $GridManageRestoreTenants.SelectedItem
+    if ($selectedTenant -and [string]$selectedTenant.ConsentStatus -eq "Granted") {
+        [System.Windows.MessageBox]::Show("A próxima etapa deve iniciar em modo de pré-visualização. Nenhuma alteração será aplicada sem confirmação explícita.", "Manage Restore")
+        Write-Log "Manage Restore: tenant '$($selectedTenant.Tenant)' pronto para avançar ao preview de restore."
+    }
+    else {
+        [System.Windows.MessageBox]::Show("O consentimento necessário para restore não está configurado ou está incompleto.", "Manage Restore")
+    }
+})
+
+$TxtManageRestoreSearch.Add_GotFocus({
+    if ($TxtManageRestoreSearch.Text -eq "Search") { $TxtManageRestoreSearch.Text = "" }
+})
+$TxtManageRestoreSearch.Add_LostFocus({
+    if ([string]::IsNullOrWhiteSpace($TxtManageRestoreSearch.Text)) { $TxtManageRestoreSearch.Text = "Search" }
+})
+$TxtManageRestoreSearch.Add_TextChanged({
+    if (-not $GridManageRestoreTenants) { return }
+    $term = $TxtManageRestoreSearch.Text
+    if ([string]::IsNullOrWhiteSpace($term) -or $term -eq "Search") {
+        $GridManageRestoreTenants.ItemsSource = $script:ManageRestoreData
+        return
+    }
+    $filtered = @($script:ManageRestoreData | Where-Object { $_.Tenant -like "*$term*" })
+    $GridManageRestoreTenants.ItemsSource = $filtered
+})
+
 $BtnSaveConfigureBackup.Add_Click({
     $retentionValue = 0
     if (-not [int]::TryParse($TxtRetentionPolicy.Text, [ref]$retentionValue) -or $retentionValue -le 0) {
@@ -1052,17 +1104,24 @@ $window.Add_PreviewKeyDown({
             & $closeManageBackups
             $e.Handled = $true
         }
+        elseif ($ManageRestoreOverlay.Visibility -eq "Visible") {
+            & $closeManageRestore
+            $e.Handled = $true
+        }
     }
 })
 
 $BtnRefreshBackups.Add_Click({
     try {
-        & $loadBackupsAction
+        $MainTabs.SelectedIndex = 0
+        $ManageRestoreOverlay.Visibility = "Visible"
+        Write-Log "Manage Restore modal opened."
+        Add-TaskEntry -Task "Open Manage Restore" -Status "Completed" -Details "Tenant list loaded"
     }
     catch {
-        [System.Windows.MessageBox]::Show("Não foi possível carregar automaticamente a lista de backups. Verifique o log do Compare.", "Error loading backup list")
-        Write-Log ("Error loading backup list: " + $_.Exception.ToString()) -Severity "ERROR"
-        Add-TaskEntry -Task "Refresh Backups" -Status "Failed" -Details $_.Exception.Message
+        [System.Windows.MessageBox]::Show("Não foi possível abrir a tela Manage Restore.", "Manage Restore")
+        Write-Log ("Error opening Manage Restore: " + $_.Exception.ToString()) -Severity "ERROR"
+        Add-TaskEntry -Task "Open Manage Restore" -Status "Failed" -Details $_.Exception.Message
     }
 })
 
