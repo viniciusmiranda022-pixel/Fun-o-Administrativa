@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [string]$SettingsPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json',
+    [string]$SettingsPath = (Join-Path 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup' 'Config\settings.json'),
     [int]$CertificateValidityMonths = 24,
     [switch]$SkipGraphTest
 )
@@ -12,12 +12,15 @@ try {
     chcp 65001 | Out-Null
 } catch {}
 
+$ProgramDataQuestRoot = 'C:\ProgramData\Quest'
+$BackupInstallRoot = Join-Path $ProgramDataQuestRoot 'IR-AdministrativeFunctionBackup'
+
 $ErrorActionPreference = 'Stop'
 
 $sharedModulePath = Join-Path $PSScriptRoot 'IR-AdministrativeFunctions.psm1'
 Import-Module $sharedModulePath -Force
 
-$InstallRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup'
+$InstallRoot = $BackupInstallRoot
 $BootstrapLogPath = Join-Path $InstallRoot 'Logs\tenant-bootstrap.log'
 
 $AppDisplayName = 'Quest Recovery Function - Administrative Roles Backup'

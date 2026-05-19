@@ -14,9 +14,13 @@ try {
     chcp 65001 | Out-Null
 } catch {}
 
-$SettingsPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json"
-$DefaultBackupRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Backups"
-$RestoreScriptPath = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore\Scripts\Restore-CustomRole-Full.ps1"
+$ProgramDataQuestRoot = "C:\ProgramData\Quest"
+$BackupInstallRoot = Join-Path $ProgramDataQuestRoot "IR-AdministrativeFunctionBackup"
+$RestoreInstallRoot = Join-Path $ProgramDataQuestRoot "IR-AdministrativeFunctionRestore"
+
+$SettingsPath = Join-Path $BackupInstallRoot "Config\settings.json"
+$DefaultBackupRoot = Join-Path $BackupInstallRoot "Backups"
+$RestoreScriptPath = Join-Path $RestoreInstallRoot "Scripts\Restore-CustomRole-Full.ps1"
 
 function Get-ValidBackupFolder {
     param(

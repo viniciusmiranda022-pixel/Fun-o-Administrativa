@@ -1,8 +1,10 @@
 ﻿[CmdletBinding()]
 param(
     [string]$SourcePath = (Join-Path $PSScriptRoot 'IR-AdministrativeFunctionBackup'),
-    [string]$InstallRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup'
+    [string]$InstallRoot = (Join-Path 'C:\ProgramData\Quest' 'IR-AdministrativeFunctionBackup')
 )
+
+$ProgramDataQuestRoot = 'C:\ProgramData\Quest'
 
 $ErrorActionPreference = 'Stop'
 
