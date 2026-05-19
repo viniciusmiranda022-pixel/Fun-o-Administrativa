@@ -14,6 +14,9 @@ try {
 
 $ErrorActionPreference = 'Stop'
 
+$sharedModulePath = Join-Path $PSScriptRoot 'IR-AdministrativeFunctions.psm1'
+Import-Module $sharedModulePath -Force
+
 $InstallRoot = 'C:\ProgramData\Quest\IR-AdministrativeFunctionBackup'
 $BootstrapLogPath = Join-Path $InstallRoot 'Logs\tenant-bootstrap.log'
 
@@ -37,46 +40,6 @@ $OptionalApplicationPermissions = @(
 )
 
 
-
-function Ensure-MicrosoftGraphPowerShell {
-    $requiredCommands = @('Connect-MgGraph','Disconnect-MgGraph','Get-MgApplication','New-MgApplication','Update-MgApplication','Get-MgServicePrincipal','New-MgServicePrincipal','Get-MgRoleManagementDirectoryRoleDefinition')
-    $missingCommands = @($requiredCommands | Where-Object { -not (Get-Command $_ -ErrorAction SilentlyContinue) })
-    if ($missingCommands.Count -eq 0) { return }
-
-    Write-Host "Microsoft Graph PowerShell não está disponível. Instalando módulo Microsoft.Graph automaticamente..." -ForegroundColor Yellow
-    try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    } catch {}
-
-    try {
-        if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Null
-        }
-    } catch {
-        Write-Host "WARNING: não foi possível preparar o provider NuGet automaticamente: $($_.Exception.Message)" -ForegroundColor Yellow
-    }
-
-    try {
-        Install-Module Microsoft.Graph -Scope AllUsers -Force -AllowClobber -Repository PSGallery
-    } catch {
-        Write-Host "Instalação em AllUsers falhou; tentando CurrentUser. Detalhes: $($_.Exception.Message)" -ForegroundColor Yellow
-        Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber -Repository PSGallery
-    }
-
-    Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
-    Import-Module Microsoft.Graph.Applications -ErrorAction Stop
-    Import-Module Microsoft.Graph.Identity.DirectoryManagement -ErrorAction SilentlyContinue
-    Import-Module Microsoft.Graph.Identity.Governance -ErrorAction SilentlyContinue
-}
-
-function Initialize-BackupDirectories {
-    foreach ($folder in @('Config','Logs','Backups','Certificates','Assets')) {
-        $path = Join-Path $InstallRoot $folder
-        if (-not (Test-Path $path)) {
-            New-Item -ItemType Directory -Path $path -Force | Out-Null
-        }
-    }
-}
 
 function Get-DefaultSettings {
     [ordered]@{
@@ -106,33 +69,6 @@ function Export-PublicCertificate {
     $cert = Get-Item "Cert:\LocalMachine\My\$Thumbprint"
     Export-Certificate -Cert $cert -FilePath $cerPath -Force | Out-Null
     return $cerPath
-}
-
-function Test-GraphConnection {
-    param(
-        [string]$TenantId,
-        [string]$ClientId,
-        [string]$Thumbprint,
-        [int]$MaxAttempts = 8,
-        [int]$DelaySeconds = 15
-    )
-
-    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-        try {
-            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
-            Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
-            Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-            return
-        } catch {
-            $lastError = $_.Exception.Message
-            Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-            if ($attempt -eq $MaxAttempts) {
-                throw "Configuração salva. A validação app-only final falhou, possivelmente por propagação do certificado no Microsoft Entra ID. Aguarde alguns minutos e teste novamente. Último erro: $lastError"
-            }
-            Start-Sleep -Seconds $DelaySeconds
-        }
-    }
 }
 
 function Add-CertificateToApplication {
@@ -204,7 +140,7 @@ function Ensure-GraphApplicationPermissions {
     }
 }
 
-Initialize-BackupDirectories
+Initialize-BackupDirectories -RootPath $InstallRoot
 Ensure-MicrosoftGraphPowerShell
 
 Add-Type -AssemblyName System.Windows.Forms
