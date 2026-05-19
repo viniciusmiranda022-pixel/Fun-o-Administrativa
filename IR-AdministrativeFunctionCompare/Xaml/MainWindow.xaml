@@ -115,6 +115,41 @@
                     </StackPanel>
                 </Border>
 
+
+                <Border x:Name="ProcessingBanner" Grid.Row="3" Width="420" Height="54" Background="#43AD4B" CornerRadius="2" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10,0,0" Visibility="Collapsed" Panel.ZIndex="20">
+                    <Border.Effect><DropShadowEffect Color="#000000" BlurRadius="8" ShadowDepth="2" Opacity="0.25"/></Border.Effect>
+                    <Grid Margin="16,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center" Foreground="White" FontSize="13">
+                            <Run x:Name="TxtProcessingBannerMessage" Text="Processing 1 object. "/><Run Text="View details" TextDecorations="Underline"/>
+                        </TextBlock>
+                        <Button x:Name="BtnCloseProcessingBanner" Grid.Column="1" Content="×" FontSize="18" Foreground="White" Background="Transparent" BorderThickness="0" Width="24" Height="24" VerticalAlignment="Center" Cursor="Hand"/>
+                        <Button x:Name="BtnProcessingViewDetails" Grid.ColumnSpan="2" Background="Transparent" BorderThickness="0" Cursor="Hand"/>
+                    </Grid>
+                </Border>
+
+                <Grid x:Name="TasksView" Grid.Row="3" Margin="12" Visibility="Collapsed">
+                    <Grid.RowDefinitions><RowDefinition Height="58"/><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="20,14,20,12">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Status:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="88" Height="28" SelectedIndex="0" Margin="0,0,14,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Queued"/><ComboBoxItem Content="Running"/><ComboBoxItem Content="Completed"/><ComboBoxItem Content="Failed"/><ComboBoxItem Content="Cancelled"/></ComboBox>
+                            <TextBlock Text="Type:" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="88" Height="28" SelectedIndex="0" Margin="0,0,14,0"><ComboBoxItem Content="Any"/><ComboBoxItem Content="Backup"/><ComboBoxItem Content="Unpacking"/><ComboBoxItem Content="Differences"/><ComboBoxItem Content="Restore"/><ComboBoxItem Content="Validation"/></ComboBox>
+                            <Border x:Name="TaskNameFilterChip" Background="#0078A8" CornerRadius="14" Height="24" Padding="10,3" VerticalAlignment="Center" Visibility="Collapsed"><StackPanel Orientation="Horizontal"><TextBlock Text="Task name: Unpack backups" Foreground="White" FontSize="12"/><TextBlock Text="  ×" Foreground="White" FontSize="12"/></StackPanel></Border>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Row="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Padding="12,0">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="⚙ EDIT COLUMNS" Foreground="#0078A8" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="TxtTasksCount" Text="0 task" FontSize="12" Margin="0,0,12,0"/><TextBox Width="190" Height="28" Text="Search"/><Button Content="Search" Width="70" Height="28" Margin="8,0,0,0" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/></StackPanel>
+                        </Grid>
+                    </Border>
+                    <DataGrid x:Name="GridTasksMain" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderBrush="#D0D0D0" BorderThickness="1" HeadersVisibility="Column">
+                        <DataGrid.Columns><DataGridTextColumn Header="" Binding="{Binding StatusIcon}" Width="45"/><DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="280"/><DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="170"/><DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="260"/><DataGridTextColumn Header="Modified" Binding="{Binding Modified}" Width="260"/><DataGridTextColumn Header="Created" Binding="{Binding Created}" Width="260"/><DataGridTextColumn Header="Operation" Binding="{Binding Operation}" Width="280"/></DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
                 <ScrollViewer x:Name="DashboardView" Grid.Row="3" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <UniformGrid Columns="3" Margin="12">
                         <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" Margin="6" Padding="14"><StackPanel><TextBlock Text="Tenant is protected" FontSize="20"/><TextBlock Text="Name  Contoso" Foreground="#0078A8" Margin="0,8,0,0"/><TextBlock Text="Backup schedule  Enabled" Foreground="#0078A8"/><TextBlock Text="Retention  1825" Foreground="#0078A8"/></StackPanel></Border>
@@ -188,7 +223,7 @@
                                 <TextBlock Text="Compressed objects: 12,435"/>
                                 <TextBlock Text="Status: Completed"/>
                                 <TextBlock Text="Retention: 1825 days"/>
-                                <Button Content="UNPACK BACKUP" Margin="0,16,0,0" Height="32" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/>
+                                <Button x:Name="BtnUnpackBackup" Content="UNPACK" Margin="0,16,0,0" Height="32" Background="#0078A8" Foreground="White" BorderBrush="#0078A8"/>
                             </StackPanel>
                         </Border>
                     </Grid>
