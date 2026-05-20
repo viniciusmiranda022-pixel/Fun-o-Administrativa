@@ -11,7 +11,7 @@ $root = $PSScriptRoot
 $ui = Join-Path $root 'ui'
 $webProject = Join-Path $root 'src\IR.AdminFunctions.Web\IR.AdminFunctions.Web.csproj'
 
-Write-Host "[1/3] Build do frontend (Vite)..." -ForegroundColor Cyan
+Write-Host "[1/4] Build do frontend (Vite)..." -ForegroundColor Cyan
 Push-Location $ui
 try {
     if (-not (Test-Path (Join-Path $ui 'node_modules'))) {
@@ -22,12 +22,12 @@ try {
     Pop-Location
 }
 
-Write-Host "[2/3] Limpando publish anterior..." -ForegroundColor Cyan
+Write-Host "[2/4] Limpando publish anterior..." -ForegroundColor Cyan
 if (Test-Path $OutputDir) {
     Remove-Item -Path $OutputDir -Recurse -Force
 }
 
-Write-Host "[3/3] dotnet publish ($Configuration / $Runtime)..." -ForegroundColor Cyan
+Write-Host "[3/4] dotnet publish ($Configuration / $Runtime)..." -ForegroundColor Cyan
 dotnet publish $webProject `
     -c $Configuration `
     -r $Runtime `
@@ -35,6 +35,21 @@ dotnet publish $webProject `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -o $OutputDir
+
+Write-Host "[4/4] Copiando modulos PowerShell para o pacote..." -ForegroundColor Cyan
+$psModulesDest = Join-Path $OutputDir 'PowerShellModules'
+$repoRoot = (Resolve-Path (Join-Path $root '..')).Path
+foreach ($mod in 'IR-AdministrativeFunctionBackup','IR-AdministrativeFunctionCompare','IR-AdministrativeFunctionRestore') {
+    $src = Join-Path $repoRoot $mod
+    if (Test-Path $src) {
+        $dst = Join-Path $psModulesDest $mod
+        New-Item -ItemType Directory -Path $dst -Force | Out-Null
+        Copy-Item -Path (Join-Path $src '*') -Destination $dst -Recurse -Force
+        Write-Host "  $mod copiado" -ForegroundColor Green
+    } else {
+        Write-Warning "Modulo $mod nao encontrado em $src"
+    }
+}
 
 Write-Host ""
 Write-Host "Pacote gerado em: $OutputDir" -ForegroundColor Green

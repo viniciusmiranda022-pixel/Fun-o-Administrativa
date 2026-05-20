@@ -40,6 +40,7 @@ builder.Services.AddSingleton<BackupReader>();
 builder.Services.AddSingleton<SettingsReader>();
 builder.Services.AddSingleton<LogReader>();
 builder.Services.AddSingleton<JobManager>();
+builder.Services.AddHostedService<ProvisioningService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
