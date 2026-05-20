@@ -79,6 +79,21 @@ public class TenantStore
         return tenants.FirstOrDefault(t => t.TenantId.Equals(tenantId, StringComparison.OrdinalIgnoreCase));
     }
 
+    public async Task<bool> UpdateConsentsAsync(string tenantId, TenantConsentsState consents)
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            var tenants = ReadFile();
+            var tenant = tenants.FirstOrDefault(t => t.TenantId.Equals(tenantId, StringComparison.OrdinalIgnoreCase));
+            if (tenant == null) return false;
+            tenant.Consents = consents;
+            WriteFile(tenants);
+            return true;
+        }
+        finally { _lock.Release(); }
+    }
+
     private List<TenantEntry> ReadFile()
     {
         if (!File.Exists(_tenantsFile)) return new List<TenantEntry>();
