@@ -49,6 +49,15 @@ public class AppRegistrationService
             rs.Open();
             _logger.LogInformation("[Setup:{SessionId}] Runspace aberto.", sessionId);
 
+            // Define ExecutionPolicy Bypass no escopo do processo para permitir Import-Module
+            using (var psPolicy = PowerShell.Create())
+            {
+                psPolicy.Runspace = rs;
+                psPolicy.AddScript("Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force");
+                psPolicy.Invoke();
+                _logger.LogInformation("[Setup:{SessionId}] ExecutionPolicy definida como Bypass (Process).", sessionId);
+            }
+
             using var ps = PowerShell.Create();
             ps.Runspace = rs;
 
