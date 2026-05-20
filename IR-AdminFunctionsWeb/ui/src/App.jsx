@@ -10,6 +10,7 @@ import Tenants from './pages/Tenants.jsx';
 import TenantConsents from './pages/TenantConsents.jsx';
 import Setup from './pages/Setup.jsx';
 import ManageBackups from './pages/ManageBackups.jsx';
+import ManageRestores from './pages/ManageRestores.jsx';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/tenants/:tenantId/consents" element={<TenantConsents />} />
         <Route path="/setup" element={<Setup />} />
         <Route path="/manage-backups" element={<ManageBackups />} />
+        <Route path="/manage-restores" element={<ManageRestores />} />
       </Route>
     </Routes>
   );
