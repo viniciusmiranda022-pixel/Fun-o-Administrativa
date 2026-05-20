@@ -1,6 +1,7 @@
 using IR.AdminFunctions.Web.Models;
 using IR.AdminFunctions.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace IR.AdminFunctions.Web.Controllers;
 
@@ -8,35 +9,109 @@ namespace IR.AdminFunctions.Web.Controllers;
 [Route("api/[controller]")]
 public class TenantsController : ControllerBase
 {
-    private readonly SettingsReader _settings;
+    private readonly TenantStore _store;
+    private readonly PowerShellRunner _ps;
 
-    public TenantsController(SettingsReader settings)
+    public TenantsController(TenantStore store, PowerShellRunner ps)
     {
-        _settings = settings;
+        _store = store;
+        _ps = ps;
     }
 
     [HttpGet]
-    public ActionResult<ApiResponse<IEnumerable<TenantInfo>>> Get()
+    public async Task<ActionResult<ApiResponse<IEnumerable<TenantEntry>>>> Get()
     {
-        var s = _settings.Read();
-        if (s == null || string.IsNullOrWhiteSpace(s.TenantId))
+        var tenants = await _store.ListAsync();
+        return ApiResponse<IEnumerable<TenantEntry>>.Ok(tenants);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<ApiResponse<TenantEntry>>> Add([FromBody] AddTenantRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.TenantId))
+            return BadRequest(ApiResponse<TenantEntry>.Fail("TenantId é obrigatório."));
+        if (string.IsNullOrWhiteSpace(req.ClientId))
+            return BadRequest(ApiResponse<TenantEntry>.Fail("ClientId é obrigatório."));
+        if (string.IsNullOrWhiteSpace(req.CertificateThumbprint))
+            return BadRequest(ApiResponse<TenantEntry>.Fail("CertificateThumbprint é obrigatório."));
+
+        try
         {
-            return ApiResponse<IEnumerable<TenantInfo>>.Ok(Array.Empty<TenantInfo>());
+            var entry = await _store.AddAsync(req);
+            return ApiResponse<TenantEntry>.Ok(entry);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ApiResponse<TenantEntry>.Fail(ex.Message));
+        }
+    }
+
+    [HttpDelete("{tenantId}")]
+    public async Task<ActionResult<ApiResponse<bool>>> Remove(string tenantId)
+    {
+        var removed = await _store.RemoveAsync(tenantId);
+        if (!removed)
+            return NotFound(ApiResponse<bool>.Fail($"Tenant {tenantId} não encontrado."));
+        return ApiResponse<bool>.Ok(true);
+    }
+
+    [HttpGet("{tenantId}/status")]
+    public async Task<ActionResult<ApiResponse<TenantStatusResult>>> TestConnection(string tenantId, CancellationToken ct)
+    {
+        var tenant = await _store.GetAsync(tenantId);
+        if (tenant == null)
+            return NotFound(ApiResponse<TenantStatusResult>.Fail("Tenant não encontrado."));
+
+        if (!tenant.IsConfigured)
+        {
+            return ApiResponse<TenantStatusResult>.Ok(new TenantStatusResult
+            {
+                TenantId = tenantId,
+                Status = "Unconfigured",
+                Message = "Preencha TenantId, ClientId e Thumbprint válidos."
+            });
         }
 
-        var configured = !string.IsNullOrWhiteSpace(s.ClientId)
-                         && !string.IsNullOrWhiteSpace(s.CertificateThumbprint);
-
-        var tenant = new TenantInfo
+        try
         {
-            TenantId = s.TenantId!,
-            ClientId = s.ClientId,
-            AppDisplayName = s.AppDisplayName,
-            DisplayName = s.AppDisplayName ?? s.TenantId!,
-            ConfiguredCorrectly = configured,
-            ConsentStatus = configured ? "Granted" : "Pending"
-        };
+            var script = $@"
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
+                Connect-MgGraph -TenantId '{tenant.TenantId}' -ClientId '{tenant.ClientId}' -CertificateThumbprint '{tenant.CertificateThumbprint}' -NoWelcome -ErrorAction Stop
+                $org = Get-MgOrganization -ErrorAction SilentlyContinue | Select-Object -First 1
+                Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+                if ($org) {{ $org.DisplayName + '|' + ($org.VerifiedDomains | Where-Object IsDefault | Select-Object -First 1 -ExpandProperty Name) }}
+                else {{ 'connected' }}
+            ";
 
-        return ApiResponse<IEnumerable<TenantInfo>>.Ok(new[] { tenant });
+            var result = await _ps.RunAsync(script, null, 60, ct);
+
+            if (!result.Success)
+            {
+                return ApiResponse<TenantStatusResult>.Ok(new TenantStatusResult
+                {
+                    TenantId = tenantId,
+                    Status = "Error",
+                    Message = result.Errors.FirstOrDefault() ?? "Falha na conexão."
+                });
+            }
+
+            var output = result.Output.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o)) ?? "connected";
+            return ApiResponse<TenantStatusResult>.Ok(new TenantStatusResult
+            {
+                TenantId = tenantId,
+                Status = "Connected",
+                Message = output
+            });
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<TenantStatusResult>.Ok(new TenantStatusResult
+            {
+                TenantId = tenantId,
+                Status = "Error",
+                Message = ex.Message
+            });
+        }
     }
 }

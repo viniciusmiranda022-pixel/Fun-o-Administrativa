@@ -1,3 +1,4 @@
+using IR.AdminFunctions.Web;
 using IR.AdminFunctions.Web.Services;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Serilog;
@@ -39,6 +40,8 @@ builder.Services.AddSingleton<BackupReader>();
 builder.Services.AddSingleton<SettingsReader>();
 builder.Services.AddSingleton<LogReader>();
 builder.Services.AddSingleton<JobManager>();
+builder.Services.AddSingleton<TenantStore>();
+builder.Services.AddHostedService<ProvisioningService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>

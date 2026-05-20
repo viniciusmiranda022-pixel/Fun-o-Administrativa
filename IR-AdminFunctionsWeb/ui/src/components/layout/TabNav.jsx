@@ -6,7 +6,8 @@ const tabs = [
   { to: '/unpacked', label: 'UNPACKED OBJECTS' },
   { to: '/differences', label: 'DIFFERENCES' },
   { to: '/events', label: 'EVENTS' },
-  { to: '/tasks', label: 'TASKS' }
+  { to: '/tasks', label: 'TASKS' },
+  { to: '/tenants', label: 'TENANTS' }
 ];
 
 export default function TabNav() {

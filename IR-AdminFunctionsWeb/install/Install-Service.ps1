@@ -3,7 +3,8 @@ param(
     [string]$InstallPath = 'C:\ProgramData\Quest\IR-AdministrativeFunctionWeb',
     [string]$PublishPath = (Join-Path $PSScriptRoot '..\publish'),
     [string]$ServiceName = 'IR-AdminFunctionsWeb',
-    [string]$ServiceAccount = 'NT AUTHORITY\NetworkService'
+    [string]$ServiceAccount = 'NT AUTHORITY\NetworkService',
+    [switch]$SkipProvision
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,6 +13,11 @@ $ErrorActionPreference = 'Stop'
 
 if (-not (Test-Path $PublishPath)) {
     throw "Pasta publish não encontrada: $PublishPath. Execute 'dotnet publish' antes."
+}
+
+if (-not $SkipProvision) {
+    Write-Host "Provisionando motor PowerShell..." -ForegroundColor Cyan
+    & (Join-Path $PSScriptRoot 'Provision-Scripts.ps1')
 }
 
 $exe = Join-Path $InstallPath 'IR.AdminFunctions.Web.exe'
