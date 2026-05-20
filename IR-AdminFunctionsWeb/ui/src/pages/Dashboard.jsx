@@ -98,6 +98,34 @@ function StatCard({ icon: Icon, title, value, subtitle, color = 'text-[#0078A8]'
   );
 }
 
+function CreateBackupModal({ tenant, onClose, onConfirm, busy }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-light">
+          <h2 className="text-base font-semibold text-[#222]">Create backup</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl">×</button>
+        </div>
+        <div className="px-6 py-5 text-sm text-[#333]">
+          Do you want to back up administrative functions for <strong>{tenant?.name || tenant?.tenantId}</strong>?
+          <p className="text-xs text-text-secondary mt-2">
+            Uma task de Administrative Function Backup será criada e aparecerá em Tasks.
+          </p>
+        </div>
+        <div className="flex justify-end gap-2 px-6 py-3 border-t border-border-light bg-gray-50">
+          <button onClick={onClose} disabled={busy}
+            className="px-4 py-2 text-sm border border-border-light rounded hover:bg-white disabled:opacity-60">Cancel</button>
+          <button onClick={onConfirm} disabled={busy}
+            className="px-4 py-2 text-sm bg-[#0078A8] text-white rounded hover:bg-[#006090] disabled:opacity-60 flex items-center gap-2">
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { selected, tenants, loading: tLoading } = useTenant();
@@ -105,6 +133,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -125,6 +154,7 @@ export default function Dashboard() {
     setBusy(true);
     try {
       const r = await api.runBackupFor(selected.tenantId);
+      setShowCreate(false);
       setNotice({ kind: 'info', message: 'The Administrative Function Backup task has been created.', jobId: r?.data?.id });
       load();
     } catch (e) {
@@ -183,7 +213,7 @@ export default function Dashboard() {
       <div className="flex flex-wrap gap-2 mb-5">
         <ActionButton icon={Database}   label="Manage Backups"      onClick={() => navigate('/manage-backups')} />
         <ActionButton icon={ShieldCheck} label="Manage Restores"     onClick={() => navigate('/manage-restores')} />
-        <ActionButton icon={Play}        label="Create Backup"        primary onClick={createBackup} disabled={busy || !selected} />
+        <ActionButton icon={Play}        label="Create Backup"        primary onClick={() => setShowCreate(true)} disabled={busy || !selected} />
         <ActionButton icon={Archive}     label="Unpack Backup"        onClick={() => navigate('/unpack')} />
         <ActionButton icon={RefreshCw}   label="Refresh Differences"  onClick={refreshDifferences} disabled={busy || !selected} />
       </div>
@@ -217,6 +247,10 @@ export default function Dashboard() {
                   subtitle={`${stats?.warningsCount ?? 0} avisos`} color="text-red-600"
                   onClick={() => navigate('/events')} />
       </div>
+
+      {showCreate && (
+        <CreateBackupModal tenant={selected} busy={busy} onClose={() => setShowCreate(false)} onConfirm={createBackup} />
+      )}
     </div>
   );
 }
