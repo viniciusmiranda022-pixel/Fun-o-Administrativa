@@ -42,7 +42,9 @@ public class ProvisioningService : IHostedService
     {
         try
         {
-            using var rs = System.Management.Automation.Runspaces.RunspaceFactory.CreateRunspace();
+            var iss = System.Management.Automation.Runspaces.InitialSessionState.CreateDefault();
+            iss.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
+            using var rs = System.Management.Automation.Runspaces.RunspaceFactory.CreateRunspace(iss);
             rs.Open();
 
             if (IsMicrosoftGraphAvailable(rs))

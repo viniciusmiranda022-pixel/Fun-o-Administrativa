@@ -91,7 +91,9 @@ public class OAuthController : ControllerBase
         var cfg = _appStore.Read();
         try
         {
-            using var rs = RunspaceFactory.CreateRunspace();
+            var iss = InitialSessionState.CreateDefault();
+            iss.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
+            using var rs = RunspaceFactory.CreateRunspace(iss);
             rs.Open();
             using var ps = PowerShell.Create();
             ps.Runspace = rs;

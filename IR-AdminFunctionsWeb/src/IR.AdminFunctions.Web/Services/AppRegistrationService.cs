@@ -55,7 +55,9 @@ public class AppRegistrationService
     {
         try
         {
-            using var rs = RunspaceFactory.CreateRunspace();
+            var iss = InitialSessionState.CreateDefault();
+            iss.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
+            using var rs = RunspaceFactory.CreateRunspace(iss);
             rs.Open();
 
             // Captura output em background para extrair o device code
