@@ -7,6 +7,9 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useTenant } from '../context/TenantContext.jsx';
+import ManageBackupsModal  from '../components/modals/ManageBackupsModal.jsx';
+import ManageRestoresModal from '../components/modals/ManageRestoresModal.jsx';
+import UnpackBackupModal   from '../components/modals/UnpackBackupModal.jsx';
 
 /* ─── Mini bar chart (SVG) ─────────────────────────────────────────── */
 function BackupBarChart({ backups }) {
@@ -356,6 +359,7 @@ export default function Dashboard() {
   const [notice, setNotice]     = useState(null);
   const [busy, setBusy]         = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [activeModal, setActiveModal] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -425,10 +429,10 @@ export default function Dashboard() {
     <div className="p-5">
       {/* Action buttons */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <ActionBtn Icon={Database}    label="Manage Backups"     onClick={() => navigate('/manage-backups')} />
-        <ActionBtn Icon={RotateCcw}   label="Manage Restores"    onClick={() => navigate('/manage-restores')} />
+        <ActionBtn Icon={Database}    label="Manage Backups"     onClick={() => setActiveModal('manageBackups')} />
+        <ActionBtn Icon={RotateCcw}   label="Manage Restores"    onClick={() => setActiveModal('manageRestores')} />
         <ActionBtn Icon={Play}        label="Create Backup"      onClick={() => setShowCreate(true)} disabled={busy || !selected} />
-        <ActionBtn Icon={Archive}     label="Unpack Backup"      onClick={() => navigate('/unpack')} />
+        <ActionBtn Icon={Archive}     label="Unpack Backup"      onClick={() => setActiveModal('unpackBackup')} />
         <ActionBtn Icon={RefreshCw}   label="Refresh Differences" onClick={refreshDiffs} disabled={busy || !selected} />
       </div>
 
@@ -455,7 +459,7 @@ export default function Dashboard() {
         <ProtectionCard
           stats={stats}
           tenant={stats?.tenant || selected}
-          onConfigure={() => navigate('/manage-backups')}
+          onConfigure={() => setActiveModal('manageBackups')}
         />
 
         {/* Col 2, row 1: Backups with bar chart */}
@@ -502,6 +506,25 @@ export default function Dashboard() {
           busy={busy}
           onClose={() => setShowCreate(false)}
           onConfirm={createBackup}
+        />
+      )}
+
+      {activeModal === 'manageBackups' && (
+        <ManageBackupsModal onClose={() => setActiveModal(null)} />
+      )}
+
+      {activeModal === 'manageRestores' && (
+        <ManageRestoresModal onClose={() => setActiveModal(null)} />
+      )}
+
+      {activeModal === 'unpackBackup' && (
+        <UnpackBackupModal
+          onClose={() => setActiveModal(null)}
+          onUnpacked={(jobId) => {
+            setActiveModal(null);
+            setNotice({ kind: 'success', msg: 'Unpack task created.', jobId });
+            load();
+          }}
         />
       )}
     </div>
