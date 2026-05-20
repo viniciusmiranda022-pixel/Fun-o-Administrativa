@@ -3,9 +3,9 @@
 ## Pré-requisitos
 
 1. Windows Server 2019+ (x64).
-2. Motor PowerShell de backup já instalado em `C:\ProgramData\Quest\IR-AdministrativeFunction*`.
-3. `settings.json` configurado em `C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json`.
-4. Certificado com chave privada em `Cert:\LocalMachine\My\` correspondente ao thumbprint do `settings.json`.
+2. Certificado com chave privada em `Cert:\LocalMachine\My\` para autenticação no Microsoft Graph.
+
+> O motor PowerShell (`IR-AdministrativeFunction*`) e um `settings.json` template são provisionados automaticamente em `C:\ProgramData\Quest\` pelo `Install-Service.ps1`. Após a instalação, edite `settings.json` com os dados reais do seu Entra ID (TenantId, ClientId, Thumbprint).
 
 ## Passos
 
@@ -32,7 +32,21 @@
    - Clique com botão direito → `Todas as tarefas` → `Gerenciar Chaves Privadas`
    - Adicione `NetworkService` com leitura
 
-5. Acesse `http://localhost:8080` no navegador.
+5. **Edite o `settings.json`** criado em `C:\ProgramData\Quest\IR-AdministrativeFunctionBackup\Config\settings.json` substituindo todos os campos `PREENCHER-*` pelos valores reais do seu Entra ID.
+
+6. Reinicie o serviço: `Restart-Service IR-AdminFunctionsWeb`.
+
+7. Acesse `http://localhost:8080` no navegador.
+
+## Provisionamento manual (modo dev)
+
+Se você estiver rodando em modo desenvolvimento (`dotnet run`) e quiser apenas criar a estrutura de pastas e copiar os scripts, sem instalar o serviço:
+
+```powershell
+.\install\Provision-Scripts.ps1
+```
+
+Use `-Force` para sobrescrever scripts e settings.json existentes.
 
 ## Desinstalar
 
