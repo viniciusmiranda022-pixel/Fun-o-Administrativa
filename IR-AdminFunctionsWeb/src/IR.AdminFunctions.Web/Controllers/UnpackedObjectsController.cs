@@ -1,0 +1,34 @@
+using IR.AdminFunctions.Web.Models;
+using IR.AdminFunctions.Web.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace IR.AdminFunctions.Web.Controllers;
+
+[ApiController]
+[Route("api/unpacked-objects")]
+public class UnpackedObjectsController : ControllerBase
+{
+    private readonly BackupReader _reader;
+
+    public UnpackedObjectsController(BackupReader reader)
+    {
+        _reader = reader;
+    }
+
+    [HttpGet]
+    public ActionResult<ApiResponse<UnpackedObjects>> Get([FromQuery] string backupId)
+    {
+        if (string.IsNullOrWhiteSpace(backupId))
+        {
+            return ApiResponse<UnpackedObjects>.Fail("backupId é obrigatório");
+        }
+
+        var data = _reader.GetUnpacked(backupId);
+        if (data == null)
+        {
+            return ApiResponse<UnpackedObjects>.Fail($"Backup {backupId} não encontrado");
+        }
+
+        return ApiResponse<UnpackedObjects>.Ok(data);
+    }
+}

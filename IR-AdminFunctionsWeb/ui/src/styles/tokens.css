@@ -1,0 +1,13 @@
+:root {
+  --bg-sidebar: #1F1F1F;
+  --bg-main: #FFFFFF;
+  --bg-panel: #F8F9FA;
+  --text-primary: #212529;
+  --text-secondary: #6C757D;
+  --accent-blue: #0066CC;
+  --accent-blue-hover: #0052A3;
+  --status-success: #28A745;
+  --status-error: #DC3545;
+  --status-warning: #FFC107;
+  --border-light: #DEE2E6;
+}
