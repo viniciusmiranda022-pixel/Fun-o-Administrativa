@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Loader2, RefreshCw, AlertTriangle, FileMinus, FilePlus, FileEdit,
-  ChevronDown, ChevronRight, RotateCcw, Eye, AlertCircle
+  ChevronDown, ChevronRight, RotateCcw, Eye, AlertCircle, BarChart2, List
 } from 'lucide-react';
 import { api, pollJob } from '../api/client.js';
 
@@ -152,6 +152,80 @@ function RestorePreviewModal({ items, onClose, onApply, applying, previewData, p
   );
 }
 
+function SummaryCard({ icon: Icon, label, count, color, onClick, active }) {
+  return (
+    <button onClick={onClick}
+      className={`flex flex-col items-center justify-center gap-2 p-5 rounded-lg border text-center transition-all ${active ? 'border-[#0078A8] bg-blue-50' : 'border-border-light bg-white hover:bg-gray-50'}`}
+      style={{ minWidth: 140 }}>
+      <Icon size={22} className={color} />
+      <div className={`text-3xl font-bold ${color}`}>{count}</div>
+      <div className="text-xs text-text-secondary">{label}</div>
+    </button>
+  );
+}
+
+function BarRow({ label, count, max, color }) {
+  const pct = max > 0 ? Math.round((count / max) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3 text-xs">
+      <div className="w-36 text-right text-text-secondary truncate">{label}</div>
+      <div className="flex-1 bg-gray-100 rounded-full h-3">
+        <div className={`${color} h-3 rounded-full transition-all`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="w-8 text-right font-mono font-semibold">{count}</div>
+    </div>
+  );
+}
+
+function ChartView({ rows, counts, onDrilldown }) {
+  const assignmentsDeleted = rows.filter((r) => classify(r) === 'Deleted' && (r.AssignmentsChanged || r.assignmentsChanged)).length;
+  const assignmentsAdded  = rows.filter((r) => classify(r) === 'Added'   && (r.AssignmentsChanged || r.assignmentsChanged)).length;
+  const permChanged       = rows.filter((r) => classify(r) === 'Modified' && (r.DefinitionChanged || r.definitionChanged)).length;
+  const notFound          = rows.filter((r) => (r.Status || '').toString().toLowerCase().includes('not found')).length;
+
+  const summaryCards = [
+    { label: 'Funções excluídas',   count: counts.Deleted,          color: 'text-red-600',    Icon: FileMinus,  filter: 'Deleted'  },
+    { label: 'Funções novas',       count: counts.Added,            color: 'text-blue-600',   Icon: FilePlus,   filter: 'Added'    },
+    { label: 'Funções alteradas',   count: counts.Modified,         color: 'text-yellow-600', Icon: FileEdit,   filter: 'Modified' },
+    { label: 'Sem mudanças',        count: counts.Unchanged,        color: 'text-gray-500',   Icon: Eye,        filter: 'Unchanged'},
+  ];
+
+  const barMax = Math.max(counts.Deleted, counts.Added, counts.Modified, assignmentsDeleted, assignmentsAdded, permChanged, 1);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-3">
+        {summaryCards.map(({ label, count, color, Icon, filter }) => (
+          <SummaryCard key={filter} icon={Icon} label={label} count={count} color={color}
+            onClick={() => onDrilldown(filter)} />
+        ))}
+      </div>
+
+      <div className="bg-white border border-border-light rounded-lg p-5">
+        <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-4">Distribuição por tipo de mudança</h3>
+        <div className="space-y-2.5">
+          <BarRow label="Funções excluídas"       count={counts.Deleted}          max={barMax} color="bg-red-400" />
+          <BarRow label="Funções novas"           count={counts.Added}            max={barMax} color="bg-blue-400" />
+          <BarRow label="Definição alterada"      count={permChanged}             max={barMax} color="bg-yellow-400" />
+          <BarRow label="Atribuições removidas"   count={assignmentsDeleted}      max={barMax} color="bg-orange-400" />
+          <BarRow label="Atribuições adicionadas" count={assignmentsAdded}        max={barMax} color="bg-teal-400" />
+          <BarRow label="Não encontrados"         count={notFound}                max={barMax} color="bg-gray-400" />
+        </div>
+      </div>
+
+      <div className="bg-white border border-border-light rounded-lg p-5">
+        <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-3">Resumo geral</h3>
+        <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs">
+          <div className="flex justify-between"><dt className="text-text-secondary">Total analisado:</dt><dd className="font-semibold">{rows.length}</dd></div>
+          <div className="flex justify-between"><dt className="text-text-secondary">Com divergência:</dt><dd className="font-semibold text-orange-700">{counts.Deleted + counts.Added + counts.Modified}</dd></div>
+          <div className="flex justify-between"><dt className="text-text-secondary">Permissões alteradas:</dt><dd className="font-semibold text-yellow-700">{permChanged}</dd></div>
+          <div className="flex justify-between"><dt className="text-text-secondary">Não encontrados:</dt><dd className="font-semibold text-red-700">{notFound}</dd></div>
+        </dl>
+      </div>
+    </div>
+  );
+}
+
 export default function Differences() {
   const navigate = useNavigate();
   const [rows, setRows] = useState([]);
@@ -165,6 +239,7 @@ export default function Differences() {
   const [previewData, setPreviewData] = useState(null);
   const [previewError, setPreviewError] = useState(null);
   const [applying, setApplying] = useState(false);
+  const [viewMode, setViewMode] = useState('list');
 
   const loadCached = () => {
     api.compareResults()
@@ -285,13 +360,23 @@ export default function Differences() {
               : 'Nenhuma comparação ainda. Clique em Refresh report para gerar.'}
           </p>
         </div>
-        <div className="flex gap-2">
-          {selected.size > 0 && (
+        <div className="flex gap-2 items-center">
+          {selected.size > 0 && viewMode === 'list' && (
             <button onClick={startRestoreSelected}
               className="px-3 py-1.5 text-xs bg-[#0078A8] text-white rounded hover:bg-[#006090] flex items-center gap-1.5">
               <RotateCcw size={12} /> Restore selected ({selected.size})
             </button>
           )}
+          <div className="flex border border-border-light rounded overflow-hidden text-xs">
+            <button onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 flex items-center gap-1 ${viewMode === 'list' ? 'bg-[#0078A8] text-white' : 'bg-white text-[#333] hover:bg-gray-50'}`}>
+              <List size={12} /> Lista
+            </button>
+            <button onClick={() => setViewMode('chart')}
+              className={`px-3 py-1.5 flex items-center gap-1 border-l border-border-light ${viewMode === 'chart' ? 'bg-[#0078A8] text-white' : 'bg-white text-[#333] hover:bg-gray-50'}`}>
+              <BarChart2 size={12} /> Gráfico
+            </button>
+          </div>
           <button onClick={handleRefresh} disabled={running}
             className="px-3 py-1.5 text-xs bg-white border border-border-light rounded hover:bg-gray-50 flex items-center gap-1.5 disabled:opacity-50">
             {running ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
@@ -302,6 +387,10 @@ export default function Differences() {
 
       {error && <div className="bg-red-50 border border-red-200 text-red-800 text-sm px-3 py-2 rounded mb-3">{error}</div>}
 
+      {viewMode === 'chart' ? (
+        <ChartView rows={rows} counts={counts} onDrilldown={(f) => { setViewMode('list'); setFilter(f); }} />
+      ) : (
+      <>
       <div className="flex flex-wrap gap-2 mb-4">
         <FilterTab value="All" label="Todos" count={rows.length} />
         <FilterTab value="Deleted" label="Excluídas" count={counts.Deleted} color="text-red-600" />
@@ -352,6 +441,8 @@ export default function Differences() {
           <AlertCircle size={14} />
           {selectedItems.length} item(ns) selecionado(s). Clique em <strong>Restore selected</strong> para revisar antes de aplicar.
         </div>
+      )}
+      </>
       )}
 
       {showRestore && (
