@@ -1,3 +1,4 @@
+using IR.AdminFunctions.Web;
 using IR.AdminFunctions.Web.Services;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Serilog;

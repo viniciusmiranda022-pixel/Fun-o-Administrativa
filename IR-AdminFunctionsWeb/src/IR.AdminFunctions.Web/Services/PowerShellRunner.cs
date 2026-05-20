@@ -77,7 +77,7 @@ public class PowerShellRunner
         var sw = Stopwatch.StartNew();
         _logger.LogInformation("Executando script {Script} com timeout {Timeout}s", scriptPath, timeoutSeconds);
 
-        PSDataCollection<PSObject>? results = null;
+        System.Collections.ObjectModel.Collection<PSObject>? results = null;
         var invokeTask = Task.Run(() => results = ps.Invoke(), cancellationToken);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
