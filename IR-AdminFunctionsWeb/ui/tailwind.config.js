@@ -17,6 +17,9 @@ export default {
         },
         border: {
           light: '#DEE2E6'
+        },
+        text: {
+          secondary: '#6C757D'
         }
       },
       fontFamily: {
