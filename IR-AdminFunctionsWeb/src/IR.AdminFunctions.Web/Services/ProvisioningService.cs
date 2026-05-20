@@ -27,13 +27,76 @@ public class ProvisioningService : IHostedService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Falha no auto-provisionamento. A aplicação continuará, mas algumas funcionalidades podem ficar indisponíveis.");
+            _logger.LogError(ex, "Falha no auto-provisionamento de arquivos. A aplicação continuará.");
         }
+
+        // Instalação do Microsoft.Graph em background para não bloquear o startup
+        _ = Task.Run(() => EnsurePowerShellDependencies(cancellationToken), cancellationToken);
 
         return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private void EnsurePowerShellDependencies(CancellationToken ct)
+    {
+        try
+        {
+            using var rs = System.Management.Automation.Runspaces.RunspaceFactory.CreateRunspace();
+            rs.Open();
+
+            if (IsMicrosoftGraphAvailable(rs))
+            {
+                _logger.LogInformation("Microsoft.Graph já está disponível — nenhuma instalação necessária.");
+                return;
+            }
+
+            _logger.LogInformation("Microsoft.Graph não encontrado. Instalando NuGet provider e Microsoft.Graph (Scope CurrentUser)...");
+
+            RunScript(rs, @"
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction Stop
+            ", "Install-PackageProvider NuGet");
+
+            if (ct.IsCancellationRequested) return;
+
+            RunScript(rs, @"
+                Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+            ", "Install-Module Microsoft.Graph");
+
+            _logger.LogInformation("Microsoft.Graph instalado com sucesso em CurrentUser.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha ao instalar Microsoft.Graph. Execute manualmente: " +
+                "Install-Module Microsoft.Graph -Scope CurrentUser -Force");
+        }
+    }
+
+    private static bool IsMicrosoftGraphAvailable(System.Management.Automation.Runspaces.Runspace rs)
+    {
+        using var ps = System.Management.Automation.PowerShell.Create();
+        ps.Runspace = rs;
+        ps.AddScript("(Get-Module -ListAvailable -Name Microsoft.Graph) -ne $null");
+        var result = ps.Invoke();
+        return result.Count > 0 && result[0]?.BaseObject is true;
+    }
+
+    private void RunScript(System.Management.Automation.Runspaces.Runspace rs, string script, string label)
+    {
+        using var ps = System.Management.Automation.PowerShell.Create();
+        ps.Runspace = rs;
+        ps.AddScript(script);
+        ps.Invoke();
+
+        if (ps.HadErrors)
+        {
+            var errors = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
+            throw new InvalidOperationException($"{label} falhou: {errors}");
+        }
+
+        _logger.LogInformation("{Label} concluído.", label);
+    }
 
     private void EnsureModule(string moduleName, string[] subFolders)
     {
