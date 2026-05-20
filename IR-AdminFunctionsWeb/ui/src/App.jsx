@@ -6,6 +6,7 @@ import UnpackedObjects from './pages/UnpackedObjects.jsx';
 import Differences from './pages/Differences.jsx';
 import Events from './pages/Events.jsx';
 import Tasks from './pages/Tasks.jsx';
+import Tenants from './pages/Tenants.jsx';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/differences" element={<Differences />} />
         <Route path="/events" element={<Events />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/tenants" element={<Tenants />} />
       </Route>
     </Routes>
   );

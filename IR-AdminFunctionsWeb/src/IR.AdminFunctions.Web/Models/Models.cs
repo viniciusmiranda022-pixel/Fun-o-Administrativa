@@ -37,6 +37,37 @@ public class TenantInfo
     public string? ConsentStatus { get; set; }
 }
 
+public class TenantEntry
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string TenantId { get; set; } = string.Empty;
+    public string? ClientId { get; set; }
+    public string? CertificateThumbprint { get; set; }
+    public string? Domain { get; set; }
+    public DateTimeOffset AddedAt { get; set; } = DateTimeOffset.UtcNow;
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(TenantId) && !TenantId.StartsWith("PREENCHER") &&
+        !string.IsNullOrWhiteSpace(ClientId) && !ClientId!.StartsWith("PREENCHER") &&
+        !string.IsNullOrWhiteSpace(CertificateThumbprint) && !CertificateThumbprint!.StartsWith("PREENCHER");
+}
+
+public class AddTenantRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string TenantId { get; set; } = string.Empty;
+    public string ClientId { get; set; } = string.Empty;
+    public string CertificateThumbprint { get; set; } = string.Empty;
+    public string? Domain { get; set; }
+}
+
+public class TenantStatusResult
+{
+    public string TenantId { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string? Message { get; set; }
+}
+
 public class BackupSnapshot
 {
     public string Id { get; set; } = string.Empty;
