@@ -1,4 +1,13 @@
-﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+﻿[CmdletBinding()]
+param(
+    [switch]$Headless,
+    [string]$BackupId,
+    [string]$TenantId,
+    [string]$ClientId,
+    [string]$Thumbprint
+)
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 try {
@@ -845,6 +854,61 @@ function Invoke-ExternalRestore {
     if ($exitCode -ne 0) {
         throw "The restore script returned exit code $exitCode. Check the log."
     }
+}
+
+if ($Headless) {
+    if ([string]::IsNullOrWhiteSpace($TenantId))  { throw "-TenantId é obrigatório em modo headless." }
+    if ([string]::IsNullOrWhiteSpace($ClientId))  { throw "-ClientId é obrigatório em modo headless." }
+    if ([string]::IsNullOrWhiteSpace($Thumbprint)){ throw "-Thumbprint é obrigatório em modo headless." }
+
+    $headlessBackupRoot = Resolve-BackupRoot
+
+    $snapshotFolder = $null
+    if (-not [string]::IsNullOrWhiteSpace($BackupId)) {
+        if (Test-Path $BackupId -PathType Container) {
+            $snapshotFolder = $BackupId
+        } else {
+            $candidate = Join-Path $headlessBackupRoot $BackupId
+            if (Test-Path $candidate -PathType Container) {
+                $snapshotFolder = $candidate
+            }
+        }
+    }
+
+    if (-not $snapshotFolder) {
+        if (-not (Test-Path $headlessBackupRoot)) {
+            throw "Pasta de backups não existe: $headlessBackupRoot"
+        }
+        $candidate = Get-ChildItem -Path $headlessBackupRoot -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Where-Object { Test-ValidAdministrativeFunctionBackup -Path $_.FullName } |
+            Select-Object -First 1
+        if (-not $candidate) {
+            throw "Nenhum snapshot válido em $headlessBackupRoot."
+        }
+        $snapshotFolder = $candidate.FullName
+    }
+
+    if (-not (Test-ValidAdministrativeFunctionBackup -Path $snapshotFolder)) {
+        throw "Snapshot inválido: $snapshotFolder (faltam manifest.json/roleDefinitions.json/roleAssignments.json)."
+    }
+
+    Write-Log "Headless compare iniciado. Snapshot: $snapshotFolder"
+
+    $snapshotData = Load-Snapshot -Folder $snapshotFolder
+    Connect-AppOnlyWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -Operation "Headless compare"
+    $currentData = Load-CurrentTenantData -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint
+    $compareResults = Compare-Roles -SnapshotData $snapshotData -CurrentData $currentData
+    Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+
+    $outputDir = Join-Path $CompareInstallRoot 'Output'
+    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+    $outputPath = Join-Path $outputDir ("compare-{0}.json" -f (Get-Date -Format 'yyyyMMddHHmmss'))
+
+    $compareResults | ConvertTo-Json -Depth 20 | Set-Content -Path $outputPath -Encoding UTF8
+    Write-Log "Headless compare concluído. Resultado: $outputPath"
+    Write-Output $outputPath
+    exit 0
 }
 
 if (-not (Test-Path $XamlPath)) {
