@@ -14,7 +14,7 @@ public class AppRegistrationService
     private readonly AppConfigStore _store;
     private readonly ILogger<AppRegistrationService> _logger;
     private readonly ConcurrentDictionary<string, SetupStatus> _states = new();
-    private const string AppDisplayName = "IR Administrative Function Recovery";
+    private const string AppDisplayName = "Quest On Demand Recovery - Administrative Functions";
 
     // Microsoft Graph permission IDs (constantes globais do tenant da Microsoft)
     private const string GraphResourceAppId = "00000003-0000-0000-c000-000000000000";
