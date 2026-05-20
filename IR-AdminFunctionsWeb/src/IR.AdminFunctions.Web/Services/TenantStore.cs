@@ -79,6 +79,22 @@ public class TenantStore
         return tenants.FirstOrDefault(t => t.TenantId.Equals(tenantId, StringComparison.OrdinalIgnoreCase));
     }
 
+    public async Task<TenantEntry?> UpdateBackupConfigAsync(string tenantId, BackupConfig cfg)
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            var tenants = ReadFile();
+            var tenant = tenants.FirstOrDefault(t => t.TenantId.Equals(tenantId, StringComparison.OrdinalIgnoreCase));
+            if (tenant == null) return null;
+            tenant.BackupConfig = cfg;
+            WriteFile(tenants);
+            _logger.LogInformation("BackupConfig atualizada para {TenantId}", tenantId);
+            return tenant;
+        }
+        finally { _lock.Release(); }
+    }
+
     public async Task<bool> UpdateConsentsAsync(string tenantId, TenantConsentsState consents)
     {
         await _lock.WaitAsync();

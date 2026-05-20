@@ -46,6 +46,20 @@ public class TenantsController : ControllerBase
         }
     }
 
+    [HttpPut("{tenantId}/backup-config")]
+    public async Task<ActionResult<ApiResponse<TenantEntry>>> UpdateBackupConfig(string tenantId, [FromBody] BackupConfig cfg)
+    {
+        var tenant = await _store.GetAsync(tenantId);
+        if (tenant == null)
+            return NotFound(ApiResponse<TenantEntry>.Fail("Tenant não encontrado."));
+
+        cfg.LastModifiedAt = DateTimeOffset.UtcNow;
+        var updated = await _store.UpdateBackupConfigAsync(tenantId, cfg);
+        if (updated == null)
+            return NotFound(ApiResponse<TenantEntry>.Fail("Tenant não encontrado."));
+        return ApiResponse<TenantEntry>.Ok(updated);
+    }
+
     [HttpDelete("{tenantId}")]
     public async Task<ActionResult<ApiResponse<bool>>> Remove(string tenantId)
     {
