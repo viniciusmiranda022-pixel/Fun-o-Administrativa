@@ -1,1 +1,279 @@
-dXNpbmcgU3lzdGVtLkNvbGxlY3Rpb25zLkNvbmN1cnJlbnQ7CnVzaW5nIFN5c3RlbS5NYW5hZ2VtZW50LkF1dG9tYXRpb247CnVzaW5nIFN5c3RlbS5NYW5hZ2VtZW50LkF1dG9tYXRpb24uUnVuc3BhY2VzOwp1c2luZyBJUi5BZG1pbkZ1bmN0aW9ucy5XZWIuTW9kZWxzOwoKbmFtZXNwYWNlIElSLkFkbWluRnVuY3Rpb25zLldlYi5TZXJ2aWNlczsKCi8vIEJvb3RzdHJhcCBhdXRvLXJlZ2lzdHJhIGEgYXBsaWNhw6fDo28gbXVsdGktdGVuYW50IG5vIEF6dXJlIEFEIHVzYW5kbwovLyBkZXZpY2UgY29kZSBmbG93IChNaWNyb3NvZnQgR3JhcGggUG93ZXJTaGVsbCB3ZWxsLWtub3duIENsaWVudElkKS4KLy8gTyBhZG1pbiBnbG9iYWwgYXV0ZW50aWNhIG5vIG5hdmVnYWRvci9jZWx1bGFyIGNvbSBvIHVzZXIgY29kZSBlIGEgc2Vzc8OjbwovLyByZXN1bHRhbnRlIMOpIHVzYWRhIHBhcmEgY3JpYXIgbyBBcHAgUmVnaXN0cmF0aW9uIGRlZmluaXRpdm8uCnB1YmxpYyBjbGFzcyBBcHBSZWdpc3RyYXRpb25TZXJ2aWNlCnsKICAgIHByaXZhdGUgcmVhZG9ubHkgQXBwQ29uZmlnU3RvcmUgX3N0b3JlOwogICAgcHJpdmF0ZSByZWFkb25seSBJTG9nZ2VyPEFwcFJlZ2lzdHJhdGlvblNlcnZpY2U+IF9sb2dnZXI7CiAgICBwcml2YXRlIHJlYWRvbmx5IENvbmN1cnJlbnREaWN0aW9uYXJ5PHN0cmluZywgU2V0dXBTdGF0dXM+IF9zdGF0ZXMgPSBuZXcoKTsKICAgIHByaXZhdGUgY29uc3Qgc3RyaW5nIEFwcERpc3BsYXlOYW1lID0gIklSIEFkbWluaXN0cmF0aXZlIEZ1bmN0aW9uIFJlY292ZXJ5IjsKCiAgICAvLyBNaWNyb3NvZnQgR3JhcGggcGVybWlzc2lvbiBJRHMgKGNvbnN0YW50ZXMgZ2xvYmFpcyBkbyB0ZW5hbnQgZGEgTWljcm9zb2Z0KQogICAgcHJpdmF0ZSBjb25zdCBzdHJpbmcgR3JhcGhSZXNvdXJjZUFwcElkID0gIjAwMDAwMDAzLTAwMDAtMDAwMC1jMDAwLTAwMDAwMDAwMDAwMCI7CiAgICBwcml2YXRlIGNvbnN0IHN0cmluZyBSb2xlTWFuYWdlbWVudFJlYWREaXJlY3RvcnkgPSAiNDgzYmVkNGEtMmFkMy00MzYxLWE3M2ItYzgzY2NkYmRjNTNjIjsgICAgICAgLy8gQXBwbGljYXRpb24KICAgIHByaXZhdGUgY29uc3Qgc3RyaW5nIFJvbGVNYW5hZ2VtZW50UmVhZFdyaXRlRGlyZWN0b3J5ID0gIjllM2Y2MmNmLWNhOTMtNDk4OS1iNmNlLWJmODNjMjhmOWZlOCI7IC8vIEFwcGxpY2F0aW9uCgogICAgcHVibGljIEFwcFJlZ2lzdHJhdGlvblNlcnZpY2UoQXBwQ29uZmlnU3RvcmUgc3RvcmUsIElMb2dnZXI8QXBwUmVnaXN0cmF0aW9uU2VydmljZT4gbG9nZ2VyKQogICAgewogICAgICAgIF9zdG9yZSA9IHN0b3JlOwogICAgICAgIF9sb2dnZXIgPSBsb2dnZXI7CiAgICB9CgogICAgcHVibGljIFNldHVwU3RhdHVzIEdldFN0YXR1cyhzdHJpbmcgc2Vzc2lvbklkKSA9PgogICAgICAgIF9zdGF0ZXMuVHJ5R2V0VmFsdWUoc2Vzc2lvbklkLCBvdXQgdmFyIHMpID8gcyA6IG5ldyBTZXR1cFN0YXR1cyB7IFN0YXR1cyA9ICJOb3RTdGFydGVkIiB9OwoKICAgIHB1YmxpYyBzdHJpbmcgU3RhcnRTZXR1cCgpCiAgICB7CiAgICAgICAgdmFyIHNlc3Npb25JZCA9IEd1aWQuTmV3R3VpZCgpLlRvU3RyaW5nKCJOIik7CiAgICAgICAgX3N0YXRlc1tzZXNzaW9uSWRdID0gbmV3IFNldHVwU3RhdHVzIHsgU3RhdHVzID0gIldhaXRpbmdGb3JVc2VyIiwgTWVzc2FnZSA9ICJBZ3VhcmRhbmRvIHVzdcOhcmlvIGF1dGVudGljYXIuLi4iIH07CiAgICAgICAgX2xvZ2dlci5Mb2dJbmZvcm1hdGlvbigiW1NldHVwOntTZXNzaW9uSWR9XSBTZXR1cCBpbmljaWFkby4gVGFzayBlbSBiYWNrZ3JvdW5kIGxhbsOnYWRhLiIsIHNlc3Npb25JZCk7CiAgICAgICAgXyA9IFRhc2suUnVuKCgpID0+IFJ1blNldHVwQXN5bmMoc2Vzc2lvbklkKSk7CiAgICAgICAgLy8gUmV0b3JuYSBpbWVkaWF0YW1lbnRlIOKAlCBvIGZyb250ZW5kIGZheiBwb2xsaW5nIHZpYSAvc2V0dXAvc3RhdHVzL3tzZXNzaW9uSWR9CiAgICAgICAgcmV0dXJuIHNlc3Npb25JZDsKICAgIH0KCiAgICBwcml2YXRlIGFzeW5jIFRhc2sgUnVuU2V0dXBBc3luYyhzdHJpbmcgc2Vzc2lvbklkKQogICAgewogICAgICAgIHRyeQogICAgICAgIHsKICAgICAgICAgICAgX2xvZ2dlci5Mb2dJbmZvcm1hdGlvbigiW1NldHVwOntTZXNzaW9uSWR9XSBBYnJpbmRvIHJ1bnNwYWNlIFBvd2VyU2hlbGwuLi4iLCBzZXNzaW9uSWQpOwogICAgICAgICAgICB1c2luZyB2YXIgcnMgPSBSdW5zcGFjZUZhY3RvcnkuQ3JlYXRlUnVuc3BhY2UoKTsKICAgICAgICAgICAgcnMuT3BlbigpOwogICAgICAgICAgICBfbG9nZ2VyLkxvZ0luZm9ybWF0aW9uKCJbU2V0dXA6e1Nlc3Npb25JZH1dIFJ1bnNwYWNlIGFiZXJ0by4iLCBzZXNzaW9uSWQpOwoKICAgICAgICAgICAgLy8gRGVmaW5lIEV4ZWN1dGlvblBvbGljeSBCeXBhc3Mgbm8gZXNjb3BvIGRvIHByb2Nlc3NvIHBhcmEgcGVybWl0aXIgSW1wb3J0LU1vZHVsZQogICAgICAgICAgICB1c2luZyAodmFyIHBzUG9saWN5ID0gUG93ZXJTaGVsbC5DcmVhdGUoKSkKICAgICAgICAgICAgewogICAgICAgICAgICAgICAgcHNQb2xpY3kuUnVuc3BhY2UgPSByczsKICAgICAgICAgICAgICAgIHBzUG9saWN5LkFkZFNjcmlwdCgiU2V0LUV4ZWN1dGlvblBvbGljeSAtRXhlY3V0aW9uUG9saWN5IEJ5cGFzcyAtU2NvcGUgUHJvY2VzcyAtRm9yY2UiKTsKICAgICAgICAgICAgICAgIHBzUG9saWN5Lkludm9rZSgpOwogICAgICAgICAgICAgICAgX2xvZ2dlci5Mb2dJbmZvcm1hdGlvbigiW1NldHVwOntTZXNzaW9uSWR9XSBFeGVjdXRpb25Qb2xpY3kgZGVmaW5pZGEgY29tbyBCeXBhc3MgKFByb2Nlc3MpLiIsIHNlc3Npb25JZCk7CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIHVzaW5nIHZhciBwcyA9IFBvd2VyU2hlbGwuQ3JlYXRlKCk7CiAgICAgICAgICAgIHBzLlJ1bnNwYWNlID0gcnM7CgogICAgICAgICAgICAvLyBDYXB0dXJhIEluZm9ybWF0aW9uLCBXYXJuaW5nIGUgVmVyYm9zZSBwYXJhIGV4dHJhaXIgbyBkZXZpY2UgY29kZQogICAgICAgICAgICBwcy5TdHJlYW1zLkluZm9ybWF0aW9uLkRhdGFBZGRlZCArPSAocywgZSkgPT4KICAgICAgICAgICAgewogICAgICAgICAgICAgICAgdmFyIHJlY29yZCA9ICgoUFNEYXRhQ29sbGVjdGlvbjxJbmZvcm1hdGlvblJlY29yZD4pcyEpW2UuSW5kZXhdOwogICAgICAgICAgICAgICAgdmFyIG1zZyA9IHJlY29yZD8uTWVzc2FnZURhdGE/LlRvU3RyaW5nKCkgPz8gIiI7CiAgICAgICAgICAgICAgICBfbG9nZ2VyLkxvZ0luZm9ybWF0aW9uKCJbU2V0dXA6e1Nlc3Npb25JZH1dIFtQUzpJbmZvXSB7TXNnfSIsIHNlc3Npb25JZCwgbXNnKTsKICAgICAgICAgICAgICAgIFRyeUV4dHJhY3RVc2VyQ29kZShzZXNzaW9uSWQsIG1zZyk7CiAgICAgICAgICAgIH07CiAgICAgICAgICAgIHBzLlN0cmVhbXMuV2FybmluZy5EYXRhQWRkZWQgKz0gKHMsIGUpID0+CiAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgIHZhciByZWNvcmQgPSAoKFBTRGF0YUNvbGxlY3Rpb248V2FybmluZ1JlY29yZD4pcyEpW2UuSW5kZXhdOwogICAgICAgICAgICAgICAgdmFyIG1zZyA9IHJlY29yZD8uTWVzc2FnZSA/PyAiIjsKICAgICAgICAgICAgICAgIF9sb2dnZXIuTG9nV2FybmluZygiW1NldHVwOntTZXNzaW9uSWR9XSBbUFM6V2Fybl0ge01zZ30iLCBzZXNzaW9uSWQsIG1zZyk7CiAgICAgICAgICAgICAgICBUcnlFeHRyYWN0VXNlckNvZGUoc2Vzc2lvbklkLCBtc2cpOwogICAgICAgICAgICB9OwogICAgICAgICAgICBwcy5TdHJlYW1zLlZlcmJvc2UuRGF0YUFkZGVkICs9IChzLCBlKSA9PgogICAgICAgICAgICB7CiAgICAgICAgICAgICAgICB2YXIgcmVjb3JkID0gKChQU0RhdGFDb2xsZWN0aW9uPFZlcmJvc2VSZWNvcmQ+KXMhKVtlLkluZGV4XTsKICAgICAgICAgICAgICAgIHZhciBtc2cgPSByZWNvcmQ/Lk1lc3NhZ2UgPz8gIiI7CiAgICAgICAgICAgICAgICBfbG9nZ2VyLkxvZ0RlYnVnKCJbU2V0dXA6e1Nlc3Npb25JZH1dIFtQUzpWZXJib3NlXSB7TXNnfSIsIHNlc3Npb25JZCwgbXNnKTsKICAgICAgICAgICAgICAgIFRyeUV4dHJhY3RVc2VyQ29kZShzZXNzaW9uSWQsIG1zZyk7CiAgICAgICAgICAgIH07CiAgICAgICAgICAgIHBzLlN0cmVhbXMuRXJyb3IuRGF0YUFkZGVkICs9IChzLCBlKSA9PgogICAgICAgICAgICB7CiAgICAgICAgICAgICAgICB2YXIgcmVjb3JkID0gKChQU0RhdGFDb2xsZWN0aW9uPEVycm9yUmVjb3JkPilzISlbZS5JbmRleF07CiAgICAgICAgICAgICAgICBfbG9nZ2VyLkxvZ0Vycm9yKCJbU2V0dXA6e1Nlc3Npb25JZH1dIFtQUzpFcnJvcl0ge01zZ30iLCBzZXNzaW9uSWQsIHJlY29yZD8uVG9TdHJpbmcoKSA/PyAiIik7CiAgICAgICAgICAgIH07CgogICAgICAgICAgICBfbG9nZ2VyLkxvZ0luZm9ybWF0aW9uKCJbU2V0dXA6e1Nlc3Npb25JZH1dIEV0YXBhIDEvMyDigJQgSW1wb3J0YW5kbyBtw7NkdWxvcyBlIGluaWNpYW5kbyBDb25uZWN0LU1nR3JhcGguLi4iLCBzZXNzaW9uSWQpOwoKICAgICAgICAgICAgLy8gMSkgQ29ubmVjdC1NZ0dyYXBoIGNvbSBkZXZpY2UgY29kZSBlIHNjb3BlcyBuZWNlc3PDoXJpb3MgcGFyYSBjcmlhciBvIGFwcAogICAgICAgICAgICBwcy5BZGRTY3JpcHQoQCIKICAgICAgICAgICAgICAgIFtOZXQuU2VydmljZVBvaW50TWFuYWdlcl06OlNlY3VyaXR5UHJvdG9jb2wgPSBbTmV0LlNlY3VyaXR5UHJvdG9jb2xUeXBlXTo6VGxzMTIKICAgICAgICAgICAgICAgIEltcG9ydC1Nb2R1bGUgTWljcm9zb2Z0LkdyYXBoLkF1dGhlbnRpY2F0aW9uIC1FcnJvckFjdGlvbiBTdG9wCiAgICAgICAgICAgICAgICBJbXBvcnQtTW9kdWxlIE1pY3Jvc29mdC5HcmFwaC5BcHBsaWNhdGlvbnMgLUVycm9yQWN0aW9uIFN0b3AKICAgICAgICAgICAgICAgIENvbm5lY3QtTWdHcmFwaCAtU2NvcGVzICdBcHBsaWNhdGlvbi5SZWFkV3JpdGUuQWxsJywnRGlyZWN0b3J5LlJlYWRXcml0ZS5BbGwnLCdVc2VyLlJlYWQnIC1Vc2VEZXZpY2VDb2RlIC1Ob1dlbGNvbWUKICAgICAgICAgICAgICAgICRjdHggPSBHZXQtTWdDb250ZXh0CiAgICAgICAgICAgICAgICBXcml0ZS1PdXRwdXQgJGN0eC5UZW5hbnRJZAogICAgICAgICAgICAgICAgV3JpdGUtT3V0cHV0ICRjdHguQWNjb3VudAogICAgICAgICAgICAiKTsKCiAgICAgICAgICAgIHZhciByZXN1bHRzID0gYXdhaXQgVGFzay5SdW4oKCkgPT4gcHMuSW52b2tlKCkpOwogICAgICAgICAgICBpZiAocHMuSGFkRXJyb3JzKQogICAgICAgICAgICB7CiAgICAgICAgICAgICAgICB2YXIgZXJyID0gc3RyaW5nLkpvaW4oIjsgIiwgcHMuU3RyZWFtcy5FcnJvci5TZWxlY3QoZSA9PiBlLlRvU3RyaW5nKCkpKTsKICAgICAgICAgICAgICAgIF9sb2dnZXIuTG9nRXJyb3IoIltTZXR1cDp7U2Vzc2lvbklkfV0gRmFsaGEgbm8gQ29ubmVjdC1NZ0dyYXBoOiB7RXJyfSIsIHNlc3Npb25JZCwgZXJyKTsKICAgICAgICAgICAgICAgIEZhaWwoc2Vzc2lvbklkLCAkIkZhbGhhIG5vIENvbm5lY3QtTWdHcmFwaDoge2Vycn0iKTsKICAgICAgICAgICAgICAgIHJldHVybjsKICAgICAgICAgICAgfQoKICAgICAgICAgICAgdmFyIHRlbmFudElkID0gcmVzdWx0cy5GaXJzdE9yRGVmYXVsdCgpPy5CYXNlT2JqZWN0Py5Ub1N0cmluZygpOwogICAgICAgICAgICB2YXIgYWNjb3VudCA9IHJlc3VsdHMuU2tpcCgxKS5GaXJzdE9yRGVmYXVsdCgpPy5CYXNlT2JqZWN0Py5Ub1N0cmluZygpOwogICAgICAgICAgICBfbG9nZ2VyLkxvZ0luZm9ybWF0aW9uKCJbU2V0dXA6e1Nlc3Npb25JZH1dIEV0YXBhIDEvMyBjb25jbHXDrWRhLiBUZW5hbnRJZD17VGVuYW50SWR9IEFjY291bnQ9e0FjY291bnR9IiwKICAgICAgICAgICAgICAgIHNlc3Npb25JZCwgdGVuYW50SWQgPz8gIihudWxvKSIsIGFjY291bnQgPz8gIihudWxvKSIpOwoKICAgICAgICAgICAgaWYgKHN0cmluZy5Jc051bGxPckVtcHR5KHRlbmFudElkKSkKICAgICAgICAgICAgewogICAgICAgICAgICAgICAgRmFpbChzZXNzaW9uSWQsICJOw6NvIGZvaSBwb3Nzw612ZWwgb2J0ZXIgVGVuYW50SWQgYXDDs3MgYXV0ZW50aWNhw6fDo28uIik7CiAgICAgICAgICAgICAgICByZXR1cm47CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIFVwZGF0ZVN0YXR1cyhzZXNzaW9uSWQsIHMgPT4KICAgICAgICAgICAgewogICAgICAgICAgICAgICAgcy5TdGF0dXMgPSAiUmVnaXN0ZXJpbmciOwogICAgICAgICAgICAgICAgcy5NZXNzYWdlID0gJCJDb25lY3RhZG8gY29tbyB7YWNjb3VudH0uIENyaWFuZG8gQXBwIFJlZ2lzdHJhdGlvbi4uLiI7CiAgICAgICAgICAgICAgICBzLlRlbmFudElkID0gdGVuYW50SWQ7CiAgICAgICAgICAgIH0pOwogICAgICAgICAgICBfbG9nZ2VyLkxvZ0luZm9ybWF0aW9uKCJbU2V0dXA6e1Nlc3Npb25JZH1dIEV0YXBhIDIvMyDigJQgQ3JpYW5kbyBBcHAgUmVnaXN0cmF0aW9uLi4uIiwgc2Vzc2lvbklkKTsKCiAgICAgICAgICAgIC8vIDIpIENyaWFyIEFwcCBSZWdpc3RyYXRpb24gbXVsdGktdGVuYW50IGNvbSBhcyBwZXJtaXNzw7VlcyBuZWNlc3PDoXJpYXMKICAgICAgICAgICAgdXNpbmcgdmFyIHBzMiA9IFBvd2VyU2hlbGwuQ3JlYXRlKCk7CiAgICAgICAgICAgIHBzMi5SdW5zcGFjZSA9IHJzOwogICAgICAgICAgICBwczIuQWRkU2NyaXB0KCRAIgogICAgICAgICAgICAgICAgJHJlcXVpcmVkID0gQCgKICAgICAgICAgICAgICAgICAgICBAe3sKICAgICAgICAgICAgICAgICAgICAgICAgUmVzb3VyY2VBcHBJZCA9ICd7R3JhcGhSZXNvdXJjZUFwcElkfScKICAgICAgICAgICAgICAgICAgICAgICAgUmVzb3VyY2VBY2Nlc3MgPSBAKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgQHt7IElkID0gJ3tSb2xlTWFuYWdlbWVudFJlYWREaXJlY3Rvcnl9JzsgVHlwZSA9ICdSb2xlJyB9fSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIEB7eyBJZCA9ICd7Um9sZU1hbmFnZW1lbnRSZWFkV3JpdGVEaXJlY3Rvcnl9JzsgVHlwZSA9ICdSb2xlJyB9fQogICAgICAgICAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICAgICAgfX0KICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgICAgICRleGlzdGluZyA9IEdldC1NZ0FwcGxpY2F0aW9uIC1GaWx0ZXIgIiJkaXNwbGF5TmFtZSBlcSAne0FwcERpc3BsYXlOYW1lfSciIiAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSB8IFNlbGVjdC1PYmplY3QgLUZpcnN0IDEKICAgICAgICAgICAgICAgIGlmICgkZXhpc3RpbmcpIHt7CiAgICAgICAgICAgICAgICAgICAgJGFwcCA9ICRleGlzdGluZwogICAgICAgICAgICAgICAgfX0gZWxzZSB7ewogICAgICAgICAgICAgICAgICAgICRhcHAgPSBOZXctTWdBcHBsaWNhdGlvbiAtRGlzcGxheU5hbWUgJ3tBcHBEaXNwbGF5TmFtZX0nIC1TaWduSW5BdWRpZW5jZSAnQXp1cmVBRE11bHRpcGxlT3JncycgLVJlcXVpcmVkUmVzb3VyY2VBY2Nlc3MgJHJlcXVpcmVkCiAgICAgICAgICAgICAgICB9fQoKICAgICAgICAgICAgICAgICMgR2FyYW50ZSBzZXJ2aWNlIHByaW5jaXBhbCBsb2NhbCBubyB0ZW5hbnQgYm9vdHN0cmFwCiAgICAgICAgICAgICAgICAkc3AgPSBHZXQtTWdTZXJ2aWNlUHJpbmNpcGFsIC1GaWx0ZXIgIiJhcHBJZCBlcSAnJCgkYXBwLkFwcElkKSciIiAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSB8IFNlbGVjdC1PYmplY3QgLUZpcnN0IDEKICAgICAgICAgICAgICAgIGlmICgtbm90ICRzcCkge3sKICAgICAgICAgICAgICAgICAgICAkc3AgPSBOZXctTWdTZXJ2aWNlUHJpbmNpcGFsIC1BcHBJZCAkYXBwLkFwcElkCiAgICAgICAgICAgICAgICB9fQoKICAgICAgICAgICAgICAgICMgQ3JpYSBjbGllbnQgc2VjcmV0IHbDoWxpZG8gcG9yIDIgYW5vcwogICAgICAgICAgICAgICAgJHBhc3N3b3JkQ3JlZCA9IEB7ewogICAgICAgICAgICAgICAgICAgIERpc3BsYXlOYW1lID0gJ0F1dG8tZ2VuZXJhdGVkIGJ5IElSIHNldHVwJwogICAgICAgICAgICAgICAgICAgIEVuZERhdGVUaW1lID0gKEdldC1EYXRlKS5BZGRZZWFycygyKS5Ub1N0cmluZygnbycpCiAgICAgICAgICAgICAgICB9fQogICAgICAgICAgICAgICAgJHNlY3JldCA9IEFkZC1NZ0FwcGxpY2F0aW9uUGFzc3dvcmQgLUFwcGxpY2F0aW9uSWQgJGFwcC5JZCAtUGFzc3dvcmRDcmVkZW50aWFsICRwYXNzd29yZENyZWQKCiAgICAgICAgICAgICAgICBXcml0ZS1PdXRwdXQgJGFwcC5BcHBJZAogICAgICAgICAgICAgICAgV3JpdGUtT3V0cHV0ICRhcHAuSWQKICAgICAgICAgICAgICAgIFdyaXRlLU91dHB1dCAkc3AuSWQKICAgICAgICAgICAgICAgIFdyaXRlLU91dHB1dCAkc2VjcmV0LlNlY3JldFRleHQKCiAgICAgICAgICAgICAgICBEaXNjb25uZWN0LU1nR3JhcGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUgfCBPdXQtTnVsbAogICAgICAgICAgICAiKTsKCiAgICAgICAgICAgIHZhciBhcHBSZXN1bHRzID0gYXdhaXQgVGFzay5SdW4oKCkgPT4gcHMyLkludm9rZSgpKTsKICAgICAgICAgICAgaWYgKHBzMi5IYWRFcnJvcnMpCiAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgIHZhciBlcnIgPSBzdHJpbmcuSm9pbigiOyAiLCBwczIuU3RyZWFtcy5FcnJvci5TZWxlY3QoZSA9PiBlLlRvU3RyaW5nKCkpKTsKICAgICAgICAgICAgICAgIF9sb2dnZXIuTG9nRXJyb3IoIltTZXR1cDp7U2Vzc2lvbklkfV0gRmFsaGEgY3JpYW5kbyBBcHAgUmVnaXN0cmF0aW9uOiB7RXJyfSIsIHNlc3Npb25JZCwgZXJyKTsKICAgICAgICAgICAgICAgIEZhaWwoc2Vzc2lvbklkLCAkIkZhbGhhIGNyaWFuZG8gQXBwIFJlZ2lzdHJhdGlvbjoge2Vycn0iKTsKICAgICAgICAgICAgICAgIHJldHVybjsKICAgICAgICAgICAgfQoKICAgICAgICAgICAgdmFyIGxpc3QgPSBhcHBSZXN1bHRzCiAgICAgICAgICAgICAgICAuU2VsZWN0KHIgPT4gcj8uQmFzZU9iamVjdD8uVG9TdHJpbmcoKSA/PyAiIikKICAgICAgICAgICAgICAgIC5XaGVyZSh2ID0+ICFzdHJpbmcuSXNOdWxsT3JXaGl0ZVNwYWNlKHYpKQogICAgICAgICAgICAgICAgLlRvTGlzdCgpOwoKICAgICAgICAgICAgX2xvZ2dlci5Mb2dJbmZvcm1hdGlvbigiW1NldHVwOntTZXNzaW9uSWR9XSBFdGFwYSAyLzMgY29uY2x1w61kYS4gT3V0cHV0cyByZWNlYmlkb3M6IHtDb3VudH0iLCBzZXNzaW9uSWQsIGxpc3QuQ291bnQpOwoKICAgICAgICAgICAgaWYgKGxpc3QuQ291bnQgPCA0KQogICAgICAgICAgICB7CiAgICAgICAgICAgICAgICB2YXIgcmVjZWl2ZWQgPSBzdHJpbmcuSm9pbigiLCAiLCBsaXN0LlNlbGVjdCgodiwgaSkgPT4gJCJbe2l9XT17dn0iKSk7CiAgICAgICAgICAgICAgICBfbG9nZ2VyLkxvZ0Vycm9yKCJbU2V0dXA6e1Nlc3Npb25JZH1dIFJlc3Bvc3RhIGluY29tcGxldGEgZG8gR3JhcGguIFJlY2ViaWRvczoge1JlY2VpdmVkfSIsIHNlc3Npb25JZCwgcmVjZWl2ZWQpOwogICAgICAgICAgICAgICAgRmFpbChzZXNzaW9uSWQsICQiUmVzcG9zdGEgaW5jb21wbGV0YSBkbyBHcmFwaCAoZXNwZXJhZG8gNCB2YWxvcmVzLCByZWNlYmlkb3Mge2xpc3QuQ291bnR9KS4iKTsKICAgICAgICAgICAgICAgIHJldHVybjsKICAgICAgICAgICAgfQoKICAgICAgICAgICAgX2xvZ2dlci5Mb2dJbmZvcm1hdGlvbigiW1NldHVwOntTZXNzaW9uSWR9XSBFdGFwYSAzLzMg4oCUIFBlcnNpc3RpbmRvIGNvbmZpZ3VyYcOnw6NvLi4uIiwgc2Vzc2lvbklkKTsKICAgICAgICAgICAgdmFyIGNvbmZpZyA9IG5ldyBBcHBDb25maWcKICAgICAgICAgICAgewogICAgICAgICAgICAgICAgQ2xpZW50SWQgPSBsaXN0WzBdLAogICAgICAgICAgICAgICAgQXBwbGljYXRpb25PYmplY3RJZCA9IGxpc3RbMV0sCiAgICAgICAgICAgICAgICBTZXJ2aWNlUHJpbmNpcGFsSWQgPSBsaXN0WzJdLAogICAgICAgICAgICAgICAgQ2xpZW50U2VjcmV0ID0gbGlzdFszXSwKICAgICAgICAgICAgICAgIERpc3BsYXlOYW1lID0gQXBwRGlzcGxheU5hbWUsCiAgICAgICAgICAgICAgICBCb290c3RyYXBUZW5hbnRJZCA9IHRlbmFudElkLAogICAgICAgICAgICAgICAgQ3JlYXRlZEF0ID0gRGF0ZVRpbWVPZmZzZXQuVXRjTm93CiAgICAgICAgICAgIH07CiAgICAgICAgICAgIF9zdG9yZS5Xcml0ZShjb25maWcpOwogICAgICAgICAgICBfbG9nZ2VyLkxvZ0luZm9ybWF0aW9uKCJbU2V0dXA6e1Nlc3Npb25JZH1dIFNldHVwIGNvbmNsdcOtZG8uIENsaWVudElkPXtDbGllbnRJZH0iLCBzZXNzaW9uSWQsIGNvbmZpZy5DbGllbnRJZCk7CgogICAgICAgICAgICBVcGRhdGVTdGF0dXMoc2Vzc2lvbklkLCBzID0+CiAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgIHMuU3RhdHVzID0gIkNvbXBsZXRlZCI7CiAgICAgICAgICAgICAgICBzLk1lc3NhZ2UgPSAiQXBwIHJlZ2lzdHJhZG8gY29tIHN1Y2Vzc28uIFZvY8OqIGrDoSBwb2RlIGFkaWNpb25hciB0ZW5hbnRzLiI7CiAgICAgICAgICAgICAgICBzLkNsaWVudElkID0gY29uZmlnLkNsaWVudElkOwogICAgICAgICAgICB9KTsKICAgICAgICB9CiAgICAgICAgY2F0Y2ggKEV4Y2VwdGlvbiBleCkKICAgICAgICB7CiAgICAgICAgICAgIF9sb2dnZXIuTG9nRXJyb3IoZXgsICJbU2V0dXA6e1Nlc3Npb25JZH1dIEV4Y2XDp8OjbyBuw6NvIHRyYXRhZGEgbm8gc2V0dXAuIiwgc2Vzc2lvbklkKTsKICAgICAgICAgICAgRmFpbChzZXNzaW9uSWQsIGV4Lk1lc3NhZ2UpOwogICAgICAgIH0KICAgIH0KCiAgICBwcml2YXRlIHZvaWQgVHJ5RXh0cmFjdFVzZXJDb2RlKHN0cmluZyBzZXNzaW9uSWQsIHN0cmluZyB0ZXh0KQogICAgewogICAgICAgIGlmIChzdHJpbmcuSXNOdWxsT3JXaGl0ZVNwYWNlKHRleHQpKSByZXR1cm47CgogICAgICAgIC8vIErDoSB0ZW0gY29kZT8gTsOjbyByZXByb2Nlc3NhLgogICAgICAgIGlmIChfc3RhdGVzLlRyeUdldFZhbHVlKHNlc3Npb25JZCwgb3V0IHZhciBjdXIpICYmICFzdHJpbmcuSXNOdWxsT3JFbXB0eShjdXIuVXNlckNvZGUpKSByZXR1cm47CgogICAgICAgIC8vIFBhZHLDo28gMTogIi4uLmRldmljZWxvZ2luLi4uY29kZSBYWFhYLVhYWFgiIChvcmRlbSBVUkwgYW50ZXMgZG8gY8OzZGlnbykKICAgICAgICAvLyBQYWRyw6NvIDI6ICIuLi5jb2RlIFhYWFgtWFhYWC4uLmRldmljZWxvZ2luIiAob3JkZW0gaW52ZXJ0aWRhIGVtIGFsZ3VtYXMgdmVyc8O1ZXMgZG8gbcOzZHVsbykKICAgICAgICAvLyBQYWRyw6NvIDM6IGFwZW5hcyBvIGPDs2RpZ28gc3RhbmRhbG9uZSAiZW50ZXIgdGhlIGNvZGUgWFhYWC1YWFhYIgogICAgICAgIHZhciBwYXR0ZXJucyA9IG5ld1tdCiAgICAgICAgewogICAgICAgICAgICBAImh0dHBzPzovL1teXHNdKmRldmljZWxvZ2luW15cc10qLio/Y29kZVxzKyhbQS1aMC05XXs0LH0tW0EtWjAtOV17NCx9KD86LVtBLVowLTldezQsfSk/KSIsCiAgICAgICAgICAgIEAiY29kZVxzKyhbQS1aMC05XXs0LH0tW0EtWjAtOV17NCx9KD86LVtBLVowLTldezQsfSk/KS4qP2RldmljZWxvZ2luIiwKICAgICAgICAgICAgQCJlbnRlclxzKyg/OnRoZVxzKyk/Y29kZVs6XHNdKyhbQS1aMC05XXs0LH0tW0EtWjAtOV17NCx9KD86LVtBLVowLTldezQsfSk/KSIsCiAgICAgICAgfTsKCiAgICAgICAgZm9yZWFjaCAodmFyIHBhdHRlcm4gaW4gcGF0dGVybnMpCiAgICAgICAgewogICAgICAgICAgICB2YXIgbWF0Y2ggPSBTeXN0ZW0uVGV4dC5SZWd1bGFyRXhwcmVzc2lvbnMuUmVnZXguTWF0Y2godGV4dCwgcGF0dGVybiwKICAgICAgICAgICAgICAgIFN5c3RlbS5UZXh0LlJlZ3VsYXJFeHByZXNzaW9ucy5SZWdleE9wdGlvbnMuU2luZ2xlbGluZSB8CiAgICAgICAgICAgICAgICBTeXN0ZW0uVGV4dC5SZWd1bGFyRXhwcmVzc2lvbnMuUmVnZXhPcHRpb25zLklnbm9yZUNhc2UpOwoKICAgICAgICAgICAgaWYgKG1hdGNoLlN1Y2Nlc3MpCiAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgIHZhciBjb2RlID0gbWF0Y2guR3JvdXBzWzFdLlZhbHVlLlRvVXBwZXJJbnZhcmlhbnQoKTsKICAgICAgICAgICAgICAgIF9sb2dnZXIuTG9nSW5mb3JtYXRpb24oIltTZXR1cDp7U2Vzc2lvbklkfV0gVXNlckNvZGUgZXh0cmHDrWRvOiB7Q29kZX0iLCBzZXNzaW9uSWQsIGNvZGUpOwogICAgICAgICAgICAgICAgVXBkYXRlU3RhdHVzKHNlc3Npb25JZCwgcyA9PgogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgIHMuVXNlckNvZGUgPSBjb2RlOwogICAgICAgICAgICAgICAgICAgIHMuVmVyaWZpY2F0aW9uVXJsID0gImh0dHBzOi8vbWljcm9zb2Z0LmNvbS9kZXZpY2Vsb2dpbiI7CiAgICAgICAgICAgICAgICAgICAgcy5NZXNzYWdlID0gJCJBY2Vzc2UgaHR0cHM6Ly9taWNyb3NvZnQuY29tL2RldmljZWxvZ2luIGUgZGlnaXRlIG8gY8OzZGlnbzoge2NvZGV9IjsKICAgICAgICAgICAgICAgIH0pOwogICAgICAgICAgICAgICAgcmV0dXJuOwogICAgICAgICAgICB9CiAgICAgICAgfQogICAgfQoKICAgIHByaXZhdGUgdm9pZCBVcGRhdGVTdGF0dXMoc3RyaW5nIHNlc3Npb25JZCwgQWN0aW9uPFNldHVwU3RhdHVzPiBtdXRhdG9yKQogICAgewogICAgICAgIF9zdGF0ZXMuQWRkT3JVcGRhdGUoc2Vzc2lvbklkLAogICAgICAgICAgICBfID0+IHsgdmFyIHMgPSBuZXcgU2V0dXBTdGF0dXMoKTsgbXV0YXRvcihzKTsgcmV0dXJuIHM7IH0sCiAgICAgICAgICAgIChfLCBzKSA9PiB7IG11dGF0b3Iocyk7IHJldHVybiBzOyB9KTsKICAgIH0KCiAgICBwcml2YXRlIHZvaWQgRmFpbChzdHJpbmcgc2Vzc2lvbklkLCBzdHJpbmcgcmVhc29uKQogICAgewogICAgICAgIFVwZGF0ZVN0YXR1cyhzZXNzaW9uSWQsIHMgPT4KICAgICAgICB7CiAgICAgICAgICAgIHMuU3RhdHVzID0gIkZhaWxlZCI7CiAgICAgICAgICAgIHMuTWVzc2FnZSA9IHJlYXNvbjsKICAgICAgICB9KTsKICAgIH0KfQo=
+using System.Collections.Concurrent;
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
+using IR.AdminFunctions.Web.Models;
+
+namespace IR.AdminFunctions.Web.Services;
+
+// Bootstrap auto-registra a aplicação multi-tenant no Azure AD usando
+// device code flow (Microsoft Graph PowerShell well-known ClientId).
+// O admin global autentica no navegador/celular com o user code e a sessão
+// resultante é usada para criar o App Registration definitivo.
+public class AppRegistrationService
+{
+    private readonly AppConfigStore _store;
+    private readonly ILogger<AppRegistrationService> _logger;
+    private readonly ConcurrentDictionary<string, SetupStatus> _states = new();
+    private const string AppDisplayName = "IR Administrative Function Recovery";
+
+    // Microsoft Graph permission IDs (constantes globais do tenant da Microsoft)
+    private const string GraphResourceAppId = "00000003-0000-0000-c000-000000000000";
+    private const string RoleManagementReadDirectory = "483bed4a-2ad3-4361-a73b-c83ccdbdc53c";       // Application
+    private const string RoleManagementReadWriteDirectory = "9e3f62cf-ca93-4989-b6ce-bf83c28f9fe8"; // Application
+
+    public AppRegistrationService(AppConfigStore store, ILogger<AppRegistrationService> logger)
+    {
+        _store = store;
+        _logger = logger;
+    }
+
+    public SetupStatus GetStatus(string sessionId) =>
+        _states.TryGetValue(sessionId, out var s) ? s : new SetupStatus { Status = "NotStarted" };
+
+    public string StartSetup()
+    {
+        var sessionId = Guid.NewGuid().ToString("N");
+        _states[sessionId] = new SetupStatus { Status = "WaitingForUser", Message = "Aguardando usuário autenticar..." };
+        _logger.LogInformation("[Setup:{SessionId}] Setup iniciado. Task em background lançada.", sessionId);
+        _ = Task.Run(() => RunSetupAsync(sessionId));
+        // Retorna imediatamente — o frontend faz polling via /setup/status/{sessionId}
+        return sessionId;
+    }
+
+    private async Task RunSetupAsync(string sessionId)
+    {
+        try
+        {
+            _logger.LogInformation("[Setup:{SessionId}] Abrindo runspace PowerShell...", sessionId);
+            using var rs = RunspaceFactory.CreateRunspace();
+            rs.Open();
+            _logger.LogInformation("[Setup:{SessionId}] Runspace aberto.", sessionId);
+
+            // Define ExecutionPolicy Bypass no escopo do processo para permitir Import-Module
+            using (var psPolicy = PowerShell.Create())
+            {
+                psPolicy.Runspace = rs;
+                psPolicy.AddScript("Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force");
+                psPolicy.Invoke();
+                _logger.LogInformation("[Setup:{SessionId}] ExecutionPolicy definida como Bypass (Process).", sessionId);
+            }
+
+            using var ps = PowerShell.Create();
+            ps.Runspace = rs;
+
+            // Captura Information, Warning e Verbose para extrair o device code
+            ps.Streams.Information.DataAdded += (s, e) =>
+            {
+                var record = ((PSDataCollection<InformationRecord>)s!)[e.Index];
+                var msg = record?.MessageData?.ToString() ?? "";
+                _logger.LogInformation("[Setup:{SessionId}] [PS:Info] {Msg}", sessionId, msg);
+                TryExtractUserCode(sessionId, msg);
+            };
+            ps.Streams.Warning.DataAdded += (s, e) =>
+            {
+                var record = ((PSDataCollection<WarningRecord>)s!)[e.Index];
+                var msg = record?.Message ?? "";
+                _logger.LogWarning("[Setup:{SessionId}] [PS:Warn] {Msg}", sessionId, msg);
+                TryExtractUserCode(sessionId, msg);
+            };
+            ps.Streams.Verbose.DataAdded += (s, e) =>
+            {
+                var record = ((PSDataCollection<VerboseRecord>)s!)[e.Index];
+                var msg = record?.Message ?? "";
+                _logger.LogDebug("[Setup:{SessionId}] [PS:Verbose] {Msg}", sessionId, msg);
+                TryExtractUserCode(sessionId, msg);
+            };
+            ps.Streams.Error.DataAdded += (s, e) =>
+            {
+                var record = ((PSDataCollection<ErrorRecord>)s!)[e.Index];
+                _logger.LogError("[Setup:{SessionId}] [PS:Error] {Msg}", sessionId, record?.ToString() ?? "");
+            };
+
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 1/3 — Importando módulos e iniciando Connect-MgGraph...", sessionId);
+
+            // 1) Connect-MgGraph com device code e scopes necessários para criar o app
+            ps.AddScript(@"
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
+                Import-Module Microsoft.Graph.Applications -ErrorAction Stop
+                Connect-MgGraph -Scopes 'Application.ReadWrite.All','Directory.ReadWrite.All','User.Read' -UseDeviceCode -NoWelcome
+                $ctx = Get-MgContext
+                Write-Output $ctx.TenantId
+                Write-Output $ctx.Account
+            ");
+
+            var results = await Task.Run(() => ps.Invoke());
+            if (ps.HadErrors)
+            {
+                var err = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
+                _logger.LogError("[Setup:{SessionId}] Falha no Connect-MgGraph: {Err}", sessionId, err);
+                Fail(sessionId, $"Falha no Connect-MgGraph: {err}");
+                return;
+            }
+
+            var tenantId = results.FirstOrDefault()?.BaseObject?.ToString();
+            var account = results.Skip(1).FirstOrDefault()?.BaseObject?.ToString();
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 1/3 concluída. TenantId={TenantId} Account={Account}",
+                sessionId, tenantId ?? "(nulo)", account ?? "(nulo)");
+
+            if (string.IsNullOrEmpty(tenantId))
+            {
+                Fail(sessionId, "Não foi possível obter TenantId após autenticação.");
+                return;
+            }
+
+            UpdateStatus(sessionId, s =>
+            {
+                s.Status = "Registering";
+                s.Message = $"Conectado como {account}. Criando App Registration...";
+                s.TenantId = tenantId;
+            });
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 — Criando App Registration...", sessionId);
+
+            // 2) Criar App Registration multi-tenant com as permissões necessárias
+            using var ps2 = PowerShell.Create();
+            ps2.Runspace = rs;
+            ps2.AddScript($@"
+                $required = @(
+                    @{{
+                        ResourceAppId = '{GraphResourceAppId}'
+                        ResourceAccess = @(
+                            @{{ Id = '{RoleManagementReadDirectory}'; Type = 'Role' }},
+                            @{{ Id = '{RoleManagementReadWriteDirectory}'; Type = 'Role' }}
+                        )
+                    }}
+                )
+                $existing = Get-MgApplication -Filter ""displayName eq '{AppDisplayName}'"" -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($existing) {{
+                    $app = $existing
+                }} else {{
+                    $app = New-MgApplication -DisplayName '{AppDisplayName}' -SignInAudience 'AzureADMultipleOrgs' -RequiredResourceAccess $required
+                }}
+
+                # Garante service principal local no tenant bootstrap
+                $sp = Get-MgServicePrincipal -Filter ""appId eq '$($app.AppId)'"" -ErrorAction SilentlyContinue | Select-Object -First 1
+                if (-not $sp) {{
+                    $sp = New-MgServicePrincipal -AppId $app.AppId
+                }}
+
+                # Cria client secret válido por 2 anos
+                $passwordCred = @{{
+                    DisplayName = 'Auto-generated by IR setup'
+                    EndDateTime = (Get-Date).AddYears(2).ToString('o')
+                }}
+                $secret = Add-MgApplicationPassword -ApplicationId $app.Id -PasswordCredential $passwordCred
+
+                Write-Output $app.AppId
+                Write-Output $app.Id
+                Write-Output $sp.Id
+                Write-Output $secret.SecretText
+
+                Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+            ");
+
+            var appResults = await Task.Run(() => ps2.Invoke());
+            if (ps2.HadErrors)
+            {
+                var err = string.Join("; ", ps2.Streams.Error.Select(e => e.ToString()));
+                _logger.LogError("[Setup:{SessionId}] Falha criando App Registration: {Err}", sessionId, err);
+                Fail(sessionId, $"Falha criando App Registration: {err}");
+                return;
+            }
+
+            var list = appResults
+                .Select(r => r?.BaseObject?.ToString() ?? "")
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToList();
+
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 concluída. Outputs recebidos: {Count}", sessionId, list.Count);
+
+            if (list.Count < 4)
+            {
+                var received = string.Join(", ", list.Select((v, i) => $"[{i}]={v}"));
+                _logger.LogError("[Setup:{SessionId}] Resposta incompleta do Graph. Recebidos: {Received}", sessionId, received);
+                Fail(sessionId, $"Resposta incompleta do Graph (esperado 4 valores, recebidos {list.Count}).");
+                return;
+            }
+
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 3/3 — Persistindo configuração...", sessionId);
+            var config = new AppConfig
+            {
+                ClientId = list[0],
+                ApplicationObjectId = list[1],
+                ServicePrincipalId = list[2],
+                ClientSecret = list[3],
+                DisplayName = AppDisplayName,
+                BootstrapTenantId = tenantId,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            _store.Write(config);
+            _logger.LogInformation("[Setup:{SessionId}] Setup concluído. ClientId={ClientId}", sessionId, config.ClientId);
+
+            UpdateStatus(sessionId, s =>
+            {
+                s.Status = "Completed";
+                s.Message = "App registrado com sucesso. Você já pode adicionar tenants.";
+                s.ClientId = config.ClientId;
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Setup:{SessionId}] Exceção não tratada no setup.", sessionId);
+            Fail(sessionId, ex.Message);
+        }
+    }
+
+    private void TryExtractUserCode(string sessionId, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        // Já tem code? Não reprocessa.
+        if (_states.TryGetValue(sessionId, out var cur) && !string.IsNullOrEmpty(cur.UserCode)) return;
+
+        // Padrão 1: "...devicelogin...code XXXX-XXXX" (ordem URL antes do código)
+        // Padrão 2: "...code XXXX-XXXX...devicelogin" (ordem invertida em algumas versões do módulo)
+        // Padrão 3: apenas o código standalone "enter the code XXXX-XXXX"
+        var patterns = new[]
+        {
+            @"https?://[^\s]*devicelogin[^\s]*.*?code\s+([A-Z0-9]{4,}-[A-Z0-9]{4,}(?:-[A-Z0-9]{4,})?)",
+            @"code\s+([A-Z0-9]{4,}-[A-Z0-9]{4,}(?:-[A-Z0-9]{4,})?).*?devicelogin",
+            @"enter\s+(?:the\s+)?code[:\s]+([A-Z0-9]{4,}-[A-Z0-9]{4,}(?:-[A-Z0-9]{4,})?)",
+        };
+
+        foreach (var pattern in patterns)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(text, pattern,
+                System.Text.RegularExpressions.RegexOptions.Singleline |
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (match.Success)
+            {
+                var code = match.Groups[1].Value.ToUpperInvariant();
+                _logger.LogInformation("[Setup:{SessionId}] UserCode extraído: {Code}", sessionId, code);
+                UpdateStatus(sessionId, s =>
+                {
+                    s.UserCode = code;
+                    s.VerificationUrl = "https://microsoft.com/devicelogin";
+                    s.Message = $"Acesse https://microsoft.com/devicelogin e digite o código: {code}";
+                });
+                return;
+            }
+        }
+    }
+
+    private void UpdateStatus(string sessionId, Action<SetupStatus> mutator)
+    {
+        _states.AddOrUpdate(sessionId,
+            _ => { var s = new SetupStatus(); mutator(s); return s; },
+            (_, s) => { mutator(s); return s; });
+    }
+
+    private void Fail(string sessionId, string reason)
+    {
+        UpdateStatus(sessionId, s =>
+        {
+            s.Status = "Failed";
+            s.Message = reason;
+        });
+    }
+}
