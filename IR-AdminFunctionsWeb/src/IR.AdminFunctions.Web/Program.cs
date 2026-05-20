@@ -44,6 +44,7 @@ builder.Services.AddSingleton<TenantStore>();
 builder.Services.AddSingleton<AppConfigStore>();
 builder.Services.AddSingleton<AppRegistrationService>();
 builder.Services.AddSingleton<ConsentChecker>();
+builder.Services.AddSingleton<DashboardService>();
 builder.Services.AddHostedService<ProvisioningService>();
 
 builder.Services.AddControllers()

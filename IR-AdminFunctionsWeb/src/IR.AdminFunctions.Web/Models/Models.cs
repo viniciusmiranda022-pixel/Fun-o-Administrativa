@@ -48,8 +48,44 @@ public class TenantEntry
     public DateTimeOffset AddedAt { get; set; } = DateTimeOffset.UtcNow;
     public string? AddedByUser { get; set; }
     public TenantConsentsState Consents { get; set; } = new();
+    public BackupConfig BackupConfig { get; set; } = new();
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(TenantId) && !TenantId.StartsWith("PREENCHER");
+}
+
+public class BackupConfig
+{
+    public bool ScheduleEnabled { get; set; } = false;
+    public int RetentionDays { get; set; } = 90;
+    public string Frequency { get; set; } = "Daily"; // Daily | Weekly | Manual
+    public string TimeOfDay { get; set; } = "02:00"; // HH:mm
+    public bool BackupRoleDefinitions { get; set; } = true;
+    public bool BackupRolePermissions { get; set; } = true;
+    public bool BackupRoleAssignments { get; set; } = true;
+    public bool BackupAssignmentScopes { get; set; } = true;
+    public bool IncludeBuiltInRoles { get; set; } = false;
+    public DateTimeOffset? LastModifiedAt { get; set; }
+}
+
+public class DashboardStats
+{
+    public TenantEntry? Tenant { get; set; }
+    public bool IsProtected { get; set; }
+    public string ProtectionStatus { get; set; } = "NotProtected"; // Protected | NotProtected | NeedsAttention
+    public int BackupsCount { get; set; }
+    public DateTimeOffset? LastBackupAt { get; set; }
+    public string? LastBackupId { get; set; }
+    public int? ProtectedRoleDefinitionsCount { get; set; }
+    public int? ProtectedRoleAssignmentsCount { get; set; }
+    public int UnpackedBackupsCount { get; set; }
+    public int DifferencesCount { get; set; }
+    public DateTimeOffset? LastDifferencesAt { get; set; }
+    public int TasksRunningCount { get; set; }
+    public int TasksTotalCount { get; set; }
+    public int ErrorsCount { get; set; }
+    public int WarningsCount { get; set; }
+    public bool ConsentBasicGranted { get; set; }
+    public bool ConsentRestoreGranted { get; set; }
 }
 
 public class TenantConsentsState
