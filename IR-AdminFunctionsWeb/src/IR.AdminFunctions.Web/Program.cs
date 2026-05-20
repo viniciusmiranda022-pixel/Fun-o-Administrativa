@@ -41,6 +41,9 @@ builder.Services.AddSingleton<SettingsReader>();
 builder.Services.AddSingleton<LogReader>();
 builder.Services.AddSingleton<JobManager>();
 builder.Services.AddSingleton<TenantStore>();
+builder.Services.AddSingleton<AppConfigStore>();
+builder.Services.AddSingleton<AppRegistrationService>();
+builder.Services.AddSingleton<ConsentChecker>();
 builder.Services.AddHostedService<ProvisioningService>();
 
 builder.Services.AddControllers()

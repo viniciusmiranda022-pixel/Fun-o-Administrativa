@@ -7,6 +7,8 @@ import Differences from './pages/Differences.jsx';
 import Events from './pages/Events.jsx';
 import Tasks from './pages/Tasks.jsx';
 import Tenants from './pages/Tenants.jsx';
+import TenantConsents from './pages/TenantConsents.jsx';
+import Setup from './pages/Setup.jsx';
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
         <Route path="/events" element={<Events />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/tenants" element={<Tenants />} />
+        <Route path="/tenants/:tenantId/consents" element={<TenantConsents />} />
+        <Route path="/setup" element={<Setup />} />
       </Route>
     </Routes>
   );

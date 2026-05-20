@@ -46,10 +46,55 @@ public class TenantEntry
     public string? CertificateThumbprint { get; set; }
     public string? Domain { get; set; }
     public DateTimeOffset AddedAt { get; set; } = DateTimeOffset.UtcNow;
+    public string? AddedByUser { get; set; }
+    public TenantConsentsState Consents { get; set; } = new();
     public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(TenantId) && !TenantId.StartsWith("PREENCHER") &&
-        !string.IsNullOrWhiteSpace(ClientId) && !ClientId!.StartsWith("PREENCHER") &&
-        !string.IsNullOrWhiteSpace(CertificateThumbprint) && !CertificateThumbprint!.StartsWith("PREENCHER");
+        !string.IsNullOrWhiteSpace(TenantId) && !TenantId.StartsWith("PREENCHER");
+}
+
+public class TenantConsentsState
+{
+    public ConsentInfo Basic { get; set; } = new();
+    public ConsentInfo Restore { get; set; } = new();
+}
+
+public class ConsentInfo
+{
+    public bool Granted { get; set; }
+    public DateTimeOffset? GrantedAt { get; set; }
+    public string? GrantedByUser { get; set; }
+}
+
+public class AppConfig
+{
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
+    public string? ApplicationObjectId { get; set; }
+    public string? ServicePrincipalId { get; set; }
+    public string? DisplayName { get; set; }
+    public string? BootstrapTenantId { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; }
+
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
+}
+
+public class SetupStartResult
+{
+    public string DeviceCode { get; set; } = string.Empty;
+    public string UserCode { get; set; } = string.Empty;
+    public string VerificationUrl { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public int ExpiresInSeconds { get; set; }
+}
+
+public class SetupStatus
+{
+    public string Status { get; set; } = "NotStarted"; // NotStarted | WaitingForUser | Registering | Completed | Failed
+    public string? Message { get; set; }
+    public string? ClientId { get; set; }
+    public string? TenantId { get; set; }
+    public string? UserCode { get; set; }
+    public string? VerificationUrl { get; set; }
 }
 
 public class AddTenantRequest
