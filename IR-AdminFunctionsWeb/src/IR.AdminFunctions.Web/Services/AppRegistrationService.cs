@@ -33,21 +33,10 @@ public class AppRegistrationService
     public string StartSetup()
     {
         var sessionId = Guid.NewGuid().ToString("N");
-        var status = new SetupStatus { Status = "WaitingForUser", Message = "Aguardando usuário autenticar..." };
-        _states[sessionId] = status;
-
+        _states[sessionId] = new SetupStatus { Status = "WaitingForUser", Message = "Aguardando usuário autenticar..." };
+        _logger.LogInformation("[Setup:{SessionId}] Setup iniciado. Task em background lançada.", sessionId);
         _ = Task.Run(() => RunSetupAsync(sessionId));
-
-        // Espera o device code aparecer
-        var deadline = DateTime.UtcNow.AddSeconds(60);
-        while (DateTime.UtcNow < deadline)
-        {
-            var current = _states[sessionId];
-            if (!string.IsNullOrEmpty(current.UserCode) || current.Status == "Failed")
-                break;
-            Thread.Sleep(500);
-        }
-
+        // Retorna imediatamente — o frontend faz polling via /setup/status/{sessionId}
         return sessionId;
     }
 
@@ -55,24 +44,43 @@ public class AppRegistrationService
     {
         try
         {
+            _logger.LogInformation("[Setup:{SessionId}] Abrindo runspace PowerShell...", sessionId);
             using var rs = RunspaceFactory.CreateRunspace();
             rs.Open();
+            _logger.LogInformation("[Setup:{SessionId}] Runspace aberto.", sessionId);
 
-            // Captura output em background para extrair o device code
             using var ps = PowerShell.Create();
             ps.Runspace = rs;
+
+            // Captura Information, Warning e Verbose para extrair o device code
             ps.Streams.Information.DataAdded += (s, e) =>
             {
                 var record = ((PSDataCollection<InformationRecord>)s!)[e.Index];
                 var msg = record?.MessageData?.ToString() ?? "";
-                _logger.LogInformation("[Setup] {Msg}", msg);
+                _logger.LogInformation("[Setup:{SessionId}] [PS:Info] {Msg}", sessionId, msg);
                 TryExtractUserCode(sessionId, msg);
             };
             ps.Streams.Warning.DataAdded += (s, e) =>
             {
                 var record = ((PSDataCollection<WarningRecord>)s!)[e.Index];
-                TryExtractUserCode(sessionId, record?.Message ?? "");
+                var msg = record?.Message ?? "";
+                _logger.LogWarning("[Setup:{SessionId}] [PS:Warn] {Msg}", sessionId, msg);
+                TryExtractUserCode(sessionId, msg);
             };
+            ps.Streams.Verbose.DataAdded += (s, e) =>
+            {
+                var record = ((PSDataCollection<VerboseRecord>)s!)[e.Index];
+                var msg = record?.Message ?? "";
+                _logger.LogDebug("[Setup:{SessionId}] [PS:Verbose] {Msg}", sessionId, msg);
+                TryExtractUserCode(sessionId, msg);
+            };
+            ps.Streams.Error.DataAdded += (s, e) =>
+            {
+                var record = ((PSDataCollection<ErrorRecord>)s!)[e.Index];
+                _logger.LogError("[Setup:{SessionId}] [PS:Error] {Msg}", sessionId, record?.ToString() ?? "");
+            };
+
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 1/3 — Importando módulos e iniciando Connect-MgGraph...", sessionId);
 
             // 1) Connect-MgGraph com device code e scopes necessários para criar o app
             ps.AddScript(@"
@@ -89,12 +97,16 @@ public class AppRegistrationService
             if (ps.HadErrors)
             {
                 var err = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
+                _logger.LogError("[Setup:{SessionId}] Falha no Connect-MgGraph: {Err}", sessionId, err);
                 Fail(sessionId, $"Falha no Connect-MgGraph: {err}");
                 return;
             }
 
             var tenantId = results.FirstOrDefault()?.BaseObject?.ToString();
             var account = results.Skip(1).FirstOrDefault()?.BaseObject?.ToString();
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 1/3 concluída. TenantId={TenantId} Account={Account}",
+                sessionId, tenantId ?? "(nulo)", account ?? "(nulo)");
+
             if (string.IsNullOrEmpty(tenantId))
             {
                 Fail(sessionId, "Não foi possível obter TenantId após autenticação.");
@@ -107,6 +119,7 @@ public class AppRegistrationService
                 s.Message = $"Conectado como {account}. Criando App Registration...";
                 s.TenantId = tenantId;
             });
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 — Criando App Registration...", sessionId);
 
             // 2) Criar App Registration multi-tenant com as permissões necessárias
             using var ps2 = PowerShell.Create();
@@ -153,17 +166,27 @@ public class AppRegistrationService
             if (ps2.HadErrors)
             {
                 var err = string.Join("; ", ps2.Streams.Error.Select(e => e.ToString()));
+                _logger.LogError("[Setup:{SessionId}] Falha criando App Registration: {Err}", sessionId, err);
                 Fail(sessionId, $"Falha criando App Registration: {err}");
                 return;
             }
 
-            var list = appResults.Select(r => r?.BaseObject?.ToString() ?? "").ToList();
+            var list = appResults
+                .Select(r => r?.BaseObject?.ToString() ?? "")
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToList();
+
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 concluída. Outputs recebidos: {Count}", sessionId, list.Count);
+
             if (list.Count < 4)
             {
-                Fail(sessionId, "Resposta incompleta do Graph na criação do app.");
+                var received = string.Join(", ", list.Select((v, i) => $"[{i}]={v}"));
+                _logger.LogError("[Setup:{SessionId}] Resposta incompleta do Graph. Recebidos: {Received}", sessionId, received);
+                Fail(sessionId, $"Resposta incompleta do Graph (esperado 4 valores, recebidos {list.Count}).");
                 return;
             }
 
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 3/3 — Persistindo configuração...", sessionId);
             var config = new AppConfig
             {
                 ClientId = list[0],
@@ -175,6 +198,7 @@ public class AppRegistrationService
                 CreatedAt = DateTimeOffset.UtcNow
             };
             _store.Write(config);
+            _logger.LogInformation("[Setup:{SessionId}] Setup concluído. ClientId={ClientId}", sessionId, config.ClientId);
 
             UpdateStatus(sessionId, s =>
             {
@@ -185,27 +209,46 @@ public class AppRegistrationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Falha no setup");
+            _logger.LogError(ex, "[Setup:{SessionId}] Exceção não tratada no setup.", sessionId);
             Fail(sessionId, ex.Message);
         }
     }
 
     private void TryExtractUserCode(string sessionId, string text)
     {
-        // Padrão da MS: "To sign in, use a web browser to open the page https://microsoft.com/devicelogin and enter the code XXX-YYY-ZZZ"
-        var match = System.Text.RegularExpressions.Regex.Match(text,
-            @"https?://[^\s]*devicelogin[^\s]*.*?code\s+([A-Z0-9-]+)",
-            System.Text.RegularExpressions.RegexOptions.Singleline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (string.IsNullOrWhiteSpace(text)) return;
 
-        if (match.Success)
+        // Já tem code? Não reprocessa.
+        if (_states.TryGetValue(sessionId, out var cur) && !string.IsNullOrEmpty(cur.UserCode)) return;
+
+        // Padrão 1: "...devicelogin...code XXXX-XXXX" (ordem URL antes do código)
+        // Padrão 2: "...code XXXX-XXXX...devicelogin" (ordem invertida em algumas versões do módulo)
+        // Padrão 3: apenas o código standalone "enter the code XXXX-XXXX"
+        var patterns = new[]
         {
-            var code = match.Groups[1].Value;
-            UpdateStatus(sessionId, s =>
+            @"https?://[^\s]*devicelogin[^\s]*.*?code\s+([A-Z0-9]{4,}-[A-Z0-9]{4,}(?:-[A-Z0-9]{4,})?)",
+            @"code\s+([A-Z0-9]{4,}-[A-Z0-9]{4,}(?:-[A-Z0-9]{4,})?).*?devicelogin",
+            @"enter\s+(?:the\s+)?code[:\s]+([A-Z0-9]{4,}-[A-Z0-9]{4,}(?:-[A-Z0-9]{4,})?)",
+        };
+
+        foreach (var pattern in patterns)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(text, pattern,
+                System.Text.RegularExpressions.RegexOptions.Singleline |
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (match.Success)
             {
-                s.UserCode = code;
-                s.VerificationUrl = "https://microsoft.com/devicelogin";
-                s.Message = $"Acesse https://microsoft.com/devicelogin e digite o código: {code}";
-            });
+                var code = match.Groups[1].Value.ToUpperInvariant();
+                _logger.LogInformation("[Setup:{SessionId}] UserCode extraído: {Code}", sessionId, code);
+                UpdateStatus(sessionId, s =>
+                {
+                    s.UserCode = code;
+                    s.VerificationUrl = "https://microsoft.com/devicelogin";
+                    s.Message = $"Acesse https://microsoft.com/devicelogin e digite o código: {code}";
+                });
+                return;
+            }
         }
     }
 
