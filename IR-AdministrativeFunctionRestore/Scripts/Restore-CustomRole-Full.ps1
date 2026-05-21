@@ -114,16 +114,25 @@ function Test-SnapshotIntegrity {
         throw "RoleDefinitionsHash was not found in manifest.json"
     }
 
-    $roleDefinitionsHashCurrent = (Get-FileHash $roleDefinitionsPath -Algorithm SHA256).Hash
-    if ($roleDefinitionsHashCurrent -ne [string]$manifest.RoleDefinitionsHash) {
-        throw "Integrity failed: roleDefinitions.json was changed."
-    }
-
-    if ($manifest.RoleAssignmentsHash) {
-        $roleAssignmentsHashCurrent = (Get-FileHash $roleAssignmentsPath -Algorithm SHA256).Hash
-        if ($roleAssignmentsHashCurrent -ne [string]$manifest.RoleAssignmentsHash) {
-            throw "Integrity failed: roleAssignments.json was changed."
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $roleDefinitionsHashCurrent = [System.BitConverter]::ToString(
+            $sha256.ComputeHash([System.IO.File]::ReadAllBytes($roleDefinitionsPath))
+        ).Replace('-', '')
+        if ($roleDefinitionsHashCurrent -ne [string]$manifest.RoleDefinitionsHash) {
+            throw "Integrity failed: roleDefinitions.json was changed."
         }
+
+        if ($manifest.RoleAssignmentsHash) {
+            $roleAssignmentsHashCurrent = [System.BitConverter]::ToString(
+                $sha256.ComputeHash([System.IO.File]::ReadAllBytes($roleAssignmentsPath))
+            ).Replace('-', '')
+            if ($roleAssignmentsHashCurrent -ne [string]$manifest.RoleAssignmentsHash) {
+                throw "Integrity failed: roleAssignments.json was changed."
+            }
+        }
+    } finally {
+        $sha256.Dispose()
     }
 }
 
