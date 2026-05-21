@@ -1,7 +1,15 @@
 ﻿[CmdletBinding()]
 param(
     [switch]$RmadMode,
-    [string]$ClientSecret = ""
+    [string]$ClientSecret = "",
+
+    # Aceitos para compatibilidade com o invocador padrao (PowerShellRunner do app).
+    # O backup le TenantId/ClientId/CertificateThumbprint efetivos do settings.json,
+    # sincronizado pelo app antes da execucao. Sem estes parametros declarados, o
+    # [CmdletBinding()] rejeita a chamada e o script aborta no binding sem rodar.
+    [string]$TenantId = "",
+    [string]$ClientId = "",
+    [string]$Thumbprint = ""
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
