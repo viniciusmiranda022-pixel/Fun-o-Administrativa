@@ -58,10 +58,24 @@ function mapResult(item) {
   };
 }
 
+function extractRestoreError(errors) {
+  if (!errors?.length) return 'Falhou';
+  const metaRe = /^(No linha|At line|\+ |[ \t]*\+ Category|[ \t]*\+ FullyQualified)/;
+  const useful = errors.filter(l => !metaRe.test(l)).join(' ');
+  const marker = 'Restore falhou:';
+  const idx = useful.indexOf(marker);
+  if (idx !== -1) return useful.slice(idx + marker.length).trim();
+  return useful.replace(/^[A-Za-z]:\\[^:]+\.ps1\s*:\s*/i, '').trim() || 'Falhou';
+}
+
+// selectedRows: array of { name, diffType }
 function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
   const [phase, setPhase] = useState('confirm'); // confirm | running | done
   const [progress, setProgress] = useState({ current: 0, total: selectedRows.length, log: [] });
   const [error, setError] = useState(null);
+
+  const newRoles = selectedRows.filter(r => r.diffType === 'New');
+  const restorableRows = selectedRows.filter(r => r.diffType !== 'New');
 
   async function handleApply() {
     if (!backupId) {
@@ -69,10 +83,11 @@ function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
       return;
     }
     setPhase('running');
-    const total = selectedRows.length;
+    const toRestore = restorableRows.length > 0 ? restorableRows : selectedRows;
+    const total = toRestore.length;
     const log = [];
     for (let i = 0; i < total; i++) {
-      const roleName = selectedRows[i];
+      const { name: roleName } = toRestore[i];
       setProgress({ current: i + 1, total, log: [...log, `Restaurando: ${roleName}…`] });
       try {
         const resp = await api.applyRestore({ backupId, roleName });
@@ -81,7 +96,7 @@ function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
         const result = await pollJob(job.id, { intervalMs: 3000, timeoutMs: 300000 });
         const scriptFailed = result?.status === 'Failed' || result?.result?.success === false;
         if (scriptFailed) {
-          const errMsg = result?.error || result?.result?.errors?.[0] || 'Falhou';
+          const errMsg = result?.error || extractRestoreError(result?.result?.errors) || 'Falhou';
           log.push(`✗ ${roleName}: ${errMsg}`);
         } else {
           log.push(`✓ ${roleName}: restaurado com sucesso`);
@@ -102,21 +117,38 @@ function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
             <div className="flex items-start gap-2 bg-[#FFF8E1] border border-[#FFC107] p-3 text-xs text-[#856404]">
               <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
               <span>
-                Esta operação vai restaurar {selectedRows.length} role(s) para o estado do backup. A ação não pode ser desfeita automaticamente.
+                Esta operação vai restaurar {restorableRows.length > 0 ? restorableRows.length : selectedRows.length} role(s) para o estado do backup. A ação não pode ser desfeita automaticamente.
               </span>
             </div>
+            {newRoles.length > 0 && (
+              <div className="flex items-start gap-2 bg-[#FFF3CD] border border-[#FFC107] p-3 text-xs text-[#856404]">
+                <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                <span>
+                  <strong>{newRoles.length} role(s) com status "New"</strong> foram ignoradas: estas roles existem apenas no tenant atual e não possuem snapshot no backup para restaurar.
+                  {newRoles.length > 0 && (
+                    <span className="block mt-1 font-mono">{newRoles.map(r => r.name).join(', ')}</span>
+                  )}
+                </span>
+              </div>
+            )}
             {!backupId && (
               <div className="text-xs text-[#DC3545]">
                 Atenção: BackupId não disponível. Execute um novo RUN COMPARE para que os resultados incluam o ID do backup.
               </div>
             )}
+            {restorableRows.length === 0 && newRoles.length > 0 && (
+              <div className="text-xs text-[#DC3545]">
+                Nenhuma role selecionada pode ser restaurada. Selecione roles com status "Removed" ou "Changed".
+              </div>
+            )}
             <div>
               <p className="text-xs font-semibold text-[#333] mb-1">Roles selecionadas:</p>
               <ul className="space-y-1 max-h-48 overflow-auto">
-                {selectedRows.map((name) => (
-                  <li key={name} className="text-xs text-[#555] flex items-center gap-1.5">
-                    <RotateCcw size={11} className="text-[#0078A8] flex-shrink-0" />
-                    {name}
+                {selectedRows.map((r) => (
+                  <li key={r.name} className="text-xs text-[#555] flex items-center gap-1.5">
+                    <RotateCcw size={11} className={r.diffType === 'New' ? 'text-[#FFC107] flex-shrink-0' : 'text-[#0078A8] flex-shrink-0'} />
+                    <span className={r.diffType === 'New' ? 'line-through text-[#888]' : ''}>{r.name}</span>
+                    {r.diffType === 'New' && <span className="text-[#888] italic">(ignorada)</span>}
                   </li>
                 ))}
               </ul>
@@ -131,7 +163,7 @@ function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
               </button>
               <button
                 onClick={handleApply}
-                disabled={!backupId}
+                disabled={!backupId || restorableRows.length === 0}
                 className="px-4 py-1.5 text-xs font-semibold bg-[#0078A8] text-white hover:bg-[#005f87] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 RESTAURAR
@@ -243,8 +275,9 @@ export default function Differences() {
   const statusOptions = [...new Set(rows.map(r => r.diffType))];
 
   const selectedRoleNames = selectedIds
-    .map((id) => rows.find((r) => r.id === id)?.name)
-    .filter(Boolean);
+    .map((id) => rows.find((r) => r.id === id))
+    .filter(Boolean)
+    .map((r) => ({ name: r.name, diffType: r.diffType }));
 
   return (
     <div className="flex flex-col h-full">
