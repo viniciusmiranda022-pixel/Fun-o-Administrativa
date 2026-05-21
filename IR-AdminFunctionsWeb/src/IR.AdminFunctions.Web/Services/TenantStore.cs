@@ -39,13 +39,18 @@ public class TenantStore
             if (tenants.Any(t => t.TenantId.Equals(req.TenantId, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException($"Tenant {req.TenantId} já existe.");
 
+            // Se o thumbprint não foi informado, tenta importar do settings.json existente
+            var thumbprint = req.CertificateThumbprint;
+            if (string.IsNullOrWhiteSpace(thumbprint))
+                thumbprint = ReadThumbprintFromSettingsJson(req.TenantId);
+
             var entry = new TenantEntry
             {
                 Id = Guid.NewGuid().ToString("N"),
                 Name = req.Name,
                 TenantId = req.TenantId,
                 ClientId = req.ClientId,
-                CertificateThumbprint = req.CertificateThumbprint,
+                CertificateThumbprint = thumbprint,
                 Domain = req.Domain,
                 AddedAt = DateTimeOffset.UtcNow
             };
@@ -134,6 +139,33 @@ public class TenantStore
         File.WriteAllText(_tenantsFile, JsonSerializer.Serialize(tenants, _json));
     }
 
+    private string? ReadThumbprintFromSettingsJson(string tenantId)
+    {
+        try
+        {
+            if (!File.Exists(_settingsFile)) return null;
+            var existing = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                File.ReadAllText(_settingsFile)) ?? new();
+
+            // Só importa se o settings.json for do mesmo tenant (ou não tiver TenantId)
+            if (existing.TryGetValue("TenantId", out var tidEl))
+            {
+                var tid = tidEl.GetString();
+                if (!string.IsNullOrWhiteSpace(tid) &&
+                    !tid.Equals(tenantId, StringComparison.OrdinalIgnoreCase))
+                    return null;
+            }
+
+            if (existing.TryGetValue("CertificateThumbprint", out var tpEl))
+            {
+                var tp = tpEl.GetString();
+                if (!string.IsNullOrWhiteSpace(tp)) return tp;
+            }
+            return null;
+        }
+        catch { return null; }
+    }
+
     // Mantém settings.json (formato plano) sincronizado com o primeiro tenant configurado
     // para compatibilidade com os scripts PowerShell existentes.
     private void SyncSettingsJson(List<TenantEntry> tenants)
@@ -144,25 +176,39 @@ public class TenantStore
             if (primary == null) return;
 
             var appCfg = _appConfig.Read();
+
+            // Lê settings.json existente antes de montar o flat para preservar campos
+            Dictionary<string, JsonElement> existingSettings = new();
+            if (File.Exists(_settingsFile))
+            {
+                existingSettings = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                    File.ReadAllText(_settingsFile)) ?? new();
+            }
+
+            // Se o tenant não tem thumbprint configurado, preserva o do settings.json
+            var thumbprint = primary.CertificateThumbprint;
+            if (string.IsNullOrWhiteSpace(thumbprint) &&
+                existingSettings.TryGetValue("CertificateThumbprint", out var existingTpEl))
+            {
+                var existingTp = existingTpEl.GetString();
+                if (!string.IsNullOrWhiteSpace(existingTp))
+                    thumbprint = existingTp;
+            }
+
             var flat = new Dictionary<string, object?>
             {
                 ["TenantId"] = primary.TenantId,
                 ["ClientId"] = primary.ClientId ?? appCfg.ClientId,
-                ["CertificateThumbprint"] = primary.CertificateThumbprint,
+                ["CertificateThumbprint"] = thumbprint,
                 ["AppDisplayName"] = primary.Name,
                 ["ClientSecret"] = appCfg.ClientSecret
             };
 
             // Preserva campos extras do settings.json existente (BackupRoot, LogRoot, etc.)
-            if (File.Exists(_settingsFile))
+            foreach (var kv in existingSettings)
             {
-                var existing = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-                    File.ReadAllText(_settingsFile)) ?? new();
-                foreach (var kv in existing)
-                {
-                    if (!flat.ContainsKey(kv.Key))
-                        flat[kv.Key] = kv.Value;
-                }
+                if (!flat.ContainsKey(kv.Key))
+                    flat[kv.Key] = kv.Value;
             }
 
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsFile)!);
