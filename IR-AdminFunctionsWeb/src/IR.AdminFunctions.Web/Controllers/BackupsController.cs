@@ -60,10 +60,10 @@ public class BackupsController : ControllerBase
             var input = new Dictionary<string, object?>
             {
                 ["RmadMode"] = true,
-                ["TenantId"] = raw?.TenantId ?? "",
-                ["ClientId"] = raw?.ClientId ?? "",
-                ["Thumbprint"] = raw?.CertificateThumbprint ?? "",
-                ["ClientSecret"] = cfg.ClientSecret ?? "",
+                ["TenantId"] = raw?.TenantId,
+                ["ClientId"] = raw?.ClientId,
+                ["Thumbprint"] = raw?.CertificateThumbprint,
+                ["ClientSecret"] = cfg.ClientSecret,
             };
 
             var result = await _runner.RunAsync(
@@ -109,15 +109,24 @@ public class BackupsController : ControllerBase
 
             if (req?.RunDiff != false)
             {
+                await _tenantStore.EnsureSettingsJsonSyncedAsync();
                 var raw = _settings.ReadRaw();
                 var cfg = _appConfig.Read();
+
+                if (raw == null || string.IsNullOrWhiteSpace(raw.TenantId) || string.IsNullOrWhiteSpace(raw.ClientId))
+                    throw new InvalidOperationException("settings.json incompleto (TenantId/ClientId ausentes). Adicione um tenant primeiro.");
+
+                var hasAuth = !string.IsNullOrWhiteSpace(raw.CertificateThumbprint) || !string.IsNullOrWhiteSpace(cfg.ClientSecret);
+                if (!hasAuth)
+                    throw new InvalidOperationException("Nenhuma credencial configurada. Execute o setup e conceda o consentimento Basic.");
+
                 var input = new Dictionary<string, object?>
                 {
                     ["Headless"] = true,
-                    ["TenantId"] = raw?.TenantId ?? "",
-                    ["ClientId"] = raw?.ClientId ?? "",
-                    ["Thumbprint"] = raw?.CertificateThumbprint ?? "",
-                    ["ClientSecret"] = cfg.ClientSecret ?? "",
+                    ["TenantId"] = raw.TenantId,
+                    ["ClientId"] = raw.ClientId,
+                    ["Thumbprint"] = raw.CertificateThumbprint,
+                    ["ClientSecret"] = cfg.ClientSecret,
                     ["BackupId"] = id
                 };
                 var result = await _runner.RunAsync(_options.CompareScript, input, _options.DefaultJobTimeoutSeconds, ct);

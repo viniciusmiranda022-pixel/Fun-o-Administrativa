@@ -119,6 +119,7 @@ public class PowerShellRunner
             foreach (var (key, value) in parameters)
             {
                 if (value is null) continue;
+                if (value is string s0 && string.IsNullOrEmpty(s0)) continue;
                 if (value is bool b)
                     sb.Append($" -{key}:{(b ? "$true" : "$false")}");
                 else if (value is string s)
