@@ -12,17 +12,20 @@ public class BackupsController : ControllerBase
     private readonly BackupReader _reader;
     private readonly PowerShellRunner _runner;
     private readonly JobManager _jobs;
+    private readonly TenantStore _tenantStore;
     private readonly QuestOptions _options;
 
     public BackupsController(
         BackupReader reader,
         PowerShellRunner runner,
         JobManager jobs,
+        TenantStore tenantStore,
         IOptions<QuestOptions> options)
     {
         _reader = reader;
         _runner = runner;
         _jobs = jobs;
+        _tenantStore = tenantStore;
         _options = options.Value;
     }
 
@@ -48,6 +51,11 @@ public class BackupsController : ControllerBase
 
         var job = _jobs.Enqueue("backup", input, async (_, ct) =>
         {
+            // Garante que o settings.json tem o thumbprint antes de rodar o script
+            var tenants = await _tenantStore.ListAsync();
+            foreach (var t in tenants)
+                await _tenantStore.AutoSyncCertificateAsync(t.TenantId);
+
             var result = await _runner.RunAsync(
                 _options.BackupScript,
                 input,
