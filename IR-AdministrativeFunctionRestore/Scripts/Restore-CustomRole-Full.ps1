@@ -316,6 +316,9 @@ try {
             }
 
             $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
+            if (-not $currentRole -or -not $currentRole.Id) {
+                throw "New-MgRoleManagementDirectoryRoleDefinition retornou vazio sem lancai excecao. Verifique se o App Registration tem a permissao 'RoleManagement.ReadWrite.Directory' e se o tenant possui licenca Entra ID P1/P2."
+            }
             Write-Log "Função recriada com sucesso. Id atual: $($currentRole.Id)"
         }
         else {
@@ -344,6 +347,9 @@ try {
                 -BodyParameter $updateParams
 
             $currentRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $currentRole.Id
+            if (-not $currentRole -or -not $currentRole.Id) {
+                throw "Update-MgRoleManagementDirectoryRoleDefinition falhou silenciosamente. Verifique a permissao 'RoleManagement.ReadWrite.Directory' no App Registration."
+            }
             Write-Log "Definição da função atualizada"
         }
         else {
