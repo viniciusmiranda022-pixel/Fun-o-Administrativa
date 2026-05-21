@@ -54,12 +54,18 @@ public class BackupsController : ControllerBase
                 _options.DefaultJobTimeoutSeconds,
                 ct);
 
+            if (!result.Success)
+            {
+                var msg = result.Errors.Count > 0
+                    ? string.Join(" | ", result.Errors.Take(3))
+                    : "Script retornou com erros sem detalhes";
+                throw new InvalidOperationException(msg);
+            }
+
             return new
             {
-                result.Success,
                 result.Output,
                 result.Stdout,
-                result.Errors,
                 result.ElapsedMilliseconds
             };
         });

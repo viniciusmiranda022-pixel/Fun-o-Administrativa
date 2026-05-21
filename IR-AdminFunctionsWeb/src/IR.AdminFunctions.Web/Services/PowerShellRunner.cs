@@ -100,6 +100,12 @@ public class PowerShellRunner
             "Script {Script} concluído em {Elapsed}ms. HadErrors={HadErrors}",
             scriptPath, sw.ElapsedMilliseconds, ps.HadErrors);
 
+        if (ps.HadErrors)
+        {
+            foreach (var err in errors)
+                _logger.LogError("PS error: {Error}", err);
+        }
+
         return new PowerShellResult
         {
             Success = !ps.HadErrors,
