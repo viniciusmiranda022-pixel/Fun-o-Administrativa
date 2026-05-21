@@ -318,17 +318,36 @@ try {
                 }
             }
 
-            Write-Output "DIAG: chamando New-MgRoleManagementDirectoryRoleDefinition IsEnabled=$($newRoleParams.IsEnabled)"
-
-            # Nao passa TemplateId: roles soft-deleted no Entra ID ocupam o templateId antigo,
-            # causando conflito 400. O Entra atribui um novo GUID automaticamente.
-
-            $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
-            if (-not $currentRole -or -not $currentRole.Id) {
-                throw "New-MgRoleManagementDirectoryRoleDefinition retornou vazio sem lancai excecao. Verifique se o App Registration tem a permissao 'RoleManagement.ReadWrite.Directory' e se o tenant possui licenca Entra ID P1/P2."
+            # Passa o TemplateId original para que o portal Azure exiba a role corretamente.
+            # Se houver conflito 400 (role em soft-delete ainda ocupando o templateId), faz fallback sem TemplateId.
+            $templateIdFromSnapshot = if ($desiredRole.templateId) { [string]$desiredRole.templateId } else { $null }
+            if ($templateIdFromSnapshot) {
+                $newRoleParams.TemplateId = $templateIdFromSnapshot
             }
-            Write-Output "DIAG: role criada Id=$($currentRole.Id) DisplayName='$($currentRole.DisplayName)' IsEnabled=$($currentRole.IsEnabled)"
-            Write-Log "Funcao criada: Id=$($currentRole.Id), DisplayName='$($currentRole.DisplayName)', IsEnabled=$($currentRole.IsEnabled)"
+
+            Write-Output "DIAG: chamando New-MgRoleManagementDirectoryRoleDefinition IsEnabled=$($newRoleParams.IsEnabled) TemplateId=$templateIdFromSnapshot"
+
+            try {
+                $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
+            }
+            catch {
+                $createError = $_.Exception.Message
+                if ($templateIdFromSnapshot -and ($createError -match '400|BadRequest|[Cc]onflict|soft.deleted|already.*exist')) {
+                    Write-Log "Criacao com TemplateId=$templateIdFromSnapshot falhou (possivel soft-delete ativo no tenant). Erro: $createError. Tentando sem TemplateId..."
+                    Write-Output "DIAG: retry CREATE sem TemplateId"
+                    $newRoleParams.Remove('TemplateId')
+                    $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
+                }
+                else {
+                    throw
+                }
+            }
+
+            if (-not $currentRole -or -not $currentRole.Id) {
+                throw "New-MgRoleManagementDirectoryRoleDefinition retornou vazio sem lancar excecao. Verifique se o App Registration tem a permissao 'RoleManagement.ReadWrite.Directory' e se o tenant possui licenca Entra ID P1/P2."
+            }
+            Write-Output "DIAG: role criada Id=$($currentRole.Id) DisplayName='$($currentRole.DisplayName)' IsEnabled=$($currentRole.IsEnabled) TemplateId=$($currentRole.TemplateId)"
+            Write-Log "Funcao criada: Id=$($currentRole.Id), DisplayName='$($currentRole.DisplayName)', IsEnabled=$($currentRole.IsEnabled), TemplateId=$($currentRole.TemplateId)"
         }
         else {
             Write-Log "[PRÉVIA] A função seria criada com base na definição do snapshot."
