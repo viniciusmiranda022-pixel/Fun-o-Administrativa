@@ -160,6 +160,7 @@ export default function Backups() {
             columns={columns}
             rows={rows}
             totalCount={rows.length}
+            showCheckboxes={false}
             selectedRows={selectedId ? [selectedId] : []}
             onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
           />
