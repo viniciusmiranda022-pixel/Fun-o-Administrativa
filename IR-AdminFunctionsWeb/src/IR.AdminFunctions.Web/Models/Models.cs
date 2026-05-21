@@ -70,6 +70,7 @@ public class AppConfig
 {
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }
+    public string? CertificateThumbprint { get; set; }
     public string? ApplicationObjectId { get; set; }
     public string? ServicePrincipalId { get; set; }
     public string? DisplayName { get; set; }

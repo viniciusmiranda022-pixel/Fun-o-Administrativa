@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Identity.Client;
@@ -282,6 +284,19 @@ public class AppRegistrationService
 
             _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 concluída. AppId={AppId}", sessionId, appClientId);
 
+            // Etapa 2.5 — criar certificado de autenticação e registrar no Azure AD
+            string? certThumbprint = null;
+            try
+            {
+                UpdateStatus(sessionId, s => s.Message = "Criando certificado de autenticação...");
+                certThumbprint = await CreateAndRegisterCertificateAsync(http, sessionId, appObjectId, appClientId);
+                _logger.LogInformation("[Setup:{SessionId}] Certificado criado. Thumbprint={Tp}", sessionId, certThumbprint);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[Setup:{SessionId}] Falha ao criar certificado. Setup continua sem certificado.", sessionId);
+            }
+
             // Etapa 3 — persistir configuração
             _logger.LogInformation("[Setup:{SessionId}] Etapa 3/3 — Persistindo configuração...", sessionId);
 
@@ -291,6 +306,7 @@ public class AppRegistrationService
                 ApplicationObjectId = appObjectId,
                 ServicePrincipalId = spId,
                 ClientSecret = clientSecret,
+                CertificateThumbprint = certThumbprint,
                 DisplayName = AppDisplayName,
                 BootstrapTenantId = tenantId,
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -311,6 +327,88 @@ public class AppRegistrationService
             _logger.LogError(ex, "[Setup:{SessionId}] Exceção não tratada no setup.", sessionId);
             Fail(sessionId, ex.Message);
         }
+    }
+
+    private async Task<string?> CreateAndRegisterCertificateAsync(
+        HttpClient http, string sessionId, string appObjectId, string appClientId)
+    {
+        // Cria certificado auto-assinado em memória
+        using var rsa = RSA.Create(2048);
+        var req = new CertificateRequest(
+            $"CN={appClientId}",
+            rsa,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+        req.CertificateExtensions.Add(
+            new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, false));
+
+        using var cert = req.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddDays(-1),
+            DateTimeOffset.UtcNow.AddYears(2));
+
+        // Exporta como PFX e reimporta com flag de persistência no cert store
+        var pfxBytes = cert.Export(X509ContentType.Pkcs12);
+        string thumbprint;
+
+        // Tenta LocalMachine primeiro (necessário para serviços do Windows)
+        try
+        {
+            var flags = X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable;
+            using var persistent = new X509Certificate2(pfxBytes, (string?)null, flags);
+            using var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
+            store.Open(OpenFlags.ReadWrite);
+            store.Add(persistent);
+            thumbprint = persistent.Thumbprint;
+            _logger.LogInformation("[Setup:{SessionId}] Cert instalado em LocalMachine\\My: {Tp}", sessionId, thumbprint);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Setup:{SessionId}] Não foi possível instalar em LocalMachine\\My, usando CurrentUser\\My.", sessionId);
+            var flags = X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable;
+            using var persistent = new X509Certificate2(pfxBytes, (string?)null, flags);
+            using var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
+            store.Open(OpenFlags.ReadWrite);
+            store.Add(persistent);
+            thumbprint = persistent.Thumbprint;
+            _logger.LogInformation("[Setup:{SessionId}] Cert instalado em CurrentUser\\My: {Tp}", sessionId, thumbprint);
+        }
+
+        // Registra a chave pública no Azure AD via PATCH /applications/{id}
+        var pubKeyDer = cert.Export(X509ContentType.Cert);
+        var keyCredPayload = new
+        {
+            keyCredentials = new[]
+            {
+                new
+                {
+                    type = "AsymmetricX509Cert",
+                    usage = "Verify",
+                    key = Convert.ToBase64String(pubKeyDer),
+                    displayName = "IR Setup Certificate",
+                }
+            }
+        };
+
+        var patchContent = new StringContent(
+            JsonSerializer.Serialize(keyCredPayload, JsonOpts),
+            Encoding.UTF8, "application/json");
+        var patchReq = new HttpRequestMessage(HttpMethod.Patch,
+            $"https://graph.microsoft.com/v1.0/applications/{appObjectId}")
+        { Content = patchContent };
+
+        var patchResp = await http.SendAsync(patchReq);
+        if (!patchResp.IsSuccessStatusCode)
+        {
+            var errBody = await patchResp.Content.ReadAsStringAsync();
+            _logger.LogWarning("[Setup:{SessionId}] Falha ao registrar cert no Azure AD: {Status} {Body}",
+                sessionId, (int)patchResp.StatusCode, errBody);
+        }
+        else
+        {
+            _logger.LogInformation("[Setup:{SessionId}] Certificado registrado no Azure AD com sucesso.", sessionId);
+        }
+
+        return thumbprint;
     }
 
     private async Task EnsureRedirectUrisAsync(HttpClient http, string sessionId, string appObjectId)
