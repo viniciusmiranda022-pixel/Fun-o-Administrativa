@@ -288,7 +288,12 @@ try {
         Write-Log "-RemoveExtraAssignments foi informado com -Mode WhatIf. Nenhuma remoção de atribuição será executada no modo de pré-visualização."
     }
 
-    $currentRole = Get-MgRoleManagementDirectoryRoleDefinition -Filter "displayName eq '$RoleName'" | Select-Object -First 1
+    # Enumeracao client-side: o filtro server-side ("displayName eq ...") sofre com
+    # latencia de replicacao e pode retornar vazio mesmo com a role ja existindo,
+    # levando o script ao caminho CREATE e a um erro 400 "conflicting object".
+    $allRoleDefinitions = @(Get-MgRoleManagementDirectoryRoleDefinition -All)
+    $currentRole = $allRoleDefinitions | Where-Object { $_.DisplayName -eq $RoleName } | Select-Object -First 1
+    Write-Output "DIAG: roleDefinitions no tenant=$($allRoleDefinitions.Count) currentRole encontrada=$([bool]$currentRole)"
 
     if ($currentRole -and $currentRole.IsBuiltIn) {
         throw "A função existente '$RoleName' no tenant é built-in. Este restore suporta apenas funções personalizadas."
