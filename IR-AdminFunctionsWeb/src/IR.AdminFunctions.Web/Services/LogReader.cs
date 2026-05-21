@@ -18,7 +18,7 @@ public class LogReader
         _logger = logger;
     }
 
-    public IEnumerable<LogEvent> ReadEvents(int max = 500, string? severity = null)
+    public IEnumerable<LogEvent> ReadEvents(int max = 500, string? severity = null, DateTime? since = null)
     {
         var roots = new[]
         {
@@ -46,6 +46,7 @@ public class LogReader
                         var ev = Parse(line, file.Name);
                         if (ev == null) continue;
                         if (severity != null && !string.Equals(ev.Severity, severity, StringComparison.OrdinalIgnoreCase)) continue;
+                        if (since.HasValue && ev.Time < since.Value) continue;
                         events.Add(ev);
                     }
                 }
@@ -61,9 +62,9 @@ public class LogReader
             .Take(max);
     }
 
-    public IEnumerable<TaskEntry> ReadTasks(int max = 200)
+    public IEnumerable<TaskEntry> ReadTasks(int max = 200, DateTime? since = null)
     {
-        var events = ReadEvents(max * 2);
+        var events = ReadEvents(max * 2, since: since);
 
         return events
             .Select(e => new TaskEntry

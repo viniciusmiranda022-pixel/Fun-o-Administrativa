@@ -42,6 +42,16 @@ function mapEvent(e) {
   };
 }
 
+function sinceFromFilter(filter) {
+  const now = new Date();
+  if (filter === 'today') {
+    const d = new Date(now); d.setHours(0, 0, 0, 0); return d.toISOString();
+  }
+  if (filter === '7days') return new Date(now - 7 * 86400000).toISOString();
+  if (filter === '30days') return new Date(now - 30 * 86400000).toISOString();
+  return undefined;
+}
+
 export default function Events() {
   const [severity, setSeverity] = useState('');
   const [dateFilter, setDateFilter] = useState('30days');
@@ -50,14 +60,14 @@ export default function Events() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.events()
+    setLoading(true);
+    api.events(severity || undefined, sinceFromFilter(dateFilter))
       .then((r) => setAllEvents((r?.data?.items ?? []).map(mapEvent)))
       .catch(() => setAllEvents([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [severity, dateFilter]);
 
   const rows = allEvents.filter((r) => {
-    if (severity && (r.severity || '').toLowerCase() !== severity.toLowerCase()) return false;
     if (search && !r.description.toLowerCase().includes(search.toLowerCase()) && !r.source.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
