@@ -34,7 +34,7 @@ public class TasksController : ControllerBase
         if (!Directory.Exists(folder)) return;
         foreach (var f in Directory.GetFiles(folder, "*.log"))
         {
-            try { File.Delete(f); } catch { }
+            try { System.IO.File.Delete(f); } catch { }
         }
     }
 
