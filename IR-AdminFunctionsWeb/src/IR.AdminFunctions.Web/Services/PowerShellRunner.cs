@@ -25,6 +25,7 @@ public class PowerShellRunner
             throw new FileNotFoundException($"Script PowerShell não encontrado: {scriptPath}", scriptPath);
 
         var command = BuildPsCommand(scriptPath, parameters);
+        _logger.LogInformation("Comando PS: {Command}", command);
 
         var psi = new ProcessStartInfo
         {
