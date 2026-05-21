@@ -43,9 +43,11 @@ $DefaultClientId = ""
 $DefaultThumbprint = ""
 $script:SettingsLoaded = $false
 $script:SettingsErrorMessage = ""
-$script:TenantId = ""
-$script:ClientId = ""
-$script:CertificateThumbprint = ""
+if (-not $Headless) {
+    $script:TenantId = ""
+    $script:ClientId = ""
+    $script:CertificateThumbprint = ""
+}
 $script:BackupRoot = $DefaultBackupRoot
 
 function Write-Log {
