@@ -54,30 +54,28 @@ public class SettingsReader
     public BackupSettings? ReadRaw()
     {
         var path = _options.SettingsFile;
-        if (!File.Exists(path)) return null;
+        if (!File.Exists(path))
+        {
+            _logger.LogWarning("settings.json não encontrado em {Path}", path);
+            return null;
+        }
 
         try
         {
             var json = File.ReadAllText(path);
-            var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            return new BackupSettings
-            {
-                TenantId = TryString(root, "TenantId"),
-                ClientId = TryString(root, "ClientId"),
-                AppDisplayName = TryString(root, "AppDisplayName"),
-                CertificateThumbprint = TryString(root, "CertificateThumbprint"),
-                CertificateStore = TryString(root, "CertificateStore"),
-                BackupRoot = TryString(root, "BackupRoot"),
-                LogRoot = TryString(root, "LogRoot"),
-                LogoPath = TryString(root, "LogoPath"),
-                RetentionDays = TryInt(root, "RetentionDays"),
-                ClientSecret = TryString(root, "ClientSecret")
-            };
+            var result = JsonSerializer.Deserialize<BackupSettings>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            _logger.LogInformation(
+                "ReadRaw: TenantId='{TenantId}' ClientId='{ClientId}' HasThumbprint={HasTp} HasSecret={HasSecret}",
+                result?.TenantId ?? "(null)",
+                result?.ClientId ?? "(null)",
+                !string.IsNullOrWhiteSpace(result?.CertificateThumbprint),
+                !string.IsNullOrWhiteSpace(result?.ClientSecret));
+            return result;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Falha lendo settings.json em {Path}", path);
             return null;
         }
     }
