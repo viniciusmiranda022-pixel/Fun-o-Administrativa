@@ -922,7 +922,9 @@ if ($Headless) {
     New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     $outputPath = Join-Path $outputDir ("compare-{0}.json" -f (Get-Date -Format 'yyyyMMddHHmmss'))
 
-    $compareResults | ConvertTo-Json -Depth 20 | Set-Content -Path $outputPath -Encoding UTF8
+    $compareResults |
+        Select-Object RoleName, RoleType, Status, DefinitionChanged, AssignmentsChanged, DifferenceCount, Summary |
+        ConvertTo-Json -Depth 5 | Set-Content -Path $outputPath -Encoding UTF8
     Write-Log "Headless compare concluído. Resultado: $outputPath"
     Write-Output $outputPath
     exit 0
