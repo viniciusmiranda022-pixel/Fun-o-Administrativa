@@ -89,7 +89,9 @@ function Write-RmadDiagnostics {
 
     if ($thumbprint) {
         $cert = Get-Item "Cert:\LocalMachine\My\$thumbprint" -ErrorAction SilentlyContinue
-        Write-RmadLog "Certificado existe: $([bool]$cert) (Cert:\LocalMachine\My\$thumbprint)"
+        if (-not $cert) { $cert = Get-Item "Cert:\CurrentUser\My\$thumbprint" -ErrorAction SilentlyContinue }
+        $certLocation = if ($cert) { if ((Get-Item "Cert:\LocalMachine\My\$thumbprint" -ErrorAction SilentlyContinue)) { 'LocalMachine\My' } else { 'CurrentUser\My' } } else { 'n/a' }
+        Write-RmadLog "Certificado existe: $([bool]$cert) ($certLocation\$thumbprint)"
         if ($cert) {
             Write-RmadLog "HasPrivateKey: $($cert.HasPrivateKey)"
             Write-RmadLog "Certificado expira em: $($cert.NotAfter.ToString('yyyy-MM-dd HH:mm:ss'))"
@@ -231,8 +233,9 @@ function Test-BackupPrerequisites {
 
     if ($hasThumbprint -and -not $hasSecret) {
         $cert = Get-Item "Cert:\LocalMachine\My\$($settings.CertificateThumbprint)" -ErrorAction SilentlyContinue
+        if (-not $cert) { $cert = Get-Item "Cert:\CurrentUser\My\$($settings.CertificateThumbprint)" -ErrorAction SilentlyContinue }
         if (-not $cert) {
-            $reasons.Add('Certificado configurado não existe em Cert:\LocalMachine\My. Use ClientSecret como alternativa ou importe um PFX com chave privada.')
+            $reasons.Add('Certificado configurado não existe em Cert:\LocalMachine\My nem em Cert:\CurrentUser\My. Use ClientSecret como alternativa ou importe um PFX com chave privada.')
         }
         else {
             if (-not $cert.HasPrivateKey) { $reasons.Add('Certificado sem chave privada (HasPrivateKey=False).') }
