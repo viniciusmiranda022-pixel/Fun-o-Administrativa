@@ -4,7 +4,8 @@ param(
     [string]$BackupId,
     [string]$TenantId,
     [string]$ClientId,
-    [string]$Thumbprint
+    [string]$Thumbprint = "",
+    [string]$ClientSecret = ""
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -187,7 +188,8 @@ function Connect-AppOnlyWithRetry {
     param(
         [string]$TenantId,
         [string]$ClientId,
-        [string]$Thumbprint,
+        [string]$Thumbprint = "",
+        [string]$ClientSecret = "",
         [string]$Operation = "Validation",
         [scriptblock]$StatusCallback
     )
@@ -203,7 +205,13 @@ function Connect-AppOnlyWithRetry {
                 & $StatusCallback "App Registration replication: attempt $attempt of $maxAttempts (maximum 2-minute window)." 0
             }
 
-            Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+            if (-not [string]::IsNullOrWhiteSpace($ClientSecret)) {
+                $secSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
+                $cred = New-Object System.Management.Automation.PSCredential($ClientId, $secSecret)
+                Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ContextScope Process | Out-Null
+            } else {
+                Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+            }
             Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
             Write-Log "${Operation}: app-only connection succeeded on attempt $attempt."
 
@@ -321,10 +329,17 @@ function Load-CurrentTenantData {
     param(
         [string]$TenantId,
         [string]$ClientId,
-        [string]$Thumbprint
+        [string]$Thumbprint = "",
+        [string]$ClientSecret = ""
     )
 
-    Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+    if (-not [string]::IsNullOrWhiteSpace($ClientSecret)) {
+        $secSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
+        $cred = New-Object System.Management.Automation.PSCredential($ClientId, $secSecret)
+        Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ContextScope Process | Out-Null
+    } else {
+        Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+    }
 
     $definitions = Get-MgRoleManagementDirectoryRoleDefinition -All
     $assignments = Get-MgRoleManagementDirectoryRoleAssignment -All
@@ -859,7 +874,9 @@ function Invoke-ExternalRestore {
 if ($Headless) {
     if ([string]::IsNullOrWhiteSpace($TenantId))  { throw "-TenantId é obrigatório em modo headless." }
     if ([string]::IsNullOrWhiteSpace($ClientId))  { throw "-ClientId é obrigatório em modo headless." }
-    if ([string]::IsNullOrWhiteSpace($Thumbprint)){ throw "-Thumbprint é obrigatório em modo headless." }
+    if ([string]::IsNullOrWhiteSpace($Thumbprint) -and [string]::IsNullOrWhiteSpace($ClientSecret)) {
+        throw "-Thumbprint ou -ClientSecret é obrigatório em modo headless."
+    }
 
     $headlessBackupRoot = Resolve-BackupRoot
 
@@ -896,8 +913,8 @@ if ($Headless) {
     Write-Log "Headless compare iniciado. Snapshot: $snapshotFolder"
 
     $snapshotData = Load-Snapshot -Folder $snapshotFolder
-    Connect-AppOnlyWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -Operation "Headless compare"
-    $currentData = Load-CurrentTenantData -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint
+    Connect-AppOnlyWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -ClientSecret $ClientSecret -Operation "Headless compare"
+    $currentData = Load-CurrentTenantData -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -ClientSecret $ClientSecret
     $compareResults = Compare-Roles -SnapshotData $snapshotData -CurrentData $currentData
     Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
 

@@ -1,36 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, CheckSquare, Columns, Search, Info, AlertTriangle, XCircle } from 'lucide-react';
 import DataTable from '../components/common/DataTable.jsx';
-
-const MOCK_EVENTS = [
-  { id: 1, time: 'Today at 1:22 PM', severity: 'Info', description: 'The Differences report has been updated successfully.', objectName: '—', taskName: 'Unpack backup 2026-05-19 15:00:16' },
-  { id: 2, time: 'Today at 1:21 PM', severity: 'Info', description: 'The Differences report has been updated successfully.', objectName: '—', taskName: 'Unpack backup 2026-05-19 15:00:16' },
-  { id: 3, time: 'Today at 1:21 PM', severity: 'Info', description: 'Update of the Differences report has been started.', objectName: '—', taskName: 'Unpack backup 2026-05-19 15:00:16' },
-  { id: 4, time: 'Today at 1:20 PM', severity: 'Info', description: 'Unpacked backup: 2026-05-19T15:00:16.889866Z', objectName: '—', taskName: 'Unpack backup 2026-05-19 15:00:16' },
-  { id: 5, time: 'Today at 1:20 PM', severity: 'Info', description: 'Task has been started (Started by user)', objectName: '—', taskName: 'Unpack backup 2026-05-19 15:00:16' },
-  { id: 6, time: 'Today at 1:12 PM', severity: 'Info', description: 'Task has been started (Started by user)', objectName: '—', taskName: 'Backup tenant Contoso' },
-  { id: 7, time: 'Today at 1:11 PM', severity: 'Info', description: 'Backup completed: 32 role objects backed up successfully.', objectName: '—', taskName: 'Backup tenant Contoso' },
-  { id: 8, time: 'Today at 1:10 PM', severity: 'Info', description: 'Backup task initiated for tenant Contoso.', objectName: 'Contoso', taskName: 'Backup tenant Contoso' },
-  { id: 9, time: '05/19/2026 3:05 PM', severity: 'Info', description: 'Unpack operation completed: 337 objects unpacked.', objectName: '—', taskName: 'Unpack backup 2026-05-19 15:00:16' },
-  { id: 10, time: '05/19/2026 3:00 PM', severity: 'Info', description: 'Task has been started (Scheduled)', objectName: '—', taskName: 'Backup tenant Contoso' },
-  { id: 11, time: '05/06/2026 3:19 PM', severity: 'Info', description: 'Directory role Agent ID Administrator was assigned to group Helpdesk Managers.', objectName: 'Helpdesk Managers', taskName: 'Diff restore objects' },
-  { id: 12, time: '05/06/2026 3:18 PM', severity: 'Info', description: 'Object attributes were restored successfully.', objectName: '—', taskName: 'Diff restore objects' },
-  { id: 13, time: '05/06/2026 3:18 PM', severity: 'Info', description: 'Group was re-created in directory.', objectName: 'Helpdesk Managers', taskName: 'Diff restore objects' },
-  { id: 14, time: '05/06/2026 3:15 PM', severity: 'Warning', description: 'Referenced principal could not be found; assignment skipped.', objectName: '—', taskName: 'Diff restore objects' },
-  { id: 15, time: '05/06/2026 3:14 PM', severity: 'Error', description: 'Quest Recovery Function - Administrative Roles Backup failed: access denied.', objectName: '—', taskName: 'Backup tenant Contoso' },
-  ...Array.from({ length: 385 }, (_, i) => ({
-    id: 16 + i,
-    time: `05/${String(Math.floor(i / 20) + 1).padStart(2, '0')}/2026 ${Math.floor(Math.random() * 12) + 1}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')} PM`,
-    severity: ['Info', 'Info', 'Info', 'Warning', 'Error'][i % 5],
-    description: ['Backup completed successfully.', 'Differences report updated.', 'Task started by scheduler.', 'Tenant consent check passed.', 'Role assignment synced.'][i % 5],
-    objectName: '—',
-    taskName: ['Backup tenant Contoso', 'Unpack backup', 'Diff restore objects'][i % 3],
-  })),
-];
+import { api } from '../api/client.js';
 
 function SeverityIcon({ severity }) {
-  if (severity === 'Error') return <XCircle size={13} className="text-[#DC3545]" />;
-  if (severity === 'Warning') return <AlertTriangle size={13} className="text-[#FFC107]" />;
+  const s = (severity || '').toLowerCase();
+  if (s === 'error') return <XCircle size={13} className="text-[#DC3545]" />;
+  if (s === 'warning') return <AlertTriangle size={13} className="text-[#FFC107]" />;
   return <Info size={13} className="text-[#17A2B8]" />;
 }
 
@@ -39,46 +15,50 @@ const columns = [
     key: 'severity', header: '', width: '3%',
     render: (r) => <SeverityIcon severity={r.severity} />
   },
-  { key: 'time', header: 'Time ▼', sortable: true, width: '14%' },
+  { key: 'time', header: 'Time ▼', sortable: true, width: '16%' },
   {
-    key: 'description', header: 'Description', width: '40%',
+    key: 'description', header: 'Description', width: '45%',
     render: (r) => <span className="line-clamp-2 text-xs">{r.description}</span>
   },
-  { key: 'objectName', header: 'Object Name', width: '16%' },
+  { key: 'source', header: 'Source', width: '18%' },
   {
-    key: 'taskName', header: 'Task Name', width: '27%',
-    render: (r) => <span className="text-[#0078A8] hover:underline cursor-pointer text-xs">{r.taskName}</span>
+    key: 'severity2', header: 'Severity', width: '10%',
+    render: (r) => (
+      <span className={`text-xs font-semibold ${(r.severity || '').toLowerCase() === 'error' ? 'text-[#DC3545]' : (r.severity || '').toLowerCase() === 'warning' ? 'text-[#FFC107]' : 'text-[#17A2B8]'}`}>
+        {r.severity}
+      </span>
+    )
   },
 ];
 
-function MiniHistogram() {
-  const bars = Array.from({ length: 30 }, (_, i) => ({
-    h: Math.floor(Math.random() * 70) + 20,
-    color: i === 28 || i === 29 ? '#17A2B8' : i % 7 === 0 ? '#DC3545' : '#17A2B8',
-  }));
-  return (
-    <div className="bg-white border border-[#DEE2E6] px-4 pt-2 pb-1.5" style={{ height: 52 }}>
-      <div className="flex items-end gap-0.5 h-8">
-        {bars.map((b, i) => (
-          <div key={i} className="flex-1 rounded-sm" style={{ height: `${b.h}%`, backgroundColor: b.color }} />
-        ))}
-      </div>
-      <div className="flex justify-between text-[9px] text-[#999] mt-0.5">
-        <span>Apr 22</span><span>Apr 29</span><span>May 6</span><span>May 13</span><span>May 20</span>
-      </div>
-    </div>
-  );
+function mapEvent(e) {
+  const d = new Date(e.time || e.Time || '');
+  return {
+    id: `${e.time}-${Math.random()}`,
+    time: isNaN(d) ? (e.time || '—') : d.toLocaleString(),
+    description: e.message || e.Message || e.description || '—',
+    source: e.source || e.Source || '—',
+    severity: e.severity || e.Severity || 'Information',
+  };
 }
 
 export default function Events() {
   const [severity, setSeverity] = useState('');
-  const [relevance, setRelevance] = useState('');
   const [dateFilter, setDateFilter] = useState('30days');
   const [search, setSearch] = useState('');
+  const [allEvents, setAllEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const rows = MOCK_EVENTS.slice(0, 400).filter((r) => {
-    if (severity && r.severity !== severity) return false;
-    if (search && !r.description.toLowerCase().includes(search.toLowerCase()) && !r.taskName.toLowerCase().includes(search.toLowerCase())) return false;
+  useEffect(() => {
+    api.events()
+      .then((r) => setAllEvents((r?.data?.items ?? []).map(mapEvent)))
+      .catch(() => setAllEvents([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const rows = allEvents.filter((r) => {
+    if (severity && (r.severity || '').toLowerCase() !== severity.toLowerCase()) return false;
+    if (search && !r.description.toLowerCase().includes(search.toLowerCase()) && !r.source.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
@@ -94,19 +74,9 @@ export default function Events() {
             className="border border-[#DEE2E6] px-1.5 py-0.5 text-xs bg-white"
           >
             <option value="">Any</option>
-            <option value="Info">Information</option>
+            <option value="Information">Information</option>
             <option value="Warning">Warning</option>
             <option value="Error">Error</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-1 text-xs">
-          <span className="text-[#555]">Relevance:</span>
-          <select
-            value={relevance}
-            onChange={(e) => setRelevance(e.target.value)}
-            className="border border-[#DEE2E6] px-1.5 py-0.5 text-xs bg-white"
-          >
-            <option value="">Any</option>
           </select>
         </div>
         <div className="flex items-center gap-0.5">
@@ -123,15 +93,10 @@ export default function Events() {
               {opt.label}
             </button>
           ))}
-          <button className="px-3 py-1 text-xs border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2] ml-1">
-            Custom range
-          </button>
         </div>
       </div>
 
       <div className="p-4 space-y-3 flex-1 overflow-auto">
-        <MiniHistogram />
-
         {/* Action toolbar */}
         <div className="bg-white border border-[#DEE2E6] px-3 py-2 flex items-center gap-2">
           <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2]">
@@ -147,7 +112,9 @@ export default function Events() {
             EDIT COLUMNS
           </button>
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-[#666]">612 events</span>
+            <span className="text-xs text-[#666]">
+              {loading ? 'Loading…' : `${rows.length} event${rows.length !== 1 ? 's' : ''}`}
+            </span>
             <div className="flex items-center border border-[#DEE2E6] overflow-hidden">
               <input
                 value={search}
@@ -162,7 +129,15 @@ export default function Events() {
           </div>
         </div>
 
-        <DataTable columns={columns} rows={rows} totalCount={612} showCheckboxes={true} />
+        {loading ? (
+          <div className="text-xs text-[#888] p-4">Loading events…</div>
+        ) : rows.length === 0 ? (
+          <div className="bg-white border border-[#DEE2E6] p-8 text-center text-xs text-[#888]">
+            No events found. Events are generated as backup, unpack, compare, and restore operations run.
+          </div>
+        ) : (
+          <DataTable columns={columns} rows={rows} totalCount={rows.length} showCheckboxes={true} />
+        )}
       </div>
     </div>
   );

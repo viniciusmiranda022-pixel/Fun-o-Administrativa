@@ -6,8 +6,11 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ClientId,
 
-    [Parameter(Mandatory = $true)]
-    [string]$CertificateThumbprint,
+    [Parameter(Mandatory = $false)]
+    [string]$CertificateThumbprint = "",
+
+    [Parameter(Mandatory = $false)]
+    [string]$ClientSecret = "",
 
     [Parameter(Mandatory = $true)]
     [string]$SnapshotFolder,
@@ -237,7 +240,7 @@ function Export-PreRestoreReport {
 try {
     Initialize-StructuredLog -TenantId $TenantId -RoleName $RoleName -SnapshotFolder $SnapshotFolder
     Write-Log "Conectando ao Microsoft Graph (com retentativa para replicação do App Registration)"
-    Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $CertificateThumbprint -VerboseOutput -FailureMessage 'Falha ao conectar ao Graph em modo app-only após {0} tentativas. Último erro: {1}'
+    Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $CertificateThumbprint -ClientSecret $ClientSecret -VerboseOutput -FailureMessage 'Falha ao conectar ao Graph em modo app-only após {0} tentativas. Último erro: {1}'
 
     $roleDefinitionsPath = Join-Path $SnapshotFolder "roleDefinitions.json"
     $roleAssignmentsPath = Join-Path $SnapshotFolder "roleAssignments.json"

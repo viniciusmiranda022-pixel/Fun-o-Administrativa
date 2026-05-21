@@ -10,14 +10,16 @@ public class TenantStore
     private readonly string _tenantsFile;
     private readonly string _settingsFile;
     private readonly ILogger<TenantStore> _logger;
+    private readonly AppConfigStore _appConfig;
     private readonly JsonSerializerOptions _json = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    public TenantStore(IOptions<QuestOptions> options, ILogger<TenantStore> logger)
+    public TenantStore(IOptions<QuestOptions> options, AppConfigStore appConfig, ILogger<TenantStore> logger)
     {
         var configDir = Path.GetDirectoryName(options.Value.SettingsFile)!;
         _tenantsFile = Path.Combine(configDir, "tenants.json");
         _settingsFile = options.Value.SettingsFile;
+        _appConfig = appConfig;
         _logger = logger;
     }
 
@@ -124,12 +126,14 @@ public class TenantStore
             var primary = tenants.FirstOrDefault(t => t.IsConfigured) ?? tenants.FirstOrDefault();
             if (primary == null) return;
 
+            var appCfg = _appConfig.Read();
             var flat = new Dictionary<string, object?>
             {
                 ["TenantId"] = primary.TenantId,
-                ["ClientId"] = primary.ClientId,
+                ["ClientId"] = primary.ClientId ?? appCfg.ClientId,
                 ["CertificateThumbprint"] = primary.CertificateThumbprint,
-                ["AppDisplayName"] = primary.Name
+                ["AppDisplayName"] = primary.Name,
+                ["ClientSecret"] = appCfg.ClientSecret
             };
 
             // Preserva campos extras do settings.json existente (BackupRoot, LogRoot, etc.)

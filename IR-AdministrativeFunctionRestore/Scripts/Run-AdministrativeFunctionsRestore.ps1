@@ -49,11 +49,14 @@ $settings = Get-Content $SettingsPath -Raw | ConvertFrom-Json
 $tenantId = [string]$settings.TenantId
 $clientId = [string]$settings.ClientId
 $thumb = [string]$settings.CertificateThumbprint
+$clientSecret = [string]$settings.ClientSecret
 $backupRoot = if (-not [string]::IsNullOrWhiteSpace([string]$settings.BackupRoot)) { [string]$settings.BackupRoot } else { $DefaultBackupRoot }
 
 if ([string]::IsNullOrWhiteSpace($tenantId)) { throw "TenantId vazio. Verifique settings.json." }
 if ([string]::IsNullOrWhiteSpace($clientId)) { throw "ClientId vazio. Verifique settings.json." }
-if ([string]::IsNullOrWhiteSpace($thumb)) { throw "CertificateThumbprint vazio. Verifique settings.json." }
+if ([string]::IsNullOrWhiteSpace($thumb) -and [string]::IsNullOrWhiteSpace($clientSecret)) {
+    throw "CertificateThumbprint ou ClientSecret é necessário. Verifique settings.json."
+}
 
 if ([string]::IsNullOrWhiteSpace($SnapshotFolder)) {
     if (-not (Test-Path $backupRoot)) {
@@ -75,5 +78,6 @@ if (-not (Test-Path $RestoreScriptPath)) {
     -TenantId $tenantId `
     -ClientId $clientId `
     -CertificateThumbprint $thumb `
+    -ClientSecret $clientSecret `
     -SnapshotFolder $SnapshotFolder `
     -RoleName $RoleName

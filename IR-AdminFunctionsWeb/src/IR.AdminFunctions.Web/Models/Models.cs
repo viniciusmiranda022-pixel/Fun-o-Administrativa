@@ -25,6 +25,7 @@ public class BackupSettings
     public string? LogRoot { get; set; }
     public string? LogoPath { get; set; }
     public int? RetentionDays { get; set; }
+    public string? ClientSecret { get; set; }
 }
 
 public class TenantInfo

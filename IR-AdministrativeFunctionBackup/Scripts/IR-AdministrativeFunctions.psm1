@@ -44,7 +44,8 @@ function Connect-AppOnlyGraphWithRetry {
     param(
         [string]$TenantId,
         [string]$ClientId,
-        [string]$Thumbprint,
+        [string]$Thumbprint = "",
+        [string]$ClientSecret = "",
         [int]$MaxAttempts = 8,
         [int]$DelaySeconds = 15,
         [string]$FailureMessage = 'Falha ao validar app-only após {0} tentativas. Último erro: {1}',
@@ -57,7 +58,13 @@ function Connect-AppOnlyGraphWithRetry {
             if ($VerboseOutput) {
                 Write-Host "Validando conexão app-only com Microsoft Graph (tentativa $attempt de $MaxAttempts)..." -ForegroundColor Cyan
             }
-            Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+            if (-not [string]::IsNullOrWhiteSpace($ClientSecret)) {
+                $secSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
+                $cred = New-Object System.Management.Automation.PSCredential($ClientId, $secSecret)
+                Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ContextScope Process | Out-Null
+            } else {
+                Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+            }
             Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
             return
         } catch {
@@ -79,7 +86,8 @@ function Test-GraphConnection {
     param(
         [string]$TenantId,
         [string]$ClientId,
-        [string]$Thumbprint,
+        [string]$Thumbprint = "",
+        [string]$ClientSecret = "",
         [int]$MaxAttempts = 8,
         [int]$DelaySeconds = 15,
         [string]$FailureMessage = 'Falha ao validar app-only após {0} tentativas. Último erro: {1}',
@@ -87,7 +95,7 @@ function Test-GraphConnection {
     )
 
     try {
-        Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -MaxAttempts $MaxAttempts -DelaySeconds $DelaySeconds -FailureMessage $FailureMessage -VerboseOutput:$VerboseOutput
+        Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -ClientSecret $ClientSecret -MaxAttempts $MaxAttempts -DelaySeconds $DelaySeconds -FailureMessage $FailureMessage -VerboseOutput:$VerboseOutput
     } finally {
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
     }

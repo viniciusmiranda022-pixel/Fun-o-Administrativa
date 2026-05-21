@@ -32,8 +32,6 @@ public class TenantsController : ControllerBase
             return BadRequest(ApiResponse<TenantEntry>.Fail("TenantId é obrigatório."));
         if (string.IsNullOrWhiteSpace(req.ClientId))
             return BadRequest(ApiResponse<TenantEntry>.Fail("ClientId é obrigatório."));
-        if (string.IsNullOrWhiteSpace(req.CertificateThumbprint))
-            return BadRequest(ApiResponse<TenantEntry>.Fail("CertificateThumbprint é obrigatório."));
 
         try
         {

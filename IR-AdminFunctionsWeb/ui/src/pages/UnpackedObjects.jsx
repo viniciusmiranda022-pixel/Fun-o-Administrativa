@@ -1,81 +1,100 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RotateCcw, Download, Columns, Search, FileText } from 'lucide-react';
 import DataTable from '../components/common/DataTable.jsx';
-
-const MOCK_OBJECTS = [
-  { id: 1, name: 'Global Reader Extension', type: 'Custom Role', backupDate: 'Yesterday at 12:00', roleId: 'abc123-4d5e-6f78', description: 'Can read all resources', permissions: '15', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  { id: 2, name: 'Helpdesk Manager Plus', type: 'Custom Role', backupDate: 'Yesterday at 12:00', roleId: 'def456-7a8b-9c01', description: 'Can manage help desk', permissions: '8', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  { id: 3, name: 'Security Auditor Pro', type: 'Custom Role', backupDate: 'Yesterday at 12:00', roleId: 'ghi789-0b1c-2d34', description: 'Security audit capabilities', permissions: '22', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  { id: 4, name: 'Read Users', type: 'Role Permission', backupDate: 'Yesterday at 12:00', roleId: 'abc123-4d5e-6f78', description: 'microsoft.directory/users/read', permissions: '1', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  { id: 5, name: 'Read Groups', type: 'Role Permission', backupDate: 'Yesterday at 12:00', roleId: 'abc123-4d5e-6f78', description: 'microsoft.directory/groups/read', permissions: '1', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  { id: 6, name: 'John Doe → Global Reader Extension', type: 'Role Assignment', backupDate: 'Yesterday at 12:00', roleId: 'abc123-4d5e-6f78', description: '—', permissions: '—', assignedTo: 'John Doe', principalType: 'User', scope: '/', status: 'Active' },
-  { id: 7, name: 'Helpdesk Group → Helpdesk Manager Plus', type: 'Role Assignment', backupDate: 'Yesterday at 12:00', roleId: 'def456-7a8b-9c01', description: '—', permissions: '—', assignedTo: 'Helpdesk Group', principalType: 'Group', scope: '/', status: 'Active' },
-  { id: 8, name: 'AU-North / Global Reader Extension', type: 'Assignment Scope', backupDate: 'Yesterday at 12:00', roleId: 'abc123-4d5e-6f78', description: '—', permissions: '—', assignedTo: '—', principalType: '—', scope: 'AU-North', status: 'Active' },
-  { id: 9, name: 'Compliance Reader Custom', type: 'Custom Role', backupDate: 'Yesterday at 12:00', roleId: 'jkl012-3m4n-5o67', description: 'Read compliance data', permissions: '6', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  { id: 10, name: 'DevOps Lead Role', type: 'Custom Role', backupDate: 'Yesterday at 12:00', roleId: 'pqr345-6s7t-8u90', description: 'Manage DevOps pipelines', permissions: '12', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  { id: 11, name: 'Read Applications', type: 'Role Permission', backupDate: 'Yesterday at 12:00', roleId: 'def456-7a8b-9c01', description: 'microsoft.directory/applications/read', permissions: '1', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  { id: 12, name: 'ServiceAccount1 → Security Auditor Pro', type: 'Role Assignment', backupDate: 'Yesterday at 12:00', roleId: 'ghi789-0b1c-2d34', description: '—', permissions: '—', assignedTo: 'ServiceAccount1', principalType: 'ServicePrincipal', scope: '/', status: 'Active' },
-  { id: 13, name: 'Network Operator Plus', type: 'Custom Role', backupDate: 'Yesterday at 12:00', roleId: 'vwx678-9y0z-1a23', description: 'Manage network resources', permissions: '9', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  { id: 14, name: 'AU-South / Compliance Reader Custom', type: 'Assignment Scope', backupDate: 'Yesterday at 12:00', roleId: 'jkl012-3m4n-5o67', description: '—', permissions: '—', assignedTo: '—', principalType: '—', scope: 'AU-South', status: 'Active' },
-  { id: 15, name: 'Finance Admin Role', type: 'Custom Role', backupDate: 'Yesterday at 12:00', roleId: 'bcd901-2e3f-4g56', description: 'Finance department admin', permissions: '18', assignedTo: '—', principalType: '—', scope: '/', status: 'Active' },
-  ...Array.from({ length: 20 }, (_, i) => ({
-    id: 16 + i,
-    name: `Role Object ${16 + i}`,
-    type: ['Custom Role', 'Role Permission', 'Role Assignment', 'Assignment Scope'][i % 4],
-    backupDate: 'Yesterday at 12:00',
-    roleId: `id-${i}`,
-    description: '—',
-    permissions: String(Math.floor(Math.random() * 20)),
-    assignedTo: '—',
-    principalType: '—',
-    scope: '/',
-    status: 'Active',
-  })),
-];
+import { api } from '../api/client.js';
 
 const columns = [
   {
-    key: 'name', header: 'Name ▲', sortable: true, width: '20%',
+    key: 'name', header: 'Name', sortable: true, width: '22%',
     render: (r) => (
       <div className="flex items-center gap-1.5">
         <FileText size={12} className="text-[#0096D6] flex-shrink-0" />
-        <span className="text-[#0078A8] hover:underline cursor-pointer truncate">{r.name}</span>
+        <span className="text-[#0078A8] truncate">{r.name}</span>
       </div>
     )
   },
-  { key: 'type', header: 'Object Type', sortable: true, width: '12%' },
-  { key: 'backupDate', header: 'Backup Date', sortable: true, width: '13%' },
-  { key: 'roleId', header: 'Role Definition ID', width: '12%', render: (r) => <span className="font-mono text-[10px] text-[#666] truncate block max-w-[120px]">{r.roleId}</span> },
-  { key: 'description', header: 'Description', width: '16%', render: (r) => <span className="truncate block max-w-[150px]">{r.description}</span> },
+  { key: 'type', header: 'Object Type', sortable: true, width: '14%' },
+  { key: 'roleId', header: 'Role ID', width: '16%', render: (r) => <span className="font-mono text-[10px] text-[#666] truncate block max-w-[140px]">{r.roleId}</span> },
+  { key: 'description', header: 'Description', width: '20%', render: (r) => <span className="truncate block max-w-[180px]">{r.description || '—'}</span> },
   { key: 'permissions', header: 'Permissions', width: '8%' },
-  { key: 'assignedTo', header: 'Assigned To', width: '10%' },
-  { key: 'principalType', header: 'Principal Type', width: '9%' },
-  { key: 'scope', header: 'Scope', width: '6%' },
   {
-    key: 'status', header: 'Status', width: '6%',
+    key: 'status', header: 'Status', width: '8%',
     render: (r) => <span className="text-[#28A745] font-semibold text-xs">{r.status}</span>
   },
 ];
 
+function mapDefinition(d) {
+  const perms = (d.rolePermissions || []).reduce((sum, rp) => sum + (rp.allowedResourceActions?.length || 0), 0);
+  return {
+    id: d.id || d.Id,
+    name: d.displayName || d.DisplayName || '—',
+    type: d.isBuiltIn || d.IsBuiltIn ? 'Built-in Role' : 'Custom Role',
+    roleId: (d.id || d.Id || '').slice(0, 18) + '…',
+    description: d.description || d.Description || '',
+    permissions: perms,
+    status: (d.isEnabled || d.IsEnabled) !== false ? 'Active' : 'Disabled',
+  };
+}
+
+function mapAssignment(a) {
+  return {
+    id: a.id || a.Id,
+    name: `${(a.principalId || a.PrincipalId || '—').slice(0, 8)}… → ${(a.roleDefinitionId || a.RoleDefinitionId || '—').slice(0, 8)}…`,
+    type: 'Role Assignment',
+    roleId: (a.roleDefinitionId || a.RoleDefinitionId || '').slice(0, 18) + '…',
+    description: a.directoryScopeId || a.DirectoryScopeId || '/',
+    permissions: '—',
+    status: 'Active',
+  };
+}
+
 export default function UnpackedObjects() {
   const [view, setView] = useState('list');
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({ backup: '', type: '', roleType: '', assignType: '', principalType: '', scopeType: '' });
+  const [filters, setFilters] = useState({ type: '' });
+  const [backups, setBackups] = useState([]);
+  const [selectedBackupId, setSelectedBackupId] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const rows = MOCK_OBJECTS.filter(
-    (r) => !search || r.name.toLowerCase().includes(search.toLowerCase()) || r.type.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    api.backups()
+      .then((r) => {
+        const list = r?.data ?? [];
+        setBackups(list);
+        if (list.length > 0) setSelectedBackupId(list[0].id);
+        else setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
-  function setFilter(k, v) { setFilters((f) => ({ ...f, [k]: v })); }
+  useEffect(() => {
+    if (!selectedBackupId) return;
+    setLoading(true);
+    setError(null);
+    api.unpacked(selectedBackupId)
+      .then((r) => {
+        const data = r?.data;
+        if (!data) { setRows([]); return; }
+        const defs = Array.isArray(data.roleDefinitions) ? data.roleDefinitions : [];
+        const assigns = Array.isArray(data.roleAssignments) ? data.roleAssignments : [];
+        setRows([
+          ...defs.map(mapDefinition),
+          ...assigns.map(mapAssignment),
+        ]);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [selectedBackupId]);
 
-  const filterDefs = [
-    { key: 'backup', label: 'Backup' },
-    { key: 'type', label: 'Type' },
-    { key: 'roleType', label: 'Role Type' },
-    { key: 'assignType', label: 'Assignment Type' },
-    { key: 'principalType', label: 'Principal Type' },
-    { key: 'scopeType', label: 'Scope Type' },
-  ];
+  const filtered = rows.filter((r) => {
+    if (filters.type && r.type !== filters.type) return false;
+    if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const typeOptions = [...new Set(rows.map(r => r.type))];
 
   return (
     <div className="flex flex-col h-full">
@@ -92,19 +111,37 @@ export default function UnpackedObjects() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 ml-2 flex-wrap">
-          {filterDefs.map(({ key, label }) => (
-            <div key={key} className="flex items-center gap-1 text-xs">
-              <span className="text-[#555]">{label}:</span>
-              <select
-                value={filters[key]}
-                onChange={(e) => setFilter(key, e.target.value)}
-                className="border border-[#DEE2E6] px-1.5 py-0.5 text-xs bg-white"
-              >
-                <option value="">Any</option>
-              </select>
-            </div>
-          ))}
+
+        {backups.length > 1 && (
+          <div className="flex items-center gap-1 text-xs">
+            <span className="text-[#555]">Backup:</span>
+            <select
+              value={selectedBackupId || ''}
+              onChange={(e) => setSelectedBackupId(e.target.value)}
+              className="border border-[#DEE2E6] px-1.5 py-0.5 text-xs bg-white max-w-[200px]"
+            >
+              {backups.map((b) => {
+                const d = new Date(b.createdAt || b.collectedAt || '');
+                return (
+                  <option key={b.id} value={b.id}>
+                    {isNaN(d) ? b.id : d.toLocaleString()}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+
+        <div className="flex items-center gap-1 text-xs">
+          <span className="text-[#555]">Type:</span>
+          <select
+            value={filters.type}
+            onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
+            className="border border-[#DEE2E6] px-1.5 py-0.5 text-xs bg-white"
+          >
+            <option value="">Any</option>
+            {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
         </div>
       </div>
 
@@ -124,7 +161,9 @@ export default function UnpackedObjects() {
             EDIT COLUMNS
           </button>
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-[#666]">337 objects</span>
+            <span className="text-xs text-[#666]">
+              {loading ? 'Loading…' : `${filtered.length} object${filtered.length !== 1 ? 's' : ''}`}
+            </span>
             <div className="flex items-center border border-[#DEE2E6] overflow-hidden">
               <input
                 value={search}
@@ -139,7 +178,23 @@ export default function UnpackedObjects() {
           </div>
         </div>
 
-        <DataTable columns={columns} rows={rows} totalCount={337} />
+        {loading ? (
+          <div className="text-xs text-[#888] p-4">Loading objects…</div>
+        ) : error ? (
+          <div className="bg-white border border-[#DEE2E6] p-8 text-center text-xs text-[#DC3545]">
+            {error}
+          </div>
+        ) : backups.length === 0 ? (
+          <div className="bg-white border border-[#DEE2E6] p-8 text-center text-xs text-[#888]">
+            No backups found. Create a backup first, then unpack it to view objects here.
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="bg-white border border-[#DEE2E6] p-8 text-center text-xs text-[#888]">
+            No objects found for this backup. Unpack a backup to populate this view.
+          </div>
+        ) : (
+          <DataTable columns={columns} rows={filtered} totalCount={filtered.length} />
+        )}
       </div>
     </div>
   );

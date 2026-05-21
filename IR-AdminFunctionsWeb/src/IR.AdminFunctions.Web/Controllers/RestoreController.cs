@@ -14,19 +14,22 @@ public class RestoreController : ControllerBase
     private readonly SettingsReader _settings;
     private readonly BackupReader _backups;
     private readonly QuestOptions _options;
+    private readonly AppConfigStore _appConfig;
 
     public RestoreController(
         PowerShellRunner runner,
         JobManager jobs,
         SettingsReader settings,
         BackupReader backups,
-        IOptions<QuestOptions> options)
+        IOptions<QuestOptions> options,
+        AppConfigStore appConfig)
     {
         _runner = runner;
         _jobs = jobs;
         _settings = settings;
         _backups = backups;
         _options = options.Value;
+        _appConfig = appConfig;
     }
 
     [HttpPost("preview")]
@@ -50,19 +53,22 @@ public class RestoreController : ControllerBase
             return ApiResponse<Job>.Fail($"Backup {request.BackupId} não encontrado.");
         }
 
+        var cfg = _appConfig.Read();
         var raw = _settings.ReadRaw();
-        if (raw == null || string.IsNullOrWhiteSpace(raw.TenantId)
-            || string.IsNullOrWhiteSpace(raw.ClientId)
-            || string.IsNullOrWhiteSpace(raw.CertificateThumbprint))
-        {
-            return ApiResponse<Job>.Fail("settings.json incompleto.");
-        }
+
+        if (raw == null || string.IsNullOrWhiteSpace(raw.TenantId) || string.IsNullOrWhiteSpace(raw.ClientId))
+            return ApiResponse<Job>.Fail("settings.json incompleto. Adicione um tenant primeiro.");
+
+        var hasAuth = !string.IsNullOrWhiteSpace(raw.CertificateThumbprint) || !string.IsNullOrWhiteSpace(cfg.ClientSecret);
+        if (!hasAuth)
+            return ApiResponse<Job>.Fail("Nenhuma credencial configurada. Conceda o consentimento Restore primeiro.");
 
         var input = new Dictionary<string, object?>
         {
             ["TenantId"] = raw.TenantId,
             ["ClientId"] = raw.ClientId,
-            ["CertificateThumbprint"] = raw.CertificateThumbprint,
+            ["CertificateThumbprint"] = raw.CertificateThumbprint ?? "",
+            ["ClientSecret"] = cfg.ClientSecret ?? "",
             ["SnapshotFolder"] = snap.Path,
             ["RoleName"] = request.RoleName,
             ["Mode"] = mode,

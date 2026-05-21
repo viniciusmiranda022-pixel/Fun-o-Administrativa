@@ -13,17 +13,20 @@ public class BackupsController : ControllerBase
     private readonly PowerShellRunner _runner;
     private readonly JobManager _jobs;
     private readonly QuestOptions _options;
+    private readonly AppConfigStore _appConfig;
 
     public BackupsController(
         BackupReader reader,
         PowerShellRunner runner,
         JobManager jobs,
-        IOptions<QuestOptions> options)
+        IOptions<QuestOptions> options,
+        AppConfigStore appConfig)
     {
         _reader = reader;
         _runner = runner;
         _jobs = jobs;
         _options = options.Value;
+        _appConfig = appConfig;
     }
 
     [HttpGet]
@@ -41,11 +44,18 @@ public class BackupsController : ControllerBase
     [HttpPost("run")]
     public ActionResult<ApiResponse<Job>> Run()
     {
-        var job = _jobs.Enqueue("backup", null, async (_, ct) =>
+        var cfg = _appConfig.Read();
+        var input = new Dictionary<string, object?>
+        {
+            ["RmadMode"] = true,
+            ["ClientSecret"] = cfg.ClientSecret ?? ""
+        };
+
+        var job = _jobs.Enqueue("backup", input, async (_, ct) =>
         {
             var result = await _runner.RunAsync(
                 _options.BackupScript,
-                new Dictionary<string, object?> { ["RmadMode"] = true },
+                input,
                 _options.DefaultJobTimeoutSeconds,
                 ct);
 

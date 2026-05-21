@@ -40,7 +40,8 @@ public class SettingsReader
                 BackupRoot = TryString(root, "BackupRoot"),
                 LogRoot = TryString(root, "LogRoot"),
                 LogoPath = TryString(root, "LogoPath"),
-                RetentionDays = TryInt(root, "RetentionDays")
+                RetentionDays = TryInt(root, "RetentionDays"),
+                ClientSecret = MaskThumbprint(TryString(root, "ClientSecret"))
             };
         }
         catch (Exception ex)
@@ -71,7 +72,8 @@ public class SettingsReader
                 BackupRoot = TryString(root, "BackupRoot"),
                 LogRoot = TryString(root, "LogRoot"),
                 LogoPath = TryString(root, "LogoPath"),
-                RetentionDays = TryInt(root, "RetentionDays")
+                RetentionDays = TryInt(root, "RetentionDays"),
+                ClientSecret = TryString(root, "ClientSecret")
             };
         }
         catch
