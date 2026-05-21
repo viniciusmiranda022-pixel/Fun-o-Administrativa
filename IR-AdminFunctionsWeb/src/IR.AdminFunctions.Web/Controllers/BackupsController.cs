@@ -96,7 +96,7 @@ public class BackupsController : ControllerBase
             if (req?.Validate == true)
             {
                 var required = new[] { "manifest.json", "roleDefinitions.json", "roleAssignments.json" };
-                var missing = required.Where(f => !File.Exists(Path.Combine(snap.Path, f))).ToList();
+                var missing = required.Where(f => !System.IO.File.Exists(Path.Combine(snap.Path, f))).ToList();
                 if (missing.Count > 0)
                     throw new InvalidOperationException($"Arquivo(s) ausente(s) no backup: {string.Join(", ", missing)}");
             }
