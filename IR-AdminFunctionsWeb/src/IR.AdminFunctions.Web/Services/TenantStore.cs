@@ -40,14 +40,19 @@ public class TenantStore
             if (tenants.Any(t => t.TenantId.Equals(req.TenantId, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException($"Tenant {req.TenantId} já existe.");
 
-            // Se o thumbprint não foi informado, tenta importar do settings.json existente
-            // e em seguida do cert store do Windows (pelo ClientId do app registrado)
+            // Prioridade: request → settings.json → AppConfig (setup) → cert store
             var thumbprint = req.CertificateThumbprint;
+            var appCfg0 = _appConfig.Read();
             if (string.IsNullOrWhiteSpace(thumbprint))
                 thumbprint = ReadThumbprintFromSettingsJson(req.TenantId);
+            if (string.IsNullOrWhiteSpace(thumbprint) && !string.IsNullOrWhiteSpace(appCfg0.CertificateThumbprint))
+            {
+                thumbprint = appCfg0.CertificateThumbprint;
+                _logger.LogInformation("CertificateThumbprint importado do AppConfig (setup): {Tp}", thumbprint);
+            }
             if (string.IsNullOrWhiteSpace(thumbprint))
             {
-                thumbprint = AutoDetectThumbprint(_appConfig.Read().ClientId);
+                thumbprint = AutoDetectThumbprint(appCfg0.ClientId);
                 if (!string.IsNullOrWhiteSpace(thumbprint))
                     _logger.LogInformation("CertificateThumbprint detectado automaticamente no cert store: {Tp}", thumbprint);
             }
@@ -242,7 +247,7 @@ public class TenantStore
                     File.ReadAllText(_settingsFile)) ?? new();
             }
 
-            // Se o tenant não tem thumbprint: tenta settings.json existente, depois cert store
+            // Prioridade: tenant → settings.json → AppConfig (setup) → cert store
             var thumbprint = primary.CertificateThumbprint;
             if (string.IsNullOrWhiteSpace(thumbprint) &&
                 existingSettings.TryGetValue("CertificateThumbprint", out var existingTpEl))
@@ -251,6 +256,8 @@ public class TenantStore
                 if (!string.IsNullOrWhiteSpace(existingTp))
                     thumbprint = existingTp;
             }
+            if (string.IsNullOrWhiteSpace(thumbprint) && !string.IsNullOrWhiteSpace(appCfg.CertificateThumbprint))
+                thumbprint = appCfg.CertificateThumbprint;
             if (string.IsNullOrWhiteSpace(thumbprint))
             {
                 var detected = AutoDetectThumbprint(appCfg.ClientId);
