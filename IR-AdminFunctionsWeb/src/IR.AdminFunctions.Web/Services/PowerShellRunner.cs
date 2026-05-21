@@ -93,6 +93,13 @@ public class PowerShellRunner
             }
         }
 
+        if (stdout.Count > 0)
+        {
+            var preview = stdout.TakeLast(30).ToList();
+            foreach (var line in preview)
+                _logger.LogInformation("PS stdout: {Line}", line);
+        }
+
         var errors = stderr.Count > 0
             ? stderr
             : (!success ? new List<string> { $"Script falhou com ExitCode={process.ExitCode}" } : new List<string>());

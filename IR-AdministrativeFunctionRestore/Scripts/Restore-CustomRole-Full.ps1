@@ -295,10 +295,12 @@ try {
     }
 
     if (-not $currentRole) {
+        Write-Output "DIAG: path=CREATE"
         Write-Log "A função não existe atualmente. O snapshot exige criação da função."
-        Write-Log "Snapshot: displayName='$($desiredRole.displayName)', isEnabled=$($desiredRole.isEnabled), description='$($desiredRole.description)'"
+        Write-Output "DIAG: snapshot displayName='$($desiredRole.displayName)' isEnabled=$($desiredRole.isEnabled)"
 
         if (-not [bool]$desiredRole.isEnabled) {
+            Write-Output "DIAG: ATENCAO isEnabled=false no snapshot. Role sera criada DESATIVADA."
             Write-Log "ATENCAO: isEnabled=false no snapshot. A funcao sera criada como DESATIVADA e nao aparecera como ativa no portal Azure."
         }
 
@@ -316,7 +318,7 @@ try {
                 }
             }
 
-            Write-Log "Chamando New-MgRoleManagementDirectoryRoleDefinition com IsEnabled=$($newRoleParams.IsEnabled), $(($newRoleParams.RolePermissions[0].allowedResourceActions).Count) permissoes"
+            Write-Output "DIAG: chamando New-MgRoleManagementDirectoryRoleDefinition IsEnabled=$($newRoleParams.IsEnabled)"
 
             # Nao passa TemplateId: roles soft-deleted no Entra ID ocupam o templateId antigo,
             # causando conflito 400. O Entra atribui um novo GUID automaticamente.
@@ -325,6 +327,7 @@ try {
             if (-not $currentRole -or -not $currentRole.Id) {
                 throw "New-MgRoleManagementDirectoryRoleDefinition retornou vazio sem lancai excecao. Verifique se o App Registration tem a permissao 'RoleManagement.ReadWrite.Directory' e se o tenant possui licenca Entra ID P1/P2."
             }
+            Write-Output "DIAG: role criada Id=$($currentRole.Id) DisplayName='$($currentRole.DisplayName)' IsEnabled=$($currentRole.IsEnabled)"
             Write-Log "Funcao criada: Id=$($currentRole.Id), DisplayName='$($currentRole.DisplayName)', IsEnabled=$($currentRole.IsEnabled)"
         }
         else {
@@ -332,6 +335,7 @@ try {
         }
     }
     else {
+        Write-Output "DIAG: path=UPDATE existingId=$($currentRole.Id)"
         Write-Log "A função já existe. O snapshot exige sobrescrita completa da definição."
 
         if ($Mode -eq "Apply") {
@@ -480,6 +484,7 @@ try {
             Write-Log "Prévia concluída para a função: $($finalRole.DisplayName)"
         }
 
+        Write-Output "DIAG: validacao final Id=$($finalRole.Id) DisplayName='$($finalRole.DisplayName)' IsEnabled=$($finalRole.IsEnabled) assignments=$($finalAssignments.Count)"
         Write-Log "Descrição atual: $($finalRole.Description)"
         Write-Log "IsEnabled atual: $($finalRole.IsEnabled)"
         Write-Log "Quantidade atual de atribuições: $($finalAssignments.Count)"
