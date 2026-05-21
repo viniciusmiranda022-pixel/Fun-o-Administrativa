@@ -311,9 +311,8 @@ try {
                 }
             }
 
-            if ($desiredRole.templateId) {
-                $newRoleParams.TemplateId = [string]$desiredRole.templateId
-            }
+            # Nao passa TemplateId: roles soft-deleted no Entra ID ocupam o templateId antigo,
+            # causando conflito 400. O Entra atribui um novo GUID automaticamente.
 
             $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
             if (-not $currentRole -or -not $currentRole.Id) {
