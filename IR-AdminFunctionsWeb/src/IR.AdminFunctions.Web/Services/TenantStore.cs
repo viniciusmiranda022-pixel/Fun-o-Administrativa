@@ -247,8 +247,11 @@ public class TenantStore
                     File.ReadAllText(_settingsFile)) ?? new();
             }
 
-            // Prioridade: tenant → settings.json → AppConfig (setup) → cert store
-            var thumbprint = primary.CertificateThumbprint;
+            // Prioridade thumbprint: AppConfig (setup atual) → tenant → settings.json → cert store
+            // AppConfig tem precedência pois é a fonte de verdade após novo setup/reset.
+            var thumbprint = !string.IsNullOrWhiteSpace(appCfg.CertificateThumbprint)
+                ? appCfg.CertificateThumbprint
+                : primary.CertificateThumbprint;
             if (string.IsNullOrWhiteSpace(thumbprint) &&
                 existingSettings.TryGetValue("CertificateThumbprint", out var existingTpEl))
             {
@@ -256,8 +259,6 @@ public class TenantStore
                 if (!string.IsNullOrWhiteSpace(existingTp))
                     thumbprint = existingTp;
             }
-            if (string.IsNullOrWhiteSpace(thumbprint) && !string.IsNullOrWhiteSpace(appCfg.CertificateThumbprint))
-                thumbprint = appCfg.CertificateThumbprint;
             if (string.IsNullOrWhiteSpace(thumbprint))
             {
                 var detected = AutoDetectThumbprint(appCfg.ClientId);
@@ -271,7 +272,7 @@ public class TenantStore
             var flat = new Dictionary<string, object?>
             {
                 ["TenantId"] = primary.TenantId,
-                ["ClientId"] = primary.ClientId ?? appCfg.ClientId,
+                ["ClientId"] = appCfg.ClientId ?? primary.ClientId,
                 ["CertificateThumbprint"] = thumbprint,
                 ["AppDisplayName"] = primary.Name,
                 ["ClientSecret"] = appCfg.ClientSecret
