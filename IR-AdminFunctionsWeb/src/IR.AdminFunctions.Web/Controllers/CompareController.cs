@@ -13,6 +13,7 @@ public class CompareController : ControllerBase
     private readonly PowerShellRunner _runner;
     private readonly JobManager _jobs;
     private readonly SettingsReader _settings;
+    private readonly TenantStore _tenantStore;
     private readonly QuestOptions _options;
     private readonly AppConfigStore _appConfig;
 
@@ -20,19 +21,22 @@ public class CompareController : ControllerBase
         PowerShellRunner runner,
         JobManager jobs,
         SettingsReader settings,
+        TenantStore tenantStore,
         IOptions<QuestOptions> options,
         AppConfigStore appConfig)
     {
         _runner = runner;
         _jobs = jobs;
         _settings = settings;
+        _tenantStore = tenantStore;
         _options = options.Value;
         _appConfig = appConfig;
     }
 
     [HttpPost("run")]
-    public ActionResult<ApiResponse<Job>> Run([FromBody] CompareRunRequest? request)
+    public async Task<ActionResult<ApiResponse<Job>>> Run([FromBody] CompareRunRequest? request)
     {
+        await _tenantStore.EnsureSettingsJsonSyncedAsync();
         var cfg = _appConfig.Read();
         var raw = _settings.ReadRaw();
 
@@ -48,8 +52,8 @@ public class CompareController : ControllerBase
             ["Headless"] = true,
             ["TenantId"] = raw.TenantId,
             ["ClientId"] = raw.ClientId,
-            ["Thumbprint"] = raw.CertificateThumbprint ?? "",
-            ["ClientSecret"] = cfg.ClientSecret ?? "",
+            ["Thumbprint"] = raw.CertificateThumbprint,
+            ["ClientSecret"] = cfg.ClientSecret,
             ["BackupId"] = request?.BackupId
         };
 
