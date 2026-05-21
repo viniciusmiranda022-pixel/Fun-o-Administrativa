@@ -18,6 +18,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RoleName,
 
+    [Parameter(Mandatory = $false)]
+    [string]$CurrentRoleName = "",
+
     [Parameter()]
     [ValidateSet("WhatIf", "Apply")]
     [string]$Mode = "WhatIf",
@@ -292,8 +295,22 @@ try {
     # latencia de replicacao e pode retornar vazio mesmo com a role ja existindo,
     # levando o script ao caminho CREATE e a um erro 400 "conflicting object".
     $allRoleDefinitions = @(Get-MgRoleManagementDirectoryRoleDefinition -All)
-    $currentRole = $allRoleDefinitions | Where-Object { $_.DisplayName -eq $RoleName } | Select-Object -First 1
-    Write-Output "DIAG: roleDefinitions no tenant=$($allRoleDefinitions.Count) currentRole encontrada=$([bool]$currentRole)"
+
+    # Quando -CurrentRoleName e informado, a role-alvo no tenant tem nome diferente
+    # do backup (foi renomeada). Localiza por esse nome; o UPDATE renomeia de volta
+    # para o displayName do backup.
+    if (-not [string]::IsNullOrWhiteSpace($CurrentRoleName)) {
+        $lookupName = $CurrentRoleName
+        $currentRole = $allRoleDefinitions | Where-Object { $_.DisplayName -eq $CurrentRoleName } | Select-Object -First 1
+        if (-not $currentRole) {
+            throw "A role-alvo '$CurrentRoleName' informada para sobrescrita nao foi encontrada no tenant. Execute um novo compare e tente novamente."
+        }
+    }
+    else {
+        $lookupName = $RoleName
+        $currentRole = $allRoleDefinitions | Where-Object { $_.DisplayName -eq $RoleName } | Select-Object -First 1
+    }
+    Write-Output "DIAG: roleDefinitions no tenant=$($allRoleDefinitions.Count) lookupName='$lookupName' currentRole encontrada=$([bool]$currentRole)"
 
     if ($currentRole -and $currentRole.IsBuiltIn) {
         throw "A função existente '$RoleName' no tenant é built-in. Este restore suporta apenas funções personalizadas."
@@ -363,7 +380,12 @@ try {
     }
     else {
         Write-Output "DIAG: path=UPDATE existingId=$($currentRole.Id)"
-        Write-Log "A função já existe. O snapshot exige sobrescrita completa da definição."
+        if ($currentRole.DisplayName -ne $desiredRole.displayName) {
+            Write-Log "A role-alvo '$($currentRole.DisplayName)' sera sobrescrita e renomeada para '$($desiredRole.displayName)' conforme o backup."
+        }
+        else {
+            Write-Log "A função já existe. O snapshot exige sobrescrita completa da definição."
+        }
 
         if ($Mode -eq "Apply") {
             $updateParams = @{
