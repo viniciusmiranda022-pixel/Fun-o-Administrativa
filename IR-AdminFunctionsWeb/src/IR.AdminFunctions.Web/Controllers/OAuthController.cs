@@ -73,7 +73,7 @@ public class OAuthController : ControllerBase
             {
                 Name = displayName ?? tenant,
                 TenantId = tenant,
-                ClientId = _appStore.Read().ClientId,
+                ClientId = _appStore.Read().ClientId ?? string.Empty,
                 CertificateThumbprint = string.Empty,
                 Domain = domain
             });

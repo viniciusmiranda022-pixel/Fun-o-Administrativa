@@ -92,11 +92,13 @@ public class ConsentChecker
         var cfg = _appStore.Read();
         if (!cfg.IsConfigured) throw new InvalidOperationException("App não configurado. Execute o setup inicial.");
 
-        var tenant = string.IsNullOrWhiteSpace(tenantHint) ? "organizations" : tenantHint;
-        var url = $"https://login.microsoftonline.com/{tenant}/v2.0/adminconsent" +
+        // Usa endpoint v1 de adminconsent (sem scope) — compatível com apps multi-tenant
+        // que ainda não têm Service Principal no tenant alvo. O endpoint /adminconsent
+        // concede automaticamente todas as permissões configuradas no App Registration.
+        var tenant = string.IsNullOrWhiteSpace(tenantHint) ? "common" : tenantHint;
+        var url = $"https://login.microsoftonline.com/{tenant}/adminconsent" +
                   $"?client_id={cfg.ClientId}" +
                   $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-                  $"&scope={Uri.EscapeDataString("https://graph.microsoft.com/.default")}" +
                   $"&state={Uri.EscapeDataString(state)}";
         return url;
     }
