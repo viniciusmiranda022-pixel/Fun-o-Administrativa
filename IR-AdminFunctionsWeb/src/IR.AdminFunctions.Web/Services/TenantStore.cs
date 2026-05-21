@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using IR.AdminFunctions.Web.Models;
@@ -40,9 +41,16 @@ public class TenantStore
                 throw new InvalidOperationException($"Tenant {req.TenantId} já existe.");
 
             // Se o thumbprint não foi informado, tenta importar do settings.json existente
+            // e em seguida do cert store do Windows (pelo ClientId do app registrado)
             var thumbprint = req.CertificateThumbprint;
             if (string.IsNullOrWhiteSpace(thumbprint))
                 thumbprint = ReadThumbprintFromSettingsJson(req.TenantId);
+            if (string.IsNullOrWhiteSpace(thumbprint))
+            {
+                thumbprint = AutoDetectThumbprint(_appConfig.Read().ClientId);
+                if (!string.IsNullOrWhiteSpace(thumbprint))
+                    _logger.LogInformation("CertificateThumbprint detectado automaticamente no cert store: {Tp}", thumbprint);
+            }
 
             var entry = new TenantEntry
             {
@@ -84,6 +92,30 @@ public class TenantStore
     {
         var tenants = await ListAsync();
         return tenants.FirstOrDefault(t => t.TenantId.Equals(tenantId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public async Task<string?> AutoSyncCertificateAsync(string tenantId)
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            var tenants = ReadFile();
+            var tenant = tenants.FirstOrDefault(t => t.TenantId.Equals(tenantId, StringComparison.OrdinalIgnoreCase));
+            if (tenant == null) return null;
+
+            if (!string.IsNullOrWhiteSpace(tenant.CertificateThumbprint))
+                return tenant.CertificateThumbprint;
+
+            var detected = AutoDetectThumbprint(_appConfig.Read().ClientId);
+            if (string.IsNullOrWhiteSpace(detected)) return null;
+
+            tenant.CertificateThumbprint = detected;
+            WriteFile(tenants);
+            SyncSettingsJson(tenants);
+            _logger.LogInformation("CertificateThumbprint auto-detectado e salvo para tenant {TenantId}: {Tp}", tenantId, detected);
+            return detected;
+        }
+        finally { _lock.Release(); }
     }
 
     public async Task<bool> UpdateCertificateAsync(string tenantId, string thumbprint)
@@ -139,6 +171,31 @@ public class TenantStore
         File.WriteAllText(_tenantsFile, JsonSerializer.Serialize(tenants, _json));
     }
 
+    private string? AutoDetectThumbprint(string? clientId)
+    {
+        if (string.IsNullOrWhiteSpace(clientId)) return null;
+        foreach (var location in new[] { StoreLocation.LocalMachine, StoreLocation.CurrentUser })
+        {
+            try
+            {
+                using var store = new X509Store(StoreName.My, location);
+                store.Open(OpenFlags.ReadOnly);
+                var cert = store.Certificates
+                    .Cast<X509Certificate2>()
+                    .Where(c => c.NotAfter > DateTime.UtcNow &&
+                                c.Subject.Contains(clientId, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(c => c.NotAfter)
+                    .FirstOrDefault();
+                if (cert != null) return cert.Thumbprint;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao ler cert store {Location}", location);
+            }
+        }
+        return null;
+    }
+
     private string? ReadThumbprintFromSettingsJson(string tenantId)
     {
         try
@@ -185,7 +242,7 @@ public class TenantStore
                     File.ReadAllText(_settingsFile)) ?? new();
             }
 
-            // Se o tenant não tem thumbprint configurado, preserva o do settings.json
+            // Se o tenant não tem thumbprint: tenta settings.json existente, depois cert store
             var thumbprint = primary.CertificateThumbprint;
             if (string.IsNullOrWhiteSpace(thumbprint) &&
                 existingSettings.TryGetValue("CertificateThumbprint", out var existingTpEl))
@@ -193,6 +250,15 @@ public class TenantStore
                 var existingTp = existingTpEl.GetString();
                 if (!string.IsNullOrWhiteSpace(existingTp))
                     thumbprint = existingTp;
+            }
+            if (string.IsNullOrWhiteSpace(thumbprint))
+            {
+                var detected = AutoDetectThumbprint(appCfg.ClientId);
+                if (!string.IsNullOrWhiteSpace(detected))
+                {
+                    thumbprint = detected;
+                    _logger.LogInformation("SyncSettingsJson: CertificateThumbprint detectado automaticamente: {Tp}", detected);
+                }
             }
 
             var flat = new Dictionary<string, object?>

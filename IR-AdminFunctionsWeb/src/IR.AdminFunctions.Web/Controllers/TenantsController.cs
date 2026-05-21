@@ -52,6 +52,15 @@ public class TenantsController : ControllerBase
         return ApiResponse<bool>.Ok(true);
     }
 
+    [HttpPost("{tenantId}/sync-certificate")]
+    public async Task<ActionResult<ApiResponse<object>>> SyncCertificate(string tenantId)
+    {
+        var thumbprint = await _store.AutoSyncCertificateAsync(tenantId);
+        if (thumbprint == null)
+            return NotFound(ApiResponse<object>.Fail("Tenant não encontrado ou nenhum certificado detectado no cert store para o ClientId configurado."));
+        return ApiResponse<object>.Ok(new { thumbprint });
+    }
+
     [HttpDelete("{tenantId}")]
     public async Task<ActionResult<ApiResponse<bool>>> Remove(string tenantId)
     {
