@@ -165,11 +165,11 @@ function Invoke-RmadBackup {
                            elseif (-not [string]::IsNullOrWhiteSpace($validation.Settings.ClientSecret)) { $validation.Settings.ClientSecret }
                            else { "" }
 
-        Test-GraphConnection -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -Thumbprint ($validation.Settings.CertificateThumbprint ?? "") -ClientSecret $effectiveSecret -VerboseOutput *>&1 | ForEach-Object { Write-RmadLog "GRAPH-TEST: $_" }
+        Test-GraphConnection -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -Thumbprint "$($validation.Settings.CertificateThumbprint)" -ClientSecret $effectiveSecret -VerboseOutput *>&1 | ForEach-Object { Write-RmadLog "GRAPH-TEST: $_" }
 
         $backupStart = Get-Date
         Write-RmadLog 'Iniciando export do backup.'
-        & $exportScript -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -CertificateThumbprint ($validation.Settings.CertificateThumbprint ?? "") -ClientSecret $effectiveSecret -BasePath $basePath *>&1 | ForEach-Object { Write-RmadLog "EXPORT: $_" }
+        & $exportScript -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -CertificateThumbprint "$($validation.Settings.CertificateThumbprint)" -ClientSecret $effectiveSecret -BasePath $basePath *>&1 | ForEach-Object { Write-RmadLog "EXPORT: $_" }
 
         $backupFolder = Get-ValidBackupFolder -BackupRoot (Join-Path $basePath 'Backups') -NotBefore $backupStart
         if ($backupFolder) {
