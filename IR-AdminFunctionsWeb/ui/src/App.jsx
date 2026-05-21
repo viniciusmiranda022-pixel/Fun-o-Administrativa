@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { AppProvider } from './context/AppContext.jsx';
 import Layout from './components/layout/Layout.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Backups from './pages/Backups.jsx';
@@ -12,19 +13,21 @@ import Setup from './pages/Setup.jsx';
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/backups" element={<Backups />} />
-        <Route path="/unpacked" element={<UnpackedObjects />} />
-        <Route path="/differences" element={<Differences />} />
-        <Route path="/events" element={<Events />} />
-        <Route path="/tasks" element={<Tasks />} />
-        <Route path="/tenants" element={<Tenants />} />
-        <Route path="/tenants/:tenantId/consents" element={<TenantConsents />} />
-        <Route path="/setup" element={<Setup />} />
-      </Route>
-    </Routes>
+    <AppProvider>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/backups" element={<Backups />} />
+          <Route path="/unpacked" element={<UnpackedObjects />} />
+          <Route path="/differences" element={<Differences />} />
+          <Route path="/events" element={<Events />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/tenants" element={<Tenants />} />
+          <Route path="/tenants/:tenantId/consents" element={<TenantConsents />} />
+          <Route path="/setup" element={<Setup />} />
+        </Route>
+      </Routes>
+    </AppProvider>
   );
 }
