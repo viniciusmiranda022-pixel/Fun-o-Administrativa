@@ -30,6 +30,19 @@ $ErrorActionPreference = "Stop"
 $modulePath = Join-Path $PSScriptRoot "IR-AdministrativeFunctions.psm1"
 Import-Module $modulePath -Force
 
+function Get-Sha256 {
+    param([string]$FilePath)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($FilePath)
+    try {
+        $bytes = $sha.ComputeHash($stream)
+        return ([System.BitConverter]::ToString($bytes) -replace '-', '')
+    } finally {
+        $stream.Dispose()
+        $sha.Dispose()
+    }
+}
+
 $logPath = Join-Path $BasePath "Logs"
 $exportPath = Join-Path $BasePath "Backups"
 
@@ -70,8 +83,8 @@ try {
         ClientId             = $ClientId
         RoleDefinitionsCount = @($roleDefinitions).Count
         RoleAssignmentsCount = @($roleAssignments).Count
-        RoleDefinitionsHash  = (Get-FileHash $roleDefinitionsPath -Algorithm SHA256).Hash
-        RoleAssignmentsHash  = (Get-FileHash $roleAssignmentsPath -Algorithm SHA256).Hash
+        RoleDefinitionsHash  = (Get-Sha256 $roleDefinitionsPath)
+        RoleAssignmentsHash  = (Get-Sha256 $roleAssignmentsPath)
     }
 
     $manifestPath = Join-Path $todayFolder "manifest.json"
