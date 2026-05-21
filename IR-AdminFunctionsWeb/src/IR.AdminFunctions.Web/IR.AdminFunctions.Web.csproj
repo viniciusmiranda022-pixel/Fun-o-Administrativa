@@ -25,6 +25,9 @@
     <Content Include="..\..\..\IR-AdministrativeFunctionCompare\Scripts\*"
              CopyToOutputDirectory="PreserveNewest"
              Link="Scripts\Compare\%(Filename)%(Extension)" />
+    <Content Include="..\..\..\IR-AdministrativeFunctionRestore\Scripts\*"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="Scripts\Restore\%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

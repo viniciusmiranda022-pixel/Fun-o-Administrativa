@@ -33,6 +33,10 @@ public class ScriptDeployer : IHostedService
             Path.Combine(baseScriptsDir, "Compare"),
             Path.Combine(_options.CompareRoot, "Scripts"));
 
+        deployed += DeployFolder(
+            Path.Combine(baseScriptsDir, "Restore"),
+            Path.Combine(_options.RestoreRoot, "Scripts"));
+
         _logger.LogInformation("ScriptDeployer: {Count} script(s) implantado(s)", deployed);
         return Task.CompletedTask;
     }
