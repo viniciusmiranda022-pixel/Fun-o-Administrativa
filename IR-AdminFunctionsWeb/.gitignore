@@ -9,9 +9,6 @@ publish/
 node_modules/
 .vite/
 
-# Vite build output goes into wwwroot but ignore the actual assets — they're built artifacts
-src/IR.AdminFunctions.Web/wwwroot/assets/
-src/IR.AdminFunctions.Web/wwwroot/index.html
 
 # Logs
 *.log
