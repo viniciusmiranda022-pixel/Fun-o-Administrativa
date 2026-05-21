@@ -1,6 +1,5 @@
 using System.Diagnostics;
-using System.Management.Automation;
-using System.Management.Automation.Runspaces;
+using System.Text;
 
 namespace IR.AdminFunctions.Web.Services;
 
@@ -20,103 +19,124 @@ public class PowerShellRunner
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(scriptPath))
-        {
             throw new ArgumentException("scriptPath obrigatório", nameof(scriptPath));
-        }
 
         if (!File.Exists(scriptPath))
-        {
             throw new FileNotFoundException($"Script PowerShell não encontrado: {scriptPath}", scriptPath);
+
+        var command = BuildPsCommand(scriptPath, parameters);
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        psi.ArgumentList.Add("-ExecutionPolicy");
+        psi.ArgumentList.Add("Bypass");
+        psi.ArgumentList.Add("-NonInteractive");
+        psi.ArgumentList.Add("-Command");
+        psi.ArgumentList.Add(command);
+
+        using var process = new Process { StartInfo = psi };
+
+        var sw = Stopwatch.StartNew();
+        _logger.LogInformation("Executando script {Script} com timeout {Timeout}s", scriptPath, timeoutSeconds);
+
+        process.Start();
+
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+
+        try
+        {
+            await process.WaitForExitAsync(timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            _logger.LogError("Script {Script} excedeu timeout de {Timeout}s", scriptPath, timeoutSeconds);
+            throw new TimeoutException($"Script {scriptPath} excedeu {timeoutSeconds}s");
         }
 
-        var initial = InitialSessionState.CreateDefault();
-        initial.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
+        var stdoutText = await stdoutTask;
+        var stderrText = await stderrTask;
+        sw.Stop();
 
-        using var runspace = RunspaceFactory.CreateRunspace(initial);
-        runspace.Open();
+        var stdout = SplitLines(stdoutText);
+        var stderr = SplitLines(stderrText);
+        var success = process.ExitCode == 0;
 
-        using var ps = PowerShell.Create();
-        ps.Runspace = runspace;
-        ps.AddCommand(scriptPath);
+        _logger.LogInformation(
+            "Script {Script} concluído em {Elapsed}ms. ExitCode={ExitCode}",
+            scriptPath, sw.ElapsedMilliseconds, process.ExitCode);
+
+        if (!success)
+        {
+            if (stderr.Count > 0)
+            {
+                foreach (var err in stderr)
+                    _logger.LogError("PS stderr: {Error}", err);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Script falhou (ExitCode={ExitCode}) sem saída em stderr. Stdout ({Lines} linhas): {Preview}",
+                    process.ExitCode, stdout.Count,
+                    string.Join(" | ", stdout.TakeLast(5)));
+            }
+        }
+
+        var errors = stderr.Count > 0
+            ? stderr
+            : (!success ? new List<string> { $"Script falhou com ExitCode={process.ExitCode}" } : new List<string>());
+
+        return new PowerShellResult
+        {
+            Success = success,
+            Output = stdout,
+            Stdout = stdout,
+            Errors = errors,
+            Warnings = new List<string>(),
+            ElapsedMilliseconds = sw.ElapsedMilliseconds
+        };
+    }
+
+    private static string BuildPsCommand(string scriptPath, IDictionary<string, object?>? parameters)
+    {
+        var sb = new StringBuilder();
+        sb.Append("& '");
+        sb.Append(scriptPath.Replace("'", "''"));
+        sb.Append('\'');
 
         if (parameters != null)
         {
             foreach (var (key, value) in parameters)
             {
-                if (value is null)
-                {
-                    continue;
-                }
-                ps.AddParameter(key, value);
+                if (value is null) continue;
+                if (value is bool b)
+                    sb.Append($" -{key}:{(b ? "$true" : "$false")}");
+                else if (value is string s)
+                    sb.Append($" -{key} '{s.Replace("'", "''")}'");
+                else
+                    sb.Append($" -{key} {value}");
             }
         }
 
-        var stdout = new List<string>();
-        var warnings = new List<string>();
-
-        ps.Streams.Information.DataAdded += (s, e) =>
-        {
-            var record = ((PSDataCollection<InformationRecord>)s!)[e.Index];
-            if (record?.MessageData != null)
-                stdout.Add(record.MessageData.ToString() ?? string.Empty);
-        };
-        ps.Streams.Warning.DataAdded += (s, e) =>
-        {
-            var record = ((PSDataCollection<WarningRecord>)s!)[e.Index];
-            warnings.Add(record?.Message ?? string.Empty);
-        };
-
-        var sw = Stopwatch.StartNew();
-        _logger.LogInformation("Executando script {Script} com timeout {Timeout}s", scriptPath, timeoutSeconds);
-
-        System.Collections.ObjectModel.Collection<PSObject>? results = null;
-        var invokeTask = Task.Run(() => results = ps.Invoke(), cancellationToken);
-
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var delayTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), timeoutCts.Token);
-
-        var completed = await Task.WhenAny(invokeTask, delayTask).ConfigureAwait(false);
-
-        if (completed != invokeTask)
-        {
-            ps.Stop();
-            _logger.LogError("Script {Script} excedeu timeout de {Timeout}s", scriptPath, timeoutSeconds);
-            throw new TimeoutException($"Script {scriptPath} excedeu {timeoutSeconds}s");
-        }
-
-        timeoutCts.Cancel();
-        await invokeTask.ConfigureAwait(false);
-        sw.Stop();
-
-        // Read error records directly from the stream — more reliable than DataAdded events
-        var errors = ps.Streams.Error
-            .Select(e => e?.Exception?.Message ?? e?.CategoryInfo?.Reason ?? e?.ToString() ?? string.Empty)
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .ToList();
-
-        _logger.LogInformation(
-            "Script {Script} concluído em {Elapsed}ms. HadErrors={HadErrors}",
-            scriptPath, sw.ElapsedMilliseconds, ps.HadErrors);
-
-        if (ps.HadErrors)
-        {
-            foreach (var err in errors)
-                _logger.LogError("PS error: {Error}", err);
-
-            if (errors.Count == 0)
-                _logger.LogError("Script {Script} HadErrors=True mas nenhum ErrorRecord capturado", scriptPath);
-        }
-
-        return new PowerShellResult
-        {
-            Success = !ps.HadErrors,
-            Output = results?.Select(r => r?.BaseObject?.ToString() ?? string.Empty).ToList() ?? new List<string>(),
-            Stdout = stdout,
-            Errors = errors,
-            Warnings = warnings,
-            ElapsedMilliseconds = sw.ElapsedMilliseconds
-        };
+        sb.Append("; exit $LASTEXITCODE");
+        return sb.ToString();
     }
+
+    private static List<string> SplitLines(string text) =>
+        text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.TrimEnd('\r'))
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .ToList();
 }
 
 public class PowerShellResult

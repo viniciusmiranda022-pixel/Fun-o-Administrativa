@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Columns, Search, X, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Columns, Search, X, Clock, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { api } from '../api/client.js';
 
 function StatusIcon({ status }) {
@@ -117,6 +117,10 @@ export default function Tasks() {
       .finally(() => setLoading(false));
   }
 
+  function clearTasks() {
+    api.clearTasks().then(() => loadTasks(dateFilter)).catch(() => {});
+  }
+
   useEffect(() => { loadTasks(dateFilter); }, [dateFilter]);
 
   const rows = tasks.filter(
@@ -154,6 +158,13 @@ export default function Tasks() {
             <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2]">
               <Columns size={13} />
               EDIT COLUMNS
+            </button>
+            <button
+              onClick={clearTasks}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#DC3545] hover:bg-[#FFF5F5]"
+            >
+              <Trash2 size={13} />
+              CLEAR
             </button>
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-[#666]">
