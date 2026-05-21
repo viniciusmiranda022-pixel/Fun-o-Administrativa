@@ -83,13 +83,13 @@ public class AppRegistrationService
                     {
                         _logger.LogInformation(
                             "[Setup:{SessionId}] Device code recebido. UserCode={Code}, Url={Url}",
-                            sessionId, deviceCode.UserCode, deviceCode.VerificationUri);
+                            sessionId, deviceCode.UserCode, deviceCode.VerificationUrl);
 
                         UpdateStatus(sessionId, s =>
                         {
                             s.UserCode = deviceCode.UserCode;
-                            s.VerificationUrl = deviceCode.VerificationUri;
-                            s.Message = $"Acesse {deviceCode.VerificationUri} e digite o código: {deviceCode.UserCode}";
+                            s.VerificationUrl = deviceCode.VerificationUrl;
+                            s.Message = $"Acesse {deviceCode.VerificationUrl} e digite o código: {deviceCode.UserCode}";
                         });
 
                         return Task.CompletedTask;
