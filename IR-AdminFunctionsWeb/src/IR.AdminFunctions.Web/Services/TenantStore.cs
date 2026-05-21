@@ -81,6 +81,23 @@ public class TenantStore
         return tenants.FirstOrDefault(t => t.TenantId.Equals(tenantId, StringComparison.OrdinalIgnoreCase));
     }
 
+    public async Task<bool> UpdateCertificateAsync(string tenantId, string thumbprint)
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            var tenants = ReadFile();
+            var tenant = tenants.FirstOrDefault(t => t.TenantId.Equals(tenantId, StringComparison.OrdinalIgnoreCase));
+            if (tenant == null) return false;
+            tenant.CertificateThumbprint = thumbprint;
+            WriteFile(tenants);
+            SyncSettingsJson(tenants);
+            _logger.LogInformation("CertificateThumbprint atualizado para tenant {TenantId}", tenantId);
+            return true;
+        }
+        finally { _lock.Release(); }
+    }
+
     public async Task<bool> UpdateConsentsAsync(string tenantId, TenantConsentsState consents)
     {
         await _lock.WaitAsync();

@@ -44,6 +44,14 @@ public class TenantsController : ControllerBase
         }
     }
 
+    [HttpPut("{tenantId}/thumbprint")]
+    public async Task<ActionResult<ApiResponse<bool>>> UpdateThumbprint(string tenantId, [FromBody] UpdateThumbprintRequest req)
+    {
+        var ok = await _store.UpdateCertificateAsync(tenantId, req.Thumbprint ?? string.Empty);
+        if (!ok) return NotFound(ApiResponse<bool>.Fail($"Tenant {tenantId} não encontrado."));
+        return ApiResponse<bool>.Ok(true);
+    }
+
     [HttpDelete("{tenantId}")]
     public async Task<ActionResult<ApiResponse<bool>>> Remove(string tenantId)
     {

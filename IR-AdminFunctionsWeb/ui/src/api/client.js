@@ -22,6 +22,7 @@ export const api = {
   removeTenant: (tenantId) => client.delete(`/tenants/${tenantId}`).then((r) => r.data),
   tenantStatus: (tenantId) => client.get(`/tenants/${tenantId}/status`).then((r) => r.data),
   tenantConsents: (tenantId) => client.get(`/tenants/${tenantId}/consents`).then((r) => r.data),
+  updateTenantThumbprint: (tenantId, thumbprint) => client.put(`/tenants/${tenantId}/thumbprint`, { thumbprint }).then((r) => r.data),
   setupState: () => client.get('/setup/state').then((r) => r.data),
   setupReset: () => client.delete('/setup/reset').then((r) => r.data),
   setupStart: () => client.post('/setup/start').then((r) => r.data),

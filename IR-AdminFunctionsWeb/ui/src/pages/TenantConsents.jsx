@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, ShieldAlert, Loader2, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, ShieldAlert, Loader2, ExternalLink, ChevronDown, ChevronRight, Save } from 'lucide-react';
 import { api } from '../api/client.js';
 
 function ConsentCard({ block, onGrant, granting, sensitive }) {
@@ -87,6 +87,56 @@ function ConsentCard({ block, onGrant, granting, sensitive }) {
         {granting ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
         {block.granted ? 'Re-Grant Consent' : 'Grant Consent'}
       </button>
+    </div>
+  );
+}
+
+function CertificateSection({ tenantId, currentThumbprint }) {
+  const [thumbprint, setThumbprint] = useState(currentThumbprint || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
+    setSaveError(null);
+    try {
+      await api.updateTenantThumbprint(tenantId, thumbprint.trim());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) {
+      setSaveError(e.message || 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-white border border-[#DEE2E6] rounded-lg p-5 mt-4">
+      <h3 className="text-sm font-semibold text-[#222] mb-1">Autenticação por Certificado</h3>
+      <p className="text-xs text-[#666] mb-3">
+        O script de backup usa autenticação via certificado. Informe o thumbprint do certificado registrado no Azure AD para este aplicativo.
+      </p>
+      <div className="flex gap-2 items-center">
+        <input
+          type="text"
+          value={thumbprint}
+          onChange={(e) => setThumbprint(e.target.value)}
+          placeholder="Ex: A1B2C3D4E5F6..."
+          className="flex-1 border border-[#DEE2E6] px-3 py-1.5 text-xs font-mono outline-none focus:border-[#0078A8]"
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#0078A8] text-white hover:bg-[#006090] disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+          Salvar
+        </button>
+      </div>
+      {saved && <p className="text-xs text-[#28A745] mt-1.5">Thumbprint salvo com sucesso.</p>}
+      {saveError && <p className="text-xs text-[#DC3545] mt-1.5">{saveError}</p>}
     </div>
   );
 }
@@ -194,6 +244,8 @@ export default function TenantConsents() {
           />
         ))}
       </div>
+
+      <CertificateSection tenantId={tenantId} currentThumbprint={tenant?.certificateThumbprint} />
     </div>
   );
 }
