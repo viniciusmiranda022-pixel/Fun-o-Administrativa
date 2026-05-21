@@ -5,8 +5,11 @@
     [Parameter(Mandatory = $true)]
     [string]$ClientId,
 
-    [Parameter(Mandatory = $true)]
-    [string]$CertificateThumbprint,
+    [Parameter(Mandatory = $false)]
+    [string]$CertificateThumbprint = "",
+
+    [Parameter(Mandatory = $false)]
+    [string]$ClientSecret = "",
 
     [Parameter(Mandatory = $false)]
     [string]$BasePath = (Join-Path "C:\ProgramData\Quest" "IR-AdministrativeFunctionBackup"),
@@ -47,7 +50,7 @@ function Write-Log {
 
 try {
     Write-Log "Iniciando conexão com Microsoft Graph"
-    Connect-AppOnlyGraphWithRetry -ClientId $ClientId -TenantId $TenantId -Thumbprint $CertificateThumbprint -VerboseOutput -FailureMessage 'Falha ao conectar ao Graph em modo app-only após {0} tentativas. Último erro: {1}'
+    Connect-AppOnlyGraphWithRetry -ClientId $ClientId -TenantId $TenantId -Thumbprint $CertificateThumbprint -ClientSecret $ClientSecret -VerboseOutput -FailureMessage 'Falha ao conectar ao Graph em modo app-only após {0} tentativas. Último erro: {1}'
 
     Write-Log "Coletando definições de função"
     $roleDefinitions = Get-MgRoleManagementDirectoryRoleDefinition -All

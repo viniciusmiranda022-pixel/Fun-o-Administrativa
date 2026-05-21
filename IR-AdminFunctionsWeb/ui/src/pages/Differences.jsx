@@ -1,174 +1,115 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RotateCcw, Download, RefreshCw, Columns, Search, FileText } from 'lucide-react';
 import DataTable from '../components/common/DataTable.jsx';
-
-const BASE_NAME = 'Quest Recovery Function - Administrative Roles Ba...';
-
-const MOCK_DIFFS = [
-  {
-    id: 1,
-    name: BASE_NAME,
-    tenant: 'Contoso',
-    change: 'Object hard deleted',
-    objectType: 'Service Principal',
-    attribute: 'Service Principal',
-    diffType: 'deleted',
-    diffText: BASE_NAME,
-    backup: 'a day ago',
-    refresh: '9 hours ago',
-  },
-  {
-    id: 2,
-    name: BASE_NAME,
-    tenant: 'Contoso',
-    change: 'Link added',
-    objectType: 'App Role Assignment',
-    attribute: 'AppRoleAssignment',
-    diffType: 'added',
-    diffText: 'Microsoft Graph',
-    backup: 'a day ago',
-    refresh: '9 hours ago',
-  },
-  {
-    id: 3,
-    name: BASE_NAME,
-    tenant: 'Contoso',
-    change: 'Link added',
-    objectType: 'App Role Assignment',
-    attribute: 'AppRoleAssignment',
-    diffType: 'added',
-    diffText: 'Microsoft Graph',
-    backup: 'a day ago',
-    refresh: '9 hours ago',
-  },
-  {
-    id: 4,
-    name: BASE_NAME,
-    tenant: 'Contoso',
-    change: 'Link added',
-    objectType: 'App Role Assignment',
-    attribute: 'AppRoleAssignment',
-    diffType: 'added',
-    diffText: 'Azure Active Directory Graph',
-    backup: 'a day ago',
-    refresh: '9 hours ago',
-  },
-  {
-    id: 5,
-    name: BASE_NAME,
-    tenant: 'Contoso',
-    change: 'Link added',
-    objectType: 'App Role Assignment',
-    attribute: 'AppRoleAssignment',
-    diffType: 'added',
-    diffText: 'Microsoft Graph',
-    backup: 'a day ago',
-    refresh: '9 hours ago',
-  },
-  {
-    id: 6,
-    name: BASE_NAME,
-    tenant: 'Contoso',
-    change: 'Link added',
-    objectType: 'App Role Assignment',
-    attribute: 'AppRoleAssignment',
-    diffType: 'added',
-    diffText: 'Office 365 SharePoint Online',
-    backup: 'a day ago',
-    refresh: '9 hours ago',
-  },
-  {
-    id: 7,
-    name: BASE_NAME,
-    tenant: 'Contoso',
-    change: 'Link added',
-    objectType: 'App Role Assignment',
-    attribute: 'AppRoleAssignment',
-    diffType: 'added',
-    diffText: 'Microsoft Graph',
-    backup: 'a day ago',
-    refresh: '9 hours ago',
-  },
-  {
-    id: 8,
-    name: BASE_NAME,
-    tenant: 'Contoso',
-    change: 'New object',
-    objectType: 'Service Principal',
-    attribute: 'Service Principal',
-    diffType: 'new',
-    diffText: 'Quest Recovery Function - Administrative Roles Backup',
-    backup: 'a day ago',
-    refresh: '9 hours ago',
-  },
-];
+import { api, pollJob } from '../api/client.js';
 
 function DiffCell({ row }) {
-  if (row.diffType === 'deleted') {
-    return (
-      <span className="text-[#DC3545] line-through text-xs">{row.diffText}</span>
-    );
+  if (row.diffType === 'Removed') {
+    return <span className="text-[#DC3545] line-through text-xs">{row.diffText}</span>;
   }
-  if (row.diffType === 'added') {
-    return (
-      <span className="text-[#28A745] text-xs">→ {row.diffText}</span>
-    );
+  if (row.diffType === 'New') {
+    return <span className="text-[#17A2B8] text-xs">→ {row.diffText}</span>;
   }
-  if (row.diffType === 'new') {
-    return (
-      <span className="text-[#28A745] text-xs">→ {row.diffText}</span>
-    );
+  if (row.diffType === 'Changed') {
+    return <span className="text-[#FFC107] text-xs">~ {row.diffText}</span>;
   }
-  return <span className="text-xs">{row.diffText}</span>;
+  return <span className="text-xs text-[#28A745]">{row.diffText}</span>;
 }
 
 const columns = [
   {
-    key: 'name', header: 'Name', sortable: true, width: '18%',
+    key: 'name', header: 'Role Name', sortable: true, width: '22%',
     render: (r) => (
       <div className="flex items-center gap-1.5">
         <FileText size={12} className="text-[#0096D6] flex-shrink-0" />
-        <span className="text-[#0078A8] hover:underline cursor-pointer truncate text-xs">{r.name}</span>
+        <span className="text-[#0078A8] truncate text-xs">{r.name}</span>
       </div>
     )
   },
-  { key: 'tenant', header: 'Tenant', width: '8%' },
+  { key: 'roleType', header: 'Role Type', width: '10%' },
   {
-    key: 'change', header: 'Change', width: '12%',
+    key: 'status', header: 'Status', width: '11%',
     render: (r) => (
-      <span className={`text-xs font-medium ${r.diffType === 'deleted' ? 'text-[#DC3545]' : r.diffType === 'added' ? 'text-[#28A745]' : 'text-[#17A2B8]'}`}>
-        {r.change}
+      <span className={`text-xs font-medium ${r.diffType === 'Removed' ? 'text-[#DC3545]' : r.diffType === 'New' ? 'text-[#17A2B8]' : r.diffType === 'Changed' ? 'text-[#FFC107]' : 'text-[#28A745]'}`}>
+        {r.diffType}
       </span>
     )
   },
-  { key: 'objectType', header: 'Object Type', width: '13%' },
-  { key: 'attribute', header: 'Attribute', width: '13%' },
+  { key: 'defChanged', header: 'Definition Changed', width: '13%' },
+  { key: 'assignChanged', header: 'Assignments Changed', width: '14%' },
+  { key: 'diffCount', header: '# Differences', width: '10%' },
   {
-    key: 'difference', header: 'Difference', width: '18%',
+    key: 'summary', header: 'Summary', width: '20%',
     render: (r) => <DiffCell row={r} />
   },
-  { key: 'backup', header: 'Backup ▲', sortable: true, width: '9%' },
-  { key: 'refresh', header: 'Refresh', width: '9%' },
 ];
+
+function mapResult(item) {
+  return {
+    id: item.RoleName || item.roleName,
+    name: item.RoleName || item.roleName || '—',
+    roleType: item.RoleType || item.roleType || '—',
+    diffType: item.Status || item.status || 'Equal',
+    defChanged: item.DefinitionChanged || item.definitionChanged || 'No',
+    assignChanged: item.AssignmentsChanged || item.assignmentsChanged || 'No',
+    diffCount: item.DifferenceCount ?? item.differenceCount ?? 0,
+    diffText: item.Summary || item.summary || '—',
+  };
+}
 
 export default function Differences() {
   const [view, setView] = useState('list');
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({ tenant: '', backup: '', type: '', changeType: '', top5: '' });
+  const [statusFilter, setStatusFilter] = useState('');
+  const [rows, setRows] = useState([]);
+  const [generatedAt, setGeneratedAt] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState(null);
 
-  function setFilter(k, v) { setFilters((f) => ({ ...f, [k]: v })); }
+  function loadResults() {
+    setLoading(true);
+    api.compareResults()
+      .then((r) => {
+        const data = r?.data;
+        if (!data) { setRows([]); return; }
+        setGeneratedAt(data.generatedAt);
+        const items = Array.isArray(data.data) ? data.data : [];
+        setRows(items.map(mapResult));
+      })
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }
 
-  const rows = MOCK_DIFFS.filter(
-    (r) => !search || r.name.toLowerCase().includes(search.toLowerCase()) || r.change.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => { loadResults(); }, []);
 
-  const filterDefs = [
-    { key: 'tenant', label: 'Tenant' },
-    { key: 'backup', label: 'Backup' },
-    { key: 'type', label: 'Type' },
-    { key: 'changeType', label: 'Change Type' },
-    { key: 'top5', label: 'Top 5 attributes' },
-  ];
+  async function handleRunCompare() {
+    setRunning(true);
+    setError(null);
+    try {
+      const resp = await api.runCompare();
+      const job = resp?.data;
+      if (!job?.id) throw new Error('No job id returned');
+      await pollJob(job.id, {
+        intervalMs: 3000,
+        timeoutMs: 300000,
+      });
+      loadResults();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const nonEqual = rows.filter((r) => r.diffType !== 'Equal');
+  const filtered = rows.filter((r) => {
+    if (statusFilter && r.diffType !== statusFilter) return false;
+    if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const statusOptions = [...new Set(rows.map(r => r.diffType))];
 
   return (
     <div className="flex flex-col h-full">
@@ -185,20 +126,21 @@ export default function Differences() {
             </button>
           ))}
         </div>
-        <span className="text-xs text-[#888]">Last Refresh: 9 hours ago</span>
-        <div className="flex items-center gap-2 flex-wrap">
-          {filterDefs.map(({ key, label }) => (
-            <div key={key} className="flex items-center gap-1 text-xs">
-              <span className="text-[#555]">{label}:</span>
-              <select
-                value={filters[key]}
-                onChange={(e) => setFilter(key, e.target.value)}
-                className="border border-[#DEE2E6] px-1.5 py-0.5 text-xs bg-white"
-              >
-                <option value="">Any</option>
-              </select>
-            </div>
-          ))}
+        {generatedAt && (
+          <span className="text-xs text-[#888]">
+            Last compare: {new Date(generatedAt).toLocaleString()}
+          </span>
+        )}
+        <div className="flex items-center gap-1 text-xs">
+          <span className="text-[#555]">Status:</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border border-[#DEE2E6] px-1.5 py-0.5 text-xs bg-white"
+          >
+            <option value="">Any</option>
+            {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
         </div>
       </div>
 
@@ -213,16 +155,22 @@ export default function Differences() {
             <Download size={13} />
             EXPORT
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2]">
-            <RefreshCw size={13} />
-            REFRESH
+          <button
+            onClick={handleRunCompare}
+            disabled={running}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2] disabled:opacity-40"
+          >
+            <RefreshCw size={13} className={running ? 'animate-spin' : ''} />
+            {running ? 'RUNNING…' : 'RUN COMPARE'}
           </button>
           <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2]">
             <Columns size={13} />
             EDIT COLUMNS
           </button>
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-[#666]">8 objects</span>
+            <span className="text-xs text-[#666]">
+              {loading ? 'Loading…' : `${filtered.length} role${filtered.length !== 1 ? 's' : ''} (${nonEqual.length} differ)`}
+            </span>
             <div className="flex items-center border border-[#DEE2E6] overflow-hidden">
               <input
                 value={search}
@@ -237,7 +185,21 @@ export default function Differences() {
           </div>
         </div>
 
-        <DataTable columns={columns} rows={rows} totalCount={8} />
+        {error && (
+          <div className="bg-white border border-[#DC3545] p-3 text-xs text-[#DC3545]">
+            Compare failed: {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="text-xs text-[#888] p-4">Loading results…</div>
+        ) : rows.length === 0 ? (
+          <div className="bg-white border border-[#DEE2E6] p-8 text-center text-xs text-[#888]">
+            No compare results yet. Click "RUN COMPARE" to compare the latest backup against the current tenant state.
+          </div>
+        ) : (
+          <DataTable columns={columns} rows={filtered} totalCount={filtered.length} />
+        )}
       </div>
     </div>
   );

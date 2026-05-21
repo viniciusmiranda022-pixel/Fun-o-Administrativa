@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Settings, ArrowDownToLine, RotateCcw, Package,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
 import Modal from '../components/common/Modal.jsx';
+import { api, pollJob } from '../api/client.js';
 
 /* ── Toolbar button ── */
 function ToolBtn({ icon: Icon, label, onClick, disabled }) {
@@ -21,21 +22,38 @@ function ToolBtn({ icon: Icon, label, onClick, disabled }) {
   );
 }
 
+/* ── Build bar chart from backup timestamps ── */
+function buildBars(backups, days = 10) {
+  if (!backups || backups.length === 0) {
+    return Array.from({ length: days }, (_, i) => ({ label: '', h: 0 }));
+  }
+
+  const now = new Date();
+  const buckets = Array.from({ length: days }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (days - 1 - i));
+    return { label: `${d.getMonth() + 1}/${d.getDate()}`, count: 0, date: d.toDateString() };
+  });
+
+  backups.forEach((b) => {
+    const bDate = new Date(b.createdAt || b.collectedAt || '').toDateString();
+    const bucket = buckets.find((bk) => bk.date === bDate);
+    if (bucket) bucket.count++;
+  });
+
+  const max = Math.max(...buckets.map((b) => b.count), 1);
+  return buckets.map((b) => ({ label: b.label, h: Math.round((b.count / max) * 100) || 2 }));
+}
+
 /* ── Simple bar chart ── */
-function BarChart({ fullWidth = false }) {
-  const bars = [
-    { label: 'Apr 16', h: 60 }, { label: 'Apr 20', h: 45 }, { label: 'Apr 24', h: 70 },
-    { label: 'Apr 28', h: 55 }, { label: 'May 2',  h: 80 }, { label: 'May 6',  h: 65 },
-    { label: 'May 10', h: 50 }, { label: 'May 14', h: 90 }, { label: 'May 18', h: 75 },
-    { label: 'May 20', h: 40 },
-  ];
+function BarChart({ bars = [], fullWidth = false }) {
   return (
     <div className={`flex items-end gap-1 ${fullWidth ? 'w-full' : 'flex-1'} px-1 pt-2`} style={{ height: fullWidth ? 100 : 80 }}>
       {bars.map((b, i) => (
         <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
           <div
             className="w-full rounded-sm"
-            style={{ height: `${b.h}%`, backgroundColor: '#6CB33F' }}
+            style={{ height: `${b.h}%`, backgroundColor: '#6CB33F', minHeight: 2 }}
           />
           {fullWidth && <span className="text-[9px] text-[#888] mt-0.5">{b.label}</span>}
         </div>
@@ -44,19 +62,30 @@ function BarChart({ fullWidth = false }) {
   );
 }
 
-/* ── SVG Donut chart ── */
-function DonutChart() {
+/* ── SVG Donut chart from unpacked objects counts ── */
+function DonutChart({ counts }) {
   const segments = [
-    { label: 'Custom Roles', count: 32, color: '#0096D6' },
-    { label: 'Role Permissions', count: 128, color: '#6CB33F' },
-    { label: 'Role Assignments', count: 97, color: '#FFC107' },
-    { label: 'Assignment Scopes', count: 55, color: '#17A2B8' },
-    { label: 'Referenced Principals', count: 25, color: '#DC3545' },
+    { label: 'Role Definitions', count: counts?.definitions ?? 0, color: '#0096D6' },
+    { label: 'Role Assignments', count: counts?.assignments ?? 0, color: '#6CB33F' },
   ];
   const total = segments.reduce((s, x) => s + x.count, 0);
+  if (total === 0) {
+    return (
+      <div className="flex items-center gap-4 mt-2">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="48" fill="#F2F2F2" />
+          <circle cx="60" cy="60" r="30" fill="white" />
+          <text x="60" y="57" textAnchor="middle" fontSize="11" fill="#888">0</text>
+          <text x="60" y="68" textAnchor="middle" fontSize="7" fill="#888">objects</text>
+        </svg>
+        <div className="text-xs text-[#888]">No unpacked objects yet.</div>
+      </div>
+    );
+  }
+
   const cx = 60; const cy = 60; const r = 48; const ir = 30;
   let angle = -Math.PI / 2;
-  const paths = segments.map((seg) => {
+  const paths = segments.filter(s => s.count > 0).map((seg) => {
     const pct = seg.count / total;
     const sweep = pct * 2 * Math.PI;
     const x1 = cx + r * Math.cos(angle);
@@ -126,7 +155,6 @@ function InfoRow({ label, value, valueColor = '#0078A8' }) {
 
 /* ═══════════════════════ MODALS ═══════════════════════ */
 
-/* Configure Backup Modal (nested) */
 function ConfigureBackupModal({ tenant, onClose }) {
   const [schedule, setSchedule] = useState('Enabled');
   const [retention, setRetention] = useState(1825);
@@ -185,65 +213,62 @@ function ConfigureBackupModal({ tenant, onClose }) {
   );
 }
 
-/* Manage Backups Modal */
 function ManageBackupsModal({ onClose, tenants }) {
   const [configuringTenant, setConfiguringTenant] = useState(null);
-
   const rows = tenants.map((t) => ({
     ...t,
     schedule: 'Enabled',
     retention: 1825,
     advanced: 'Enabled',
-    consent: 'Granted',
+    consent: t.consents?.basic?.granted ? 'Granted' : 'Not Granted',
   }));
 
   return (
     <>
       <Modal title="Manage Backups" onClose={onClose} maxWidth="max-w-3xl">
         <div className="flex" style={{ minHeight: 360 }}>
-          {/* Left panel */}
           <div className="w-36 border-r border-[#DEE2E6] bg-[#FAFAFA] p-3 flex-shrink-0">
             <div className="border-l-4 border-[#E67E22] pl-2">
               <span className="text-xs font-semibold text-[#333]">Tenants</span>
             </div>
           </div>
-          {/* Right panel */}
           <div className="flex-1 flex flex-col p-4">
             <div className="mb-3">
-              <input
-                placeholder="Search tenants..."
-                className="border border-[#DEE2E6] px-3 py-1.5 text-xs w-full"
-              />
+              <input placeholder="Search tenants..." className="border border-[#DEE2E6] px-3 py-1.5 text-xs w-full" />
             </div>
             <div className="flex-1 overflow-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-[#F2F2F2]">
-                    {['Tenant', 'Schedule', 'Retention', 'Advanced data', 'Consent', 'Action'].map((h) => (
-                      <th key={h} className="text-left px-2 py-1.5 border-b border-[#DEE2E6] font-semibold text-[#333]">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.tenantId} className="border-b border-[#DEE2E6] hover:bg-[#F9FAFB]">
-                      <td className="px-2 py-1.5">{r.name}</td>
-                      <td className="px-2 py-1.5 text-[#0078A8]">{r.schedule}</td>
-                      <td className="px-2 py-1.5 text-[#0078A8]">{r.retention}</td>
-                      <td className="px-2 py-1.5 text-[#0078A8]">{r.advanced}</td>
-                      <td className="px-2 py-1.5 text-[#28A745]">{r.consent}</td>
-                      <td className="px-2 py-1.5">
-                        <button
-                          onClick={() => setConfiguringTenant(r)}
-                          className="px-2 py-0.5 border border-[#DEE2E6] text-[#0078A8] hover:bg-[#F2F2F2] text-xs"
-                        >
-                          EDIT
-                        </button>
-                      </td>
+              {rows.length === 0 ? (
+                <div className="text-xs text-[#888] p-4">No tenants configured.</div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-[#F2F2F2]">
+                      {['Tenant', 'Schedule', 'Retention', 'Advanced data', 'Consent', 'Action'].map((h) => (
+                        <th key={h} className="text-left px-2 py-1.5 border-b border-[#DEE2E6] font-semibold text-[#333]">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.tenantId} className="border-b border-[#DEE2E6] hover:bg-[#F9FAFB]">
+                        <td className="px-2 py-1.5">{r.name}</td>
+                        <td className="px-2 py-1.5 text-[#0078A8]">{r.schedule}</td>
+                        <td className="px-2 py-1.5 text-[#0078A8]">{r.retention}</td>
+                        <td className="px-2 py-1.5 text-[#0078A8]">{r.advanced}</td>
+                        <td className="px-2 py-1.5 text-[#28A745]">{r.consent}</td>
+                        <td className="px-2 py-1.5">
+                          <button
+                            onClick={() => setConfiguringTenant(r)}
+                            className="px-2 py-0.5 border border-[#DEE2E6] text-[#0078A8] hover:bg-[#F2F2F2] text-xs"
+                          >
+                            EDIT
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
             <div className="flex justify-end pt-3 border-t border-[#DEE2E6] mt-3">
               <button onClick={onClose} className="px-4 py-1.5 text-xs bg-[#0078A8] text-white hover:bg-[#006090]">Finish</button>
@@ -258,7 +283,6 @@ function ManageBackupsModal({ onClose, tenants }) {
   );
 }
 
-/* Manage Restores Modal */
 function ManageRestoresModal({ onClose, tenants }) {
   const rows = tenants.map((t) => ({
     ...t,
@@ -270,33 +294,37 @@ function ManageRestoresModal({ onClose, tenants }) {
   return (
     <Modal title="Manage Restores" onClose={onClose} maxWidth="max-w-2xl">
       <div className="p-4">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-[#F2F2F2]">
-              {['Tenant', 'Basic Consent', 'Restore Consent', 'Consent Status'].map((h) => (
-                <th key={h} className="text-left px-3 py-2 border-b border-[#DEE2E6] font-semibold text-[#333]">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.tenantId} className="border-b border-[#DEE2E6]">
-                <td className="px-3 py-2">{r.name}</td>
-                <td className="px-3 py-2">
-                  <span className={r.consents?.basic?.granted ? 'text-[#28A745]' : 'text-[#DC3545]'}>
-                    {r.consents?.basic?.granted ? '✓ ' : '✗ '}{r.basic}
-                  </span>
-                </td>
-                <td className="px-3 py-2">
-                  <span className={r.consents?.restore?.granted ? 'text-[#28A745]' : 'text-[#DC3545]'}>
-                    {r.consents?.restore?.granted ? '✓ ' : '✗ '}{r.restore}
-                  </span>
-                </td>
-                <td className="px-3 py-2 font-medium text-[#28A745]">{r.status}</td>
+        {rows.length === 0 ? (
+          <div className="text-xs text-[#888] p-4">No tenants configured.</div>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-[#F2F2F2]">
+                {['Tenant', 'Basic Consent', 'Restore Consent', 'Consent Status'].map((h) => (
+                  <th key={h} className="text-left px-3 py-2 border-b border-[#DEE2E6] font-semibold text-[#333]">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.tenantId} className="border-b border-[#DEE2E6]">
+                  <td className="px-3 py-2">{r.name}</td>
+                  <td className="px-3 py-2">
+                    <span className={r.consents?.basic?.granted ? 'text-[#28A745]' : 'text-[#DC3545]'}>
+                      {r.consents?.basic?.granted ? '✓ ' : '✗ '}{r.basic}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={r.consents?.restore?.granted ? 'text-[#28A745]' : 'text-[#DC3545]'}>
+                      {r.consents?.restore?.granted ? '✓ ' : '✗ '}{r.restore}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 font-medium" style={{ color: r.status === 'All Granted' ? '#28A745' : '#DC3545' }}>{r.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
         <div className="flex justify-end mt-4">
           <button onClick={onClose} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50">Cancel</button>
         </div>
@@ -305,23 +333,54 @@ function ManageRestoresModal({ onClose, tenants }) {
   );
 }
 
-/* Create Backup Modal */
 function CreateBackupModal({ onClose, tenant }) {
-  const [done, setDone] = useState(false);
+  const [state, setState] = useState('idle'); // idle | running | done | error
+  const [msg, setMsg] = useState('');
 
-  function handleCreate() {
-    setDone(true);
-    setTimeout(onClose, 2000);
+  async function handleCreate() {
+    setState('running');
+    setMsg('Starting backup...');
+    try {
+      const resp = await api.runBackup();
+      const job = resp?.data;
+      if (!job?.id) throw new Error('No job id returned');
+      const finished = await pollJob(job.id, {
+        intervalMs: 2000,
+        onTick: (j) => setMsg(`Running... status: ${j?.status ?? '?'}`),
+      });
+      if (finished?.status === 'Completed') {
+        setState('done');
+        setMsg('Backup completed successfully!');
+        setTimeout(onClose, 2000);
+      } else {
+        throw new Error(finished?.error || 'Backup failed');
+      }
+    } catch (err) {
+      setState('error');
+      setMsg(err.message || 'Backup failed');
+    }
   }
 
   return (
     <Modal title="Create Backup" onClose={onClose} maxWidth="max-w-md">
       <div className="px-6 py-5">
-        {done ? (
+        {state === 'done' ? (
           <div className="flex items-center gap-2 text-[#28A745] text-sm font-semibold">
             <CheckCircle2 size={18} />
-            Backup started successfully!
+            {msg}
           </div>
+        ) : state === 'error' ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-[#DC3545] text-sm">
+              <X size={18} />
+              {msg}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={onClose} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50">Close</button>
+            </div>
+          </div>
+        ) : state === 'running' ? (
+          <div className="text-sm text-[#555]">{msg}</div>
         ) : (
           <>
             <p className="text-sm text-[#333] mb-2">
@@ -341,70 +400,119 @@ function CreateBackupModal({ onClose, tenant }) {
   );
 }
 
-/* Backup Unpacking Modal */
-function BackupUnpackingModal({ onClose }) {
+function BackupUnpackingModal({ onClose, backups }) {
   const [opts, setOpts] = useState({ clear: true, diff: true, validate: false });
-  const mockBackups = [
-    { id: '2026-05-20T18:00:00Z', tenant: 'Contoso', label: 'Today at 6:00 PM' },
-    { id: '2026-05-20T13:12:00Z', tenant: 'Contoso', label: 'Today at 1:12 PM' },
-    { id: '2026-05-19T15:00:16Z', tenant: 'Contoso', label: 'Yesterday at 3:00 PM' },
-  ];
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(backups[0]?.id ?? null);
+  const [state, setState] = useState('idle');
+  const [msg, setMsg] = useState('');
 
   function toggle(k) { setOpts((o) => ({ ...o, [k]: !o[k] })); }
+
+  function formatDate(snap) {
+    if (!snap) return '—';
+    const d = new Date(snap.createdAt || snap.collectedAt || '');
+    if (isNaN(d)) return snap.id;
+    return d.toLocaleString();
+  }
+
+  async function handleUnpack() {
+    if (!selected) return;
+    setState('running');
+    setMsg('Unpacking...');
+    try {
+      const resp = await api.unpackBackup(selected, {
+        clearPrevious: opts.clear,
+        runDiff: opts.diff,
+        validate: opts.validate,
+      });
+      const job = resp?.data;
+      if (!job?.id) throw new Error('No job id returned');
+      const finished = await pollJob(job.id, {
+        intervalMs: 2000,
+        onTick: (j) => setMsg(`Unpacking... status: ${j?.status ?? '?'}`),
+      });
+      if (finished?.status === 'Completed') {
+        setState('done');
+        setTimeout(onClose, 1500);
+      } else {
+        throw new Error(finished?.error || 'Unpack failed');
+      }
+    } catch (err) {
+      setState('error');
+      setMsg(err.message);
+    }
+  }
 
   return (
     <Modal title="Administrative Function Backup Unpacking" onClose={onClose} maxWidth="max-w-2xl">
       <div className="px-6 py-4 space-y-4">
-        <div className="space-y-2">
-          {[
-            ['clear', 'Clear administrative function objects from previously unpacked backups'],
-            ['diff', 'Perform administrative function differences operation during unpack'],
-            ['validate', 'Validate backup integrity before unpack'],
-          ].map(([k, label]) => (
-            <label key={k} className="flex items-center gap-2 text-xs text-[#333] cursor-pointer">
-              <input type="checkbox" checked={opts[k]} onChange={() => toggle(k)} />
-              {label}
-            </label>
-          ))}
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-[#333] mb-2">Select a backup to unpack:</p>
-          <table className="w-full text-xs border border-[#DEE2E6]">
-            <thead>
-              <tr className="bg-[#F2F2F2]">
-                <th className="w-8 px-2 py-1.5 border-b border-[#DEE2E6]"></th>
-                <th className="text-left px-3 py-1.5 border-b border-[#DEE2E6] font-semibold text-[#333]">Created</th>
-                <th className="text-left px-3 py-1.5 border-b border-[#DEE2E6] font-semibold text-[#333]">Tenant</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mockBackups.map((b) => (
-                <tr
-                  key={b.id}
-                  className={`border-b border-[#DEE2E6] cursor-pointer ${selected === b.id ? 'bg-[#E6F4FA]' : 'hover:bg-[#F9FAFB]'}`}
-                  onClick={() => setSelected(b.id)}
-                >
-                  <td className="px-2 py-1.5 text-center">
-                    <input type="radio" checked={selected === b.id} onChange={() => setSelected(b.id)} />
-                  </td>
-                  <td className="px-3 py-1.5">{b.label}</td>
-                  <td className="px-3 py-1.5">{b.tenant}</td>
-                </tr>
+        {state === 'done' ? (
+          <div className="flex items-center gap-2 text-[#28A745] text-sm font-semibold">
+            <CheckCircle2 size={18} /> Unpack completed!
+          </div>
+        ) : state === 'error' ? (
+          <div className="text-[#DC3545] text-sm">{msg}</div>
+        ) : state === 'running' ? (
+          <div className="text-sm text-[#555]">{msg}</div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              {[
+                ['clear', 'Clear administrative function objects from previously unpacked backups'],
+                ['diff', 'Perform administrative function differences operation during unpack'],
+                ['validate', 'Validate backup integrity before unpack'],
+              ].map(([k, label]) => (
+                <label key={k} className="flex items-center gap-2 text-xs text-[#333] cursor-pointer">
+                  <input type="checkbox" checked={opts[k]} onChange={() => toggle(k)} />
+                  {label}
+                </label>
               ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex justify-end gap-2 pt-2 border-t border-[#DEE2E6]">
-          <button onClick={onClose} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50">Cancel</button>
-          <button
-            disabled={!selected}
-            onClick={onClose}
-            className="px-4 py-1.5 text-xs bg-[#0078A8] text-white hover:bg-[#006090] disabled:opacity-40"
-          >
-            Unpack
-          </button>
-        </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-[#333] mb-2">Select a backup to unpack:</p>
+              {backups.length === 0 ? (
+                <p className="text-xs text-[#888]">No backups available. Create a backup first.</p>
+              ) : (
+                <table className="w-full text-xs border border-[#DEE2E6]">
+                  <thead>
+                    <tr className="bg-[#F2F2F2]">
+                      <th className="w-8 px-2 py-1.5 border-b border-[#DEE2E6]"></th>
+                      <th className="text-left px-3 py-1.5 border-b border-[#DEE2E6] font-semibold text-[#333]">Created</th>
+                      <th className="text-left px-3 py-1.5 border-b border-[#DEE2E6] font-semibold text-[#333]">Roles</th>
+                      <th className="text-left px-3 py-1.5 border-b border-[#DEE2E6] font-semibold text-[#333]">Size</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {backups.map((b) => (
+                      <tr
+                        key={b.id}
+                        className={`border-b border-[#DEE2E6] cursor-pointer ${selected === b.id ? 'bg-[#E6F4FA]' : 'hover:bg-[#F9FAFB]'}`}
+                        onClick={() => setSelected(b.id)}
+                      >
+                        <td className="px-2 py-1.5 text-center">
+                          <input type="radio" checked={selected === b.id} onChange={() => setSelected(b.id)} />
+                        </td>
+                        <td className="px-3 py-1.5">{formatDate(b)}</td>
+                        <td className="px-3 py-1.5">{b.roleDefinitionsCount ?? '—'}</td>
+                        <td className="px-3 py-1.5">{b.sizeDisplay ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#DEE2E6]">
+              <button onClick={onClose} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50">Cancel</button>
+              <button
+                disabled={!selected}
+                onClick={handleUnpack}
+                className="px-4 py-1.5 text-xs bg-[#0078A8] text-white hover:bg-[#006090] disabled:opacity-40"
+              >
+                Unpack
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </Modal>
   );
@@ -413,33 +521,27 @@ function BackupUnpackingModal({ onClose }) {
 /* ═══════════════════════ MAIN PAGE ═══════════════════════ */
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { selectedTenant } = useApp();
+  const { selectedTenant, tenants } = useApp();
 
-  const [modal, setModal] = useState(null); // 'manageBackups' | 'manageRestores' | 'createBackup' | 'unpack'
-  const tenants = selectedTenant ? [selectedTenant] : [];
+  const [modal, setModal] = useState(null);
+  const [backups, setBackups] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [events, setEvents] = useState([]);
 
-  const tasks = [
-    'Unpack backup 2026-05-19 15:00:16',
-    'Backup tenant Contoso',
-    'Diff restore objects',
-    'Backup tenant Contoso',
-    'Unpack backup 2026-04-28 06:00:12',
-  ];
+  useEffect(() => {
+    api.backups().then((r) => setBackups(r?.data ?? [])).catch(() => {});
+    api.tasks().then((r) => setTasks(r?.data?.items ?? [])).catch(() => {});
+    api.events('Error').then((r) => setEvents(r?.data?.items ?? [])).catch(() => {});
+  }, []);
 
-  const errors = [
-    'Quest Recovery Function - Administrative Roles Backup failed to register',
-    'Service principal consent validation failed for Contoso',
-    'Role assignment scope could not be resolved',
-    'Referenced principal not found in directory',
-    'Backup integrity check failed: manifest hash mismatch',
-  ];
+  const backupCount = backups.length;
+  const taskCount = tasks.length;
+  const errorCount = events.filter(e => (e.severity || '').toLowerCase() === 'error').length;
+  const bars = buildBars(backups, 10);
+  const firstBar = bars[0];
+  const lastBar = bars[bars.length - 1];
 
-  const diffs = [
-    { label: 'Custom role deleted', count: 1 },
-    { label: 'Role permission removed', count: 2 },
-    { label: 'Role assignment added', count: 3 },
-    { label: 'Referenced principal not found', count: 2 },
-  ];
+  const tenantList = selectedTenant ? [selectedTenant] : tenants;
 
   return (
     <div className="flex flex-col">
@@ -447,8 +549,8 @@ export default function Dashboard() {
       <div className="bg-white border-b border-[#DEE2E6] px-4 py-2 flex items-center gap-2 flex-shrink-0">
         <ToolBtn icon={Settings} label="MANAGE BACKUPS" onClick={() => setModal('manageBackups')} />
         <ToolBtn icon={ArrowDownToLine} label="MANAGE RESTORES" onClick={() => setModal('manageRestores')} />
-        <ToolBtn icon={RotateCcw} label="CREATE BACKUP" onClick={() => setModal('createBackup')} />
-        <ToolBtn icon={Package} label="UNPACK BACKUP" onClick={() => setModal('unpack')} />
+        <ToolBtn icon={RotateCcw} label="CREATE BACKUP" onClick={() => setModal('createBackup')} disabled={!selectedTenant} />
+        <ToolBtn icon={Package} label="UNPACK BACKUP" onClick={() => setModal('unpack')} disabled={backups.length === 0} />
       </div>
 
       {/* ── Cards grid ── */}
@@ -456,73 +558,80 @@ export default function Dashboard() {
 
         {/* Card 1: Tenant protected */}
         <Card
-          title={selectedTenant ? 'Tenant is protected' : 'No tenant selected'}
-          icon={<CheckCircle2 size={16} className="text-[#28A745]" />}
+          title={selectedTenant ? 'Tenant is protected' : 'No tenant configured'}
+          icon={<CheckCircle2 size={16} className={selectedTenant ? 'text-[#28A745]' : 'text-[#FFC107]'} />}
         >
-          <div className="space-y-0.5">
-            <InfoRow label="Name" value={
-              <button className="text-[#0078A8] hover:underline" onClick={() => navigate('/tenants')}>
-                {selectedTenant?.name ?? '—'}
-              </button>
-            } />
-            <InfoRow label="Backup schedule" value="Enabled" />
-            <InfoRow label="Retention" value="1825" />
-            <InfoRow label="Back up custom role definitions" value="Enabled" />
-            <InfoRow label="Back up role permissions" value="Enabled" />
-            <InfoRow label="Back up role assignments" value="Enabled" />
-            <InfoRow label="Back up assignment scopes" value="Enabled" />
-            <InfoRow label="Basic consent" value={selectedTenant?.consents?.basic?.granted ? 'Granted' : 'Not Granted'}
-              valueColor={selectedTenant?.consents?.basic?.granted ? '#28A745' : '#DC3545'} />
-            <InfoRow label="Restore consent" value={selectedTenant?.consents?.restore?.granted ? 'Granted' : 'Not Granted'}
-              valueColor={selectedTenant?.consents?.restore?.granted ? '#28A745' : '#DC3545'} />
-          </div>
+          {selectedTenant ? (
+            <div className="space-y-0.5">
+              <InfoRow label="Name" value={
+                <button className="text-[#0078A8] hover:underline" onClick={() => navigate('/tenants')}>
+                  {selectedTenant.name}
+                </button>
+              } />
+              <InfoRow label="Backup schedule" value="Enabled" />
+              <InfoRow label="Retention" value="1825" />
+              <InfoRow label="Back up role definitions" value="Enabled" />
+              <InfoRow label="Back up role assignments" value="Enabled" />
+              <InfoRow label="Basic consent" value={selectedTenant.consents?.basic?.granted ? 'Granted' : 'Not Granted'}
+                valueColor={selectedTenant.consents?.basic?.granted ? '#28A745' : '#DC3545'} />
+              <InfoRow label="Restore consent" value={selectedTenant.consents?.restore?.granted ? 'Granted' : 'Not Granted'}
+                valueColor={selectedTenant.consents?.restore?.granted ? '#28A745' : '#DC3545'} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-[#FFC107] mt-2">
+              <AlertCircle size={14} />
+              <span>Add a tenant to enable backups.</span>
+            </div>
+          )}
         </Card>
 
-        {/* Card 2: 149 backups */}
-        <Card title="149 backups" showAll onShowAll={() => navigate('/backups')}>
-          <BarChart />
+        {/* Card 2: Backups */}
+        <Card title={`${backupCount} backup${backupCount !== 1 ? 's' : ''}`} showAll onShowAll={() => navigate('/backups')}>
+          <BarChart bars={bars} />
           <div className="flex justify-between text-[10px] text-[#999] mt-1 px-1">
-            <span>Apr 16</span>
-            <span>May 20</span>
+            <span>{firstBar?.label}</span>
+            <span>{lastBar?.label}</span>
           </div>
         </Card>
 
-        {/* Card 3: 55 tasks */}
-        <Card title="55 tasks" showAll onShowAll={() => navigate('/tasks')}>
+        {/* Card 3: Tasks */}
+        <Card title={`${taskCount} task${taskCount !== 1 ? 's' : ''}`} showAll onShowAll={() => navigate('/tasks')}>
           <div className="space-y-1.5 mt-1">
-            {tasks.map((t, i) => (
+            {tasks.length === 0 ? (
+              <span className="text-xs text-[#888]">No tasks yet.</span>
+            ) : tasks.slice(0, 5).map((t, i) => (
               <div key={i} className="flex items-start gap-1.5 text-xs text-[#555]">
-                <Check size={12} className="text-[#28A745] mt-0.5 flex-shrink-0" />
-                <span className="truncate">{t}</span>
+                <Check size={12} className={`mt-0.5 flex-shrink-0 ${t.status === 'Failed' ? 'text-[#DC3545]' : 'text-[#28A745]'}`} />
+                <span className="truncate">{t.name || t.type}</span>
               </div>
             ))}
           </div>
         </Card>
 
-        {/* Card 4: 337 unpacked objects */}
-        <Card title="337 unpacked objects" showAll onShowAll={() => navigate('/unpacked')}>
-          <DonutChart />
+        {/* Card 4: Unpacked objects (role defs + assignments from latest backup) */}
+        <Card title={`${(backups[0]?.roleDefinitionsCount ?? 0) + (backups[0]?.roleAssignmentsCount ?? 0)} unpacked objects`} showAll onShowAll={() => navigate('/unpacked')}>
+          <DonutChart counts={{
+            definitions: backups[0]?.roleDefinitionsCount ?? 0,
+            assignments: backups[0]?.roleAssignmentsCount ?? 0,
+          }} />
         </Card>
 
-        {/* Card 5: 8 differences */}
-        <Card title="8 differences" showAll onShowAll={() => navigate('/differences')}>
-          <div className="space-y-2 mt-1">
-            {diffs.map((d, i) => (
-              <div key={i} className="flex items-center justify-between text-xs">
-                <span className="text-[#555]">{d.label}</span>
-                <span className="font-semibold text-[#333]">{d.count}</span>
-              </div>
-            ))}
+        {/* Card 5: Differences */}
+        <Card title="Differences" showAll onShowAll={() => navigate('/differences')}>
+          <div className="text-xs text-[#888] mt-2">
+            Run a comparison to see differences between backup and current tenant state.
           </div>
         </Card>
 
-        {/* Card 6: 94 errors */}
-        <Card title="94 errors" showAll onShowAll={() => navigate('/events')}>
+        {/* Card 6: Errors */}
+        <Card title={`${errorCount} error${errorCount !== 1 ? 's' : ''}`} showAll onShowAll={() => navigate('/events')}>
           <div className="space-y-1.5 mt-1">
-            {errors.map((e, i) => (
+            {events.length === 0 ? (
+              <span className="text-xs text-[#888]">No errors logged.</span>
+            ) : events.slice(0, 5).map((e, i) => (
               <div key={i} className="flex items-start gap-1.5 text-xs text-[#555]">
                 <X size={12} className="text-[#DC3545] mt-0.5 flex-shrink-0" />
-                <span className="line-clamp-2">{e}</span>
+                <span className="line-clamp-2">{e.message || e.description}</span>
               </div>
             ))}
           </div>
@@ -532,17 +641,17 @@ export default function Dashboard() {
         <Card title="Consent Status" icon={<AlertCircle size={16} className="text-[#0096D6]" />}>
           <div className="space-y-3 mt-2">
             <div className="flex items-center gap-2 text-xs">
-              <CheckCircle2 size={14} className="text-[#28A745]" />
+              <CheckCircle2 size={14} className={selectedTenant?.consents?.basic?.granted ? 'text-[#28A745]' : 'text-[#DC3545]'} />
               <span className="text-[#333]">Basic consent:</span>
-              <span className="text-[#28A745] font-semibold">
-                {selectedTenant?.consents?.basic?.granted ? 'Granted' : 'Not Granted'}
+              <span className="font-semibold" style={{ color: selectedTenant?.consents?.basic?.granted ? '#28A745' : '#DC3545' }}>
+                {selectedTenant ? (selectedTenant.consents?.basic?.granted ? 'Granted' : 'Not Granted') : '—'}
               </span>
             </div>
             <div className="flex items-center gap-2 text-xs">
-              <CheckCircle2 size={14} className="text-[#28A745]" />
+              <CheckCircle2 size={14} className={selectedTenant?.consents?.restore?.granted ? 'text-[#28A745]' : 'text-[#DC3545]'} />
               <span className="text-[#333]">Restore consent:</span>
-              <span className="text-[#28A745] font-semibold">
-                {selectedTenant?.consents?.restore?.granted ? 'Granted' : 'Not Granted'}
+              <span className="font-semibold" style={{ color: selectedTenant?.consents?.restore?.granted ? '#28A745' : '#DC3545' }}>
+                {selectedTenant ? (selectedTenant.consents?.restore?.granted ? 'Granted' : 'Not Granted') : '—'}
               </span>
             </div>
             {!selectedTenant && (
@@ -558,16 +667,16 @@ export default function Dashboard() {
 
       {/* ── Modals ── */}
       {modal === 'manageBackups' && (
-        <ManageBackupsModal onClose={() => setModal(null)} tenants={tenants} />
+        <ManageBackupsModal onClose={() => setModal(null)} tenants={tenantList} />
       )}
       {modal === 'manageRestores' && (
-        <ManageRestoresModal onClose={() => setModal(null)} tenants={tenants} />
+        <ManageRestoresModal onClose={() => setModal(null)} tenants={tenantList} />
       )}
       {modal === 'createBackup' && (
         <CreateBackupModal onClose={() => setModal(null)} tenant={selectedTenant} />
       )}
       {modal === 'unpack' && (
-        <BackupUnpackingModal onClose={() => setModal(null)} />
+        <BackupUnpackingModal onClose={() => setModal(null)} backups={backups} />
       )}
     </div>
   );

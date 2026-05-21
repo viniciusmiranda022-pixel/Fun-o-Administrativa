@@ -1,6 +1,7 @@
 ﻿[CmdletBinding()]
 param(
-    [switch]$RmadMode
+    [switch]$RmadMode,
+    [string]$ClientSecret = ""
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -158,11 +159,15 @@ function Invoke-RmadBackup {
             exit 1
         }
 
-        Test-GraphConnection -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -Thumbprint $validation.Settings.CertificateThumbprint -VerboseOutput *>&1 | ForEach-Object { Write-RmadLog "GRAPH-TEST: $_" }
+        $effectiveSecret = if (-not [string]::IsNullOrWhiteSpace($ClientSecret)) { $ClientSecret }
+                           elseif (-not [string]::IsNullOrWhiteSpace($validation.Settings.ClientSecret)) { $validation.Settings.ClientSecret }
+                           else { "" }
+
+        Test-GraphConnection -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -Thumbprint ($validation.Settings.CertificateThumbprint ?? "") -ClientSecret $effectiveSecret -VerboseOutput *>&1 | ForEach-Object { Write-RmadLog "GRAPH-TEST: $_" }
 
         $backupStart = Get-Date
         Write-RmadLog 'Iniciando export do backup.'
-        & $exportScript -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -CertificateThumbprint $validation.Settings.CertificateThumbprint -BasePath $basePath *>&1 | ForEach-Object { Write-RmadLog "EXPORT: $_" }
+        & $exportScript -TenantId $validation.Settings.TenantId -ClientId $validation.Settings.ClientId -CertificateThumbprint ($validation.Settings.CertificateThumbprint ?? "") -ClientSecret $effectiveSecret -BasePath $basePath *>&1 | ForEach-Object { Write-RmadLog "EXPORT: $_" }
 
         $backupFolder = Get-ValidBackupFolder -BackupRoot (Join-Path $basePath 'Backups') -NotBefore $backupStart
         if ($backupFolder) {
@@ -200,10 +205,16 @@ function Test-BackupPrerequisites {
         return [pscustomobject]@{ IsValid = $false; Reasons = $reasons; Settings = $null }
     }
 
-    foreach ($required in @('TenantId','ClientId','CertificateThumbprint')) {
+    foreach ($required in @('TenantId','ClientId')) {
         if ([string]::IsNullOrWhiteSpace($settings.$required)) {
             $reasons.Add("Campo obrigatório ausente/vazio: $required")
         }
+    }
+
+    $hasThumbprint = -not [string]::IsNullOrWhiteSpace($settings.CertificateThumbprint)
+    $hasSecret = (-not [string]::IsNullOrWhiteSpace($ClientSecret)) -or (-not [string]::IsNullOrWhiteSpace($settings.ClientSecret))
+    if (-not $hasThumbprint -and -not $hasSecret) {
+        $reasons.Add("É necessário CertificateThumbprint ou ClientSecret para autenticar no Microsoft Graph.")
     }
 
     if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication)) {
@@ -218,10 +229,10 @@ function Test-BackupPrerequisites {
         $reasons.Add('Cmdlet Disconnect-MgGraph não está disponível.')
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($settings.CertificateThumbprint)) {
+    if ($hasThumbprint -and -not $hasSecret) {
         $cert = Get-Item "Cert:\LocalMachine\My\$($settings.CertificateThumbprint)" -ErrorAction SilentlyContinue
         if (-not $cert) {
-            $reasons.Add('Certificado configurado não existe em Cert:\LocalMachine\My. Use o assistente para recriar automaticamente ou importar um PFX com chave privada.')
+            $reasons.Add('Certificado configurado não existe em Cert:\LocalMachine\My. Use ClientSecret como alternativa ou importe um PFX com chave privada.')
         }
         else {
             if (-not $cert.HasPrivateKey) { $reasons.Add('Certificado sem chave privada (HasPrivateKey=False).') }

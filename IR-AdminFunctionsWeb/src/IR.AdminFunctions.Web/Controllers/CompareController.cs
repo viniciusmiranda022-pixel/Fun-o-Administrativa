@@ -14,36 +14,42 @@ public class CompareController : ControllerBase
     private readonly JobManager _jobs;
     private readonly SettingsReader _settings;
     private readonly QuestOptions _options;
+    private readonly AppConfigStore _appConfig;
 
     public CompareController(
         PowerShellRunner runner,
         JobManager jobs,
         SettingsReader settings,
-        IOptions<QuestOptions> options)
+        IOptions<QuestOptions> options,
+        AppConfigStore appConfig)
     {
         _runner = runner;
         _jobs = jobs;
         _settings = settings;
         _options = options.Value;
+        _appConfig = appConfig;
     }
 
     [HttpPost("run")]
     public ActionResult<ApiResponse<Job>> Run([FromBody] CompareRunRequest? request)
     {
+        var cfg = _appConfig.Read();
         var raw = _settings.ReadRaw();
-        if (raw == null || string.IsNullOrWhiteSpace(raw.TenantId)
-            || string.IsNullOrWhiteSpace(raw.ClientId)
-            || string.IsNullOrWhiteSpace(raw.CertificateThumbprint))
-        {
-            return ApiResponse<Job>.Fail("settings.json incompleto (TenantId/ClientId/CertificateThumbprint).");
-        }
+
+        if (raw == null || string.IsNullOrWhiteSpace(raw.TenantId) || string.IsNullOrWhiteSpace(raw.ClientId))
+            return ApiResponse<Job>.Fail("settings.json incompleto (TenantId/ClientId ausentes). Adicione um tenant primeiro.");
+
+        var hasAuth = !string.IsNullOrWhiteSpace(raw.CertificateThumbprint) || !string.IsNullOrWhiteSpace(cfg.ClientSecret);
+        if (!hasAuth)
+            return ApiResponse<Job>.Fail("Nenhuma credencial configurada. Execute o setup e conceda o consentimento Basic.");
 
         var input = new Dictionary<string, object?>
         {
             ["Headless"] = true,
             ["TenantId"] = raw.TenantId,
             ["ClientId"] = raw.ClientId,
-            ["Thumbprint"] = raw.CertificateThumbprint,
+            ["Thumbprint"] = raw.CertificateThumbprint ?? "",
+            ["ClientSecret"] = cfg.ClientSecret ?? "",
             ["BackupId"] = request?.BackupId
         };
 
