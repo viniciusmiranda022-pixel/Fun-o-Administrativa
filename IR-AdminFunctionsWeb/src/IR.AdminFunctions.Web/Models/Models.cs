@@ -107,6 +107,11 @@ public class AddTenantRequest
     public string? Domain { get; set; }
 }
 
+public class UpdateThumbprintRequest
+{
+    public string Thumbprint { get; set; } = string.Empty;
+}
+
 public class TenantStatusResult
 {
     public string TenantId { get; set; } = string.Empty;
