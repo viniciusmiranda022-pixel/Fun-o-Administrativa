@@ -50,15 +50,21 @@ public class BackupsController : ControllerBase
     [HttpPost("run")]
     public ActionResult<ApiResponse<Job>> Run()
     {
-        var input = new Dictionary<string, object?>
-        {
-            ["RmadMode"] = true,
-        };
-
-        var job = _jobs.Enqueue("backup", input, async (_, ct) =>
+        var job = _jobs.Enqueue("backup", null, async (_, ct) =>
         {
             // Garante que o settings.json está sincronizado com appConfig antes de rodar o script
             await _tenantStore.EnsureSettingsJsonSyncedAsync();
+
+            var raw = _settings.ReadRaw();
+            var cfg = _appConfig.Read();
+            var input = new Dictionary<string, object?>
+            {
+                ["RmadMode"] = true,
+                ["TenantId"] = raw?.TenantId ?? "",
+                ["ClientId"] = raw?.ClientId ?? "",
+                ["Thumbprint"] = raw?.CertificateThumbprint ?? "",
+                ["ClientSecret"] = cfg.ClientSecret ?? "",
+            };
 
             var result = await _runner.RunAsync(
                 _options.BackupScript,
