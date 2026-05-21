@@ -334,63 +334,46 @@ function ManageRestoresModal({ onClose, tenants }) {
 }
 
 function CreateBackupModal({ onClose, tenant }) {
-  const [state, setState] = useState('idle'); // idle | running | done | error
-  const [msg, setMsg] = useState('');
+  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   async function handleCreate() {
-    setState('running');
-    setMsg('Starting backup...');
+    setSubmitting(true);
+    setError(null);
     try {
-      const resp = await api.runBackup();
-      const job = resp?.data;
-      if (!job?.id) throw new Error('No job id returned');
-      const finished = await pollJob(job.id, {
-        intervalMs: 2000,
-        onTick: (j) => setMsg(`Running... status: ${j?.status ?? '?'}`),
-      });
-      if (finished?.status === 'Completed') {
-        setState('done');
-        setMsg('Backup completed successfully!');
-        setTimeout(onClose, 2000);
-      } else {
-        throw new Error(finished?.error || 'Backup failed');
-      }
+      await api.runBackup();
+      onClose();
+      navigate('/tasks');
     } catch (err) {
-      setState('error');
-      setMsg(err.message || 'Backup failed');
+      setError(err.message || 'Falha ao iniciar backup');
+      setSubmitting(false);
     }
   }
 
   return (
     <Modal title="Create Backup" onClose={onClose} maxWidth="max-w-md">
       <div className="px-6 py-5">
-        {state === 'done' ? (
-          <div className="flex items-center gap-2 text-[#28A745] text-sm font-semibold">
-            <CheckCircle2 size={18} />
-            {msg}
-          </div>
-        ) : state === 'error' ? (
+        {error ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-[#DC3545] text-sm">
               <X size={18} />
-              {msg}
+              {error}
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50">Close</button>
+              <button onClick={onClose} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50">Fechar</button>
             </div>
           </div>
-        ) : state === 'running' ? (
-          <div className="text-sm text-[#555]">{msg}</div>
         ) : (
           <>
             <p className="text-sm text-[#333] mb-2">
-              Do you want to back up administrative functions for this tenant?
+              Deseja fazer backup das funções administrativas para este tenant?
             </p>
             <p className="text-sm font-semibold text-[#0078A8] mb-5">{tenant?.name ?? 'Unknown'}</p>
             <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50">Cancel</button>
-              <button onClick={handleCreate} className="px-4 py-1.5 text-xs bg-[#0078A8] text-white hover:bg-[#006090]">
-                Create
+              <button onClick={onClose} disabled={submitting} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={handleCreate} disabled={submitting} className="px-4 py-1.5 text-xs bg-[#0078A8] text-white hover:bg-[#006090] disabled:opacity-50">
+                {submitting ? 'Iniciando...' : 'Criar'}
               </button>
             </div>
           </>
