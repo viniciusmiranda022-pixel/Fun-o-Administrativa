@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
-using System.Management.Automation;
-using System.Management.Automation.Runspaces;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using IR.AdminFunctions.Web.Models;
 using IR.AdminFunctions.Web.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -15,18 +15,20 @@ public class OAuthController : ControllerBase
     private readonly ConsentChecker _consent;
     private readonly AppConfigStore _appStore;
     private readonly TenantStore _tenantStore;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<OAuthController> _logger;
 
-    public OAuthController(ConsentChecker consent, AppConfigStore appStore, TenantStore tenantStore, ILogger<OAuthController> logger)
+    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    public OAuthController(ConsentChecker consent, AppConfigStore appStore, TenantStore tenantStore, IHttpClientFactory httpClientFactory, ILogger<OAuthController> logger)
     {
         _consent = consent;
         _appStore = appStore;
         _tenantStore = tenantStore;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
-    // O frontend chama este endpoint para obter a URL que abre o admin_consent
-    // numa nova aba do navegador.
     [HttpGet("start")]
     public ActionResult<ApiResponse<object>> Start([FromQuery] string? tenantHint = null)
     {
@@ -43,8 +45,6 @@ public class OAuthController : ControllerBase
         return ApiResponse<object>.Ok(new { url, state });
     }
 
-    // Callback chamado pelo Microsoft após o admin consent.
-    // Query params: tenant=<tenantId>&admin_consent=True&state=<...>
     [HttpGet("callback")]
     public async Task<IActionResult> Callback([FromQuery] string? tenant, [FromQuery(Name = "admin_consent")] string? adminConsent, [FromQuery] string? state, [FromQuery] string? error, [FromQuery(Name = "error_description")] string? errorDescription, CancellationToken ct)
     {
@@ -63,7 +63,6 @@ public class OAuthController : ControllerBase
             return ContentResult("Consentimento não foi concluído.", isError: true);
         }
 
-        // Busca info do tenant via Graph (display name + domínio)
         var (displayName, domain) = await GetTenantInfoAsync(tenant, ct);
 
         var existing = await _tenantStore.GetAsync(tenant);
@@ -79,7 +78,6 @@ public class OAuthController : ControllerBase
             });
         }
 
-        // Atualiza consents (consulta real)
         var consents = await _consent.CheckAsync(tenant, ct);
         await _tenantStore.UpdateConsentsAsync(tenant, consents);
 
@@ -89,30 +87,53 @@ public class OAuthController : ControllerBase
     private async Task<(string? displayName, string? domain)> GetTenantInfoAsync(string tenantId, CancellationToken ct)
     {
         var cfg = _appStore.Read();
+        if (!cfg.IsConfigured) return (null, null);
+
         try
         {
-            using var rs = RunspaceFactory.CreateRunspace();
-            rs.Open();
-            using var ps = PowerShell.Create();
-            ps.Runspace = rs;
-            ps.AddScript($@"
-                Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
-                Import-Module Microsoft.Graph.Identity.DirectoryManagement -ErrorAction Stop
-                $secret = ConvertTo-SecureString '{cfg.ClientSecret}' -AsPlainText -Force
-                $cred = New-Object System.Management.Automation.PSCredential('{cfg.ClientId}', $secret)
-                Connect-MgGraph -TenantId '{tenantId}' -ClientSecretCredential $cred -NoWelcome -ErrorAction Stop
-                $org = Get-MgOrganization -ErrorAction SilentlyContinue | Select-Object -First 1
-                if ($org) {{
-                    Write-Output $org.DisplayName
-                    $defaultDomain = $org.VerifiedDomains | Where-Object IsDefault | Select-Object -First 1 -ExpandProperty Name
-                    Write-Output $defaultDomain
-                }}
-                Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-            ");
-            var results = await Task.Run(() => ps.Invoke(), ct);
-            var name = results.FirstOrDefault()?.BaseObject?.ToString();
-            var domain = results.Skip(1).FirstOrDefault()?.BaseObject?.ToString();
-            return (name, domain);
+            // Obtém token via client credentials para o tenant alvo
+            using var tokenHttp = _httpClientFactory.CreateClient();
+            var body = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials",
+                ["client_id"] = cfg.ClientId!,
+                ["client_secret"] = cfg.ClientSecret!,
+                ["scope"] = "https://graph.microsoft.com/.default",
+            });
+            var tokenResp = await tokenHttp.PostAsync($"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token", body, ct);
+            if (!tokenResp.IsSuccessStatusCode) return (null, null);
+
+            var tokenJson = await tokenResp.Content.ReadAsStringAsync(ct);
+            var tokenDoc = JsonDocument.Parse(tokenJson);
+            var token = tokenDoc.RootElement.TryGetProperty("access_token", out var t) ? t.GetString() : null;
+            if (token == null) return (null, null);
+
+            using var graphHttp = _httpClientFactory.CreateClient();
+            graphHttp.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var orgResp = await graphHttp.GetAsync("https://graph.microsoft.com/v1.0/organization?$select=displayName,verifiedDomains", ct);
+            if (!orgResp.IsSuccessStatusCode) return (null, null);
+
+            var orgJson = await orgResp.Content.ReadAsStringAsync(ct);
+            var orgDoc = JsonDocument.Parse(orgJson);
+            if (!orgDoc.RootElement.TryGetProperty("value", out var orgs) || orgs.GetArrayLength() == 0)
+                return (null, null);
+
+            var org = orgs[0];
+            var name = org.TryGetProperty("displayName", out var dn) ? dn.GetString() : null;
+            string? defaultDomain = null;
+            if (org.TryGetProperty("verifiedDomains", out var domains))
+            {
+                foreach (var d in domains.EnumerateArray())
+                {
+                    if (d.TryGetProperty("isDefault", out var isDefault) && isDefault.GetBoolean())
+                    {
+                        defaultDomain = d.TryGetProperty("name", out var domName) ? domName.GetString() : null;
+                        break;
+                    }
+                }
+            }
+            return (name, defaultDomain);
         }
         catch (Exception ex)
         {
