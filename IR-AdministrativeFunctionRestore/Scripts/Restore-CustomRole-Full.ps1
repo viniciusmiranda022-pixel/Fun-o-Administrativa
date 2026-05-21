@@ -296,6 +296,11 @@ try {
 
     if (-not $currentRole) {
         Write-Log "A função não existe atualmente. O snapshot exige criação da função."
+        Write-Log "Snapshot: displayName='$($desiredRole.displayName)', isEnabled=$($desiredRole.isEnabled), description='$($desiredRole.description)'"
+
+        if (-not [bool]$desiredRole.isEnabled) {
+            Write-Log "ATENCAO: isEnabled=false no snapshot. A funcao sera criada como DESATIVADA e nao aparecera como ativa no portal Azure."
+        }
 
         if ($Mode -eq "Apply") {
             $newRoleParams = @{
@@ -311,6 +316,8 @@ try {
                 }
             }
 
+            Write-Log "Chamando New-MgRoleManagementDirectoryRoleDefinition com IsEnabled=$($newRoleParams.IsEnabled), $(($newRoleParams.RolePermissions[0].allowedResourceActions).Count) permissoes"
+
             # Nao passa TemplateId: roles soft-deleted no Entra ID ocupam o templateId antigo,
             # causando conflito 400. O Entra atribui um novo GUID automaticamente.
 
@@ -318,7 +325,7 @@ try {
             if (-not $currentRole -or -not $currentRole.Id) {
                 throw "New-MgRoleManagementDirectoryRoleDefinition retornou vazio sem lancai excecao. Verifique se o App Registration tem a permissao 'RoleManagement.ReadWrite.Directory' e se o tenant possui licenca Entra ID P1/P2."
             }
-            Write-Log "Função recriada com sucesso. Id atual: $($currentRole.Id)"
+            Write-Log "Funcao criada: Id=$($currentRole.Id), DisplayName='$($currentRole.DisplayName)', IsEnabled=$($currentRole.IsEnabled)"
         }
         else {
             Write-Log "[PRÉVIA] A função seria criada com base na definição do snapshot."
