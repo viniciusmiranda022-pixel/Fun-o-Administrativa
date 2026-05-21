@@ -7,19 +7,18 @@ const tabs = [
   { to: '/differences', label: 'DIFFERENCES' },
   { to: '/events', label: 'EVENTS' },
   { to: '/tasks', label: 'TASKS' },
-  { to: '/tenants', label: 'TENANTS' }
 ];
 
 export default function TabNav() {
   return (
-    <nav className="bg-white border-b border-border-light px-2 flex">
+    <nav className="bg-white border-b border-[#DEE2E6] px-2 flex flex-shrink-0">
       {tabs.map((t) => (
         <NavLink
           key={t.to}
           to={t.to}
           className={({ isActive }) =>
-            `px-4 py-3 text-xs font-semibold relative ${
-              isActive ? 'text-[#0078A8]' : 'text-[#333]'
+            `px-4 py-3 text-xs font-semibold relative tracking-wide ${
+              isActive ? 'text-[#0078A8]' : 'text-[#555] hover:text-[#333]'
             }`
           }
         >
@@ -27,7 +26,7 @@ export default function TabNav() {
             <>
               {t.label}
               {isActive && (
-                <span className="absolute left-2 right-2 -bottom-px h-[3px] bg-[#0096D6]" />
+                <span className="absolute left-0 right-0 -bottom-px h-[3px] bg-[#0096D6]" />
               )}
             </>
           )}

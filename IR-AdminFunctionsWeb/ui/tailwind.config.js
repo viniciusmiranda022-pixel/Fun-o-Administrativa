@@ -5,23 +5,14 @@ export default {
     extend: {
       colors: {
         sidebar: '#1F1F1F',
-        panel: '#F8F9FA',
-        accent: {
-          DEFAULT: '#0066CC',
-          hover: '#0052A3'
-        },
-        status: {
-          success: '#28A745',
-          error: '#DC3545',
-          warning: '#FFC107'
-        },
-        border: {
-          light: '#DEE2E6'
-        }
+        'sidebar-sub': '#3A3A3A',
+        topbar: '#252525',
+        panel: '#F5F5F5',
+        quest: { blue: '#0096D6', dark: '#0078A8', hover: '#006090' },
+        status: { success: '#28A745', error: '#DC3545', warning: '#FFC107', info: '#17A2B8' },
+        border: { light: '#DEE2E6', medium: '#C8CDD3' }
       },
-      fontFamily: {
-        sans: ['"Segoe UI"', 'system-ui', 'sans-serif']
-      }
+      fontFamily: { sans: ['"Segoe UI"', 'system-ui', 'sans-serif'] }
     }
   },
   plugins: []

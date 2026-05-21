@@ -37,7 +37,10 @@ export const api = {
   tasks: () => client.get('/tasks').then((r) => r.data),
   events: (severity) => client.get('/events', { params: severity ? { severity } : {} }).then((r) => r.data),
   job: (id) => client.get(`/jobs/${id}`).then((r) => r.data),
-  jobs: () => client.get('/jobs').then((r) => r.data)
+  jobs: () => client.get('/jobs').then((r) => r.data),
+  unpackBackup: (backupId, opts) => client.post(`/backups/${backupId}/unpack`, opts).then((r) => r.data),
+  backupSettings: (tenantId) => client.get(`/tenants/${tenantId}/backup-settings`).then((r) => r.data),
+  updateBackupSettings: (tenantId, data) => client.put(`/tenants/${tenantId}/backup-settings`, data).then((r) => r.data),
 };
 
 export async function pollJob(id, { intervalMs = 2000, timeoutMs = 600000, onTick } = {}) {
