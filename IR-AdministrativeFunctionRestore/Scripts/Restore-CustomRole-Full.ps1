@@ -332,16 +332,19 @@ try {
 
             Write-Output "DIAG: chamando New-MgRoleManagementDirectoryRoleDefinition IsEnabled=$($newRoleParams.IsEnabled) TemplateId=$templateIdFromSnapshot"
 
+            # -ErrorAction Stop e obrigatorio: os cmdlets do Graph SDK emitem erros de API
+            # HTTP como nao-terminating, e o $ErrorActionPreference global nao os promove de
+            # forma confiavel. Sem isto, o try/catch nao captura o 400 e o fallback nao roda.
             try {
-                $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
+                $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams -ErrorAction Stop
             }
             catch {
                 $createError = $_.Exception.Message
                 if ($templateIdFromSnapshot -and ($createError -match '400|BadRequest|[Cc]onflict|soft.deleted|already.*exist')) {
-                    Write-Log "Criacao com TemplateId=$templateIdFromSnapshot falhou (possivel soft-delete ativo no tenant). Erro: $createError. Tentando sem TemplateId..."
+                    Write-Log "Criacao com TemplateId=$templateIdFromSnapshot falhou (templateId ja ocupado no diretorio). Erro: $createError. Tentando sem TemplateId..."
                     Write-Output "DIAG: retry CREATE sem TemplateId"
                     $newRoleParams.Remove('TemplateId')
-                    $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams
+                    $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams -ErrorAction Stop
                 }
                 else {
                     throw
