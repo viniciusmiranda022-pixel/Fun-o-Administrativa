@@ -52,21 +52,13 @@ public class PowerShellRunner
         }
 
         var stdout = new List<string>();
-        var errors = new List<string>();
         var warnings = new List<string>();
 
         ps.Streams.Information.DataAdded += (s, e) =>
         {
             var record = ((PSDataCollection<InformationRecord>)s!)[e.Index];
             if (record?.MessageData != null)
-            {
                 stdout.Add(record.MessageData.ToString() ?? string.Empty);
-            }
-        };
-        ps.Streams.Error.DataAdded += (s, e) =>
-        {
-            var record = ((PSDataCollection<ErrorRecord>)s!)[e.Index];
-            errors.Add(record?.ToString() ?? string.Empty);
         };
         ps.Streams.Warning.DataAdded += (s, e) =>
         {
@@ -96,6 +88,12 @@ public class PowerShellRunner
         await invokeTask.ConfigureAwait(false);
         sw.Stop();
 
+        // Read error records directly from the stream — more reliable than DataAdded events
+        var errors = ps.Streams.Error
+            .Select(e => e?.Exception?.Message ?? e?.CategoryInfo?.Reason ?? e?.ToString() ?? string.Empty)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+
         _logger.LogInformation(
             "Script {Script} concluído em {Elapsed}ms. HadErrors={HadErrors}",
             scriptPath, sw.ElapsedMilliseconds, ps.HadErrors);
@@ -104,6 +102,9 @@ public class PowerShellRunner
         {
             foreach (var err in errors)
                 _logger.LogError("PS error: {Error}", err);
+
+            if (errors.Count == 0)
+                _logger.LogError("Script {Script} HadErrors=True mas nenhum ErrorRecord capturado", scriptPath);
         }
 
         return new PowerShellResult
