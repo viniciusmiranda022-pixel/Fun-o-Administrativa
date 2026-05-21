@@ -68,14 +68,17 @@ function extractRestoreError(errors) {
   return useful.replace(/^[A-Za-z]:\\[^:]+\.ps1\s*:\s*/i, '').trim() || 'Falhou';
 }
 
-// selectedRows: array of { name, diffType }
-function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
+// selectedRows: array of { name, diffType, roleType }
+// targetCandidates: array of role names (custom roles that exist in the tenant)
+function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDone }) {
   const [phase, setPhase] = useState('confirm'); // confirm | running | done
   const [progress, setProgress] = useState({ current: 0, total: selectedRows.length, log: [] });
   const [error, setError] = useState(null);
+  const [targets, setTargets] = useState({}); // { roleName: currentRoleName }
 
   const newRoles = selectedRows.filter(r => r.diffType === 'New');
   const restorableRows = selectedRows.filter(r => r.diffType !== 'New');
+  const removedRows = selectedRows.filter(r => r.diffType === 'Removed');
 
   async function handleApply() {
     if (!backupId) {
@@ -88,21 +91,23 @@ function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
     const log = [];
     for (let i = 0; i < total; i++) {
       const { name: roleName } = toRestore[i];
-      setProgress({ current: i + 1, total, log: [...log, `Restaurando: ${roleName}…`] });
+      const currentRoleName = targets[roleName] || undefined;
+      const label = currentRoleName ? `${currentRoleName} → ${roleName}` : roleName;
+      setProgress({ current: i + 1, total, log: [...log, `Restaurando: ${label}…`] });
       try {
-        const resp = await api.applyRestore({ backupId, roleName });
+        const resp = await api.applyRestore({ backupId, roleName, currentRoleName });
         const job = resp?.data;
         if (!job?.id) throw new Error('Nenhum job id retornado');
         const result = await pollJob(job.id, { intervalMs: 3000, timeoutMs: 300000 });
         const scriptFailed = result?.status === 'Failed' || result?.result?.success === false;
         if (scriptFailed) {
           const errMsg = result?.error || extractRestoreError(result?.result?.errors) || 'Falhou';
-          log.push(`✗ ${roleName}: ${errMsg}`);
+          log.push(`✗ ${label}: ${errMsg}`);
         } else {
-          log.push(`✓ ${roleName}: restaurado com sucesso`);
+          log.push(`✓ ${label}: restaurado com sucesso`);
         }
       } catch (err) {
-        log.push(`✗ ${roleName}: ${err.message}`);
+        log.push(`✗ ${label}: ${err.message}`);
       }
       setProgress({ current: i + 1, total, log: [...log] });
     }
@@ -141,14 +146,40 @@ function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
                 Nenhuma role selecionada pode ser restaurada. Selecione roles com status "Removed" ou "Changed".
               </div>
             )}
+            {removedRows.length > 0 && (
+              <div className="flex items-start gap-2 bg-[#E7F3F8] border border-[#0078A8] p-3 text-xs text-[#0078A8]">
+                <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                <span>
+                  Para roles <strong>Removed</strong>: se a role foi renomeada no tenant, escolha o nome atual dela em "Aplicar sobre" — o backup será aplicado sobre essa role, renomeando-a de volta. Deixe em "Criar nova role" se ela foi realmente excluída.
+                </span>
+              </div>
+            )}
             <div>
               <p className="text-xs font-semibold text-[#333] mb-1">Roles selecionadas:</p>
-              <ul className="space-y-1 max-h-48 overflow-auto">
+              <ul className="space-y-1.5 max-h-56 overflow-auto">
                 {selectedRows.map((r) => (
-                  <li key={r.name} className="text-xs text-[#555] flex items-center gap-1.5">
-                    <RotateCcw size={11} className={r.diffType === 'New' ? 'text-[#FFC107] flex-shrink-0' : 'text-[#0078A8] flex-shrink-0'} />
-                    <span className={r.diffType === 'New' ? 'line-through text-[#888]' : ''}>{r.name}</span>
-                    {r.diffType === 'New' && <span className="text-[#888] italic">(ignorada)</span>}
+                  <li key={r.name} className="text-xs text-[#555]">
+                    <div className="flex items-center gap-1.5">
+                      <RotateCcw size={11} className={r.diffType === 'New' ? 'text-[#FFC107] flex-shrink-0' : 'text-[#0078A8] flex-shrink-0'} />
+                      <span className={r.diffType === 'New' ? 'line-through text-[#888]' : ''}>{r.name}</span>
+                      <span className="text-[#888]">— {r.diffType}</span>
+                      {r.diffType === 'New' && <span className="text-[#888] italic">(ignorada)</span>}
+                    </div>
+                    {r.diffType === 'Removed' && (
+                      <div className="ml-5 mt-1 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[#888]">Aplicar sobre:</span>
+                        <select
+                          value={targets[r.name] || ''}
+                          onChange={(e) => setTargets((t) => ({ ...t, [r.name]: e.target.value }))}
+                          className="border border-[#DEE2E6] px-1.5 py-0.5 text-xs bg-white max-w-[14rem]"
+                        >
+                          <option value="">Criar nova role</option>
+                          {targetCandidates.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -277,13 +308,19 @@ export default function Differences() {
   const selectedRoleNames = selectedIds
     .map((id) => rows.find((r) => r.id === id))
     .filter(Boolean)
-    .map((r) => ({ name: r.name, diffType: r.diffType }));
+    .map((r) => ({ name: r.name, diffType: r.diffType, roleType: r.roleType }));
+
+  const targetCandidates = rows
+    .filter((r) => r.roleType === 'Custom' && r.diffType !== 'Removed')
+    .map((r) => r.name)
+    .sort();
 
   return (
     <div className="flex flex-col h-full">
       {showRestoreModal && (
         <RestoreModal
           selectedRows={selectedRoleNames}
+          targetCandidates={targetCandidates}
           backupId={backupId}
           onClose={() => setShowRestoreModal(false)}
           onDone={() => { setShowRestoreModal(false); setSelectedIds([]); loadResults(); }}

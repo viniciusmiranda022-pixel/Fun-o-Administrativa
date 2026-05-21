@@ -71,6 +71,7 @@ public class RestoreController : ControllerBase
             ["ClientSecret"] = cfg.ClientSecret ?? "",
             ["SnapshotFolder"] = snap.Path,
             ["RoleName"] = request.RoleName,
+            ["CurrentRoleName"] = request.CurrentRoleName ?? "",
             ["Mode"] = mode,
             ["SkipConfirmation"] = mode == "Apply",
             ["RemoveExtraAssignments"] = request.RemoveExtraAssignments

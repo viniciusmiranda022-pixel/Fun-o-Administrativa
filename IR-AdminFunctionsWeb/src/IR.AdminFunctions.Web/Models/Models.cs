@@ -214,5 +214,6 @@ public class RestoreRequest
 {
     public string? BackupId { get; set; }
     public string? RoleName { get; set; }
+    public string? CurrentRoleName { get; set; }
     public bool RemoveExtraAssignments { get; set; }
 }
