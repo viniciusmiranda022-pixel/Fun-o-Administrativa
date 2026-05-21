@@ -6,19 +6,17 @@ namespace IR.AdminFunctions.Web.Services;
 public class ScriptDeployer : IHostedService
 {
     private readonly QuestOptions _options;
-    private readonly IHostEnvironment _env;
     private readonly ILogger<ScriptDeployer> _logger;
 
-    public ScriptDeployer(IOptions<QuestOptions> options, IHostEnvironment env, ILogger<ScriptDeployer> logger)
+    public ScriptDeployer(IOptions<QuestOptions> options, ILogger<ScriptDeployer> logger)
     {
         _options = options.Value;
-        _env = env;
         _logger = logger;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        var sourceDir = Path.Combine(_env.ContentRootPath, "Scripts");
+        var sourceDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
         if (!Directory.Exists(sourceDir))
         {
             _logger.LogWarning("Pasta de scripts embutidos não encontrada: {Dir} — scripts não serão atualizados automaticamente.", sourceDir);
