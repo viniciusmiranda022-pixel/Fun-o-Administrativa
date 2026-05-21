@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Management.Automation;
+using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
 using IR.AdminFunctions.Web.Models;
 
@@ -61,11 +62,12 @@ public class AppRegistrationService
             using var ps = PowerShell.Create();
             ps.Runspace = rs;
 
-            // Captura Information, Warning e Verbose para extrair o device code
+            // Captura Information, Warning e Verbose para extrair o device code.
+            // PowerShell 7: Write-Host emite HostInformationMessage — precisa checar o tipo.
             ps.Streams.Information.DataAdded += (s, e) =>
             {
                 var record = ((PSDataCollection<InformationRecord>)s!)[e.Index];
-                var msg = record?.MessageData?.ToString() ?? "";
+                var msg = ExtractInfoMessage(record);
                 _logger.LogInformation("[Setup:{SessionId}] [PS:Info] {Msg}", sessionId, msg);
                 TryExtractUserCode(sessionId, msg);
             };
@@ -91,9 +93,13 @@ public class AppRegistrationService
 
             _logger.LogInformation("[Setup:{SessionId}] Etapa 1/3 — Importando módulos e iniciando Connect-MgGraph...", sessionId);
 
-            // 1) Connect-MgGraph com device code e scopes necessários para criar o app
+            // 1) Connect-MgGraph com device code.
+            // $InformationPreference='Continue' garante que Write-Host (HostInformationMessage)
+            // flua para ps.Streams.Information, onde ExtractInfoMessage o converte corretamente.
             ps.AddScript(@"
                 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                $InformationPreference = 'Continue'
+                $WarningPreference     = 'Continue'
                 Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
                 Import-Module Microsoft.Graph.Applications -ErrorAction Stop
                 Connect-MgGraph -Scopes 'Application.ReadWrite.All','Directory.ReadWrite.All','User.Read' -UseDeviceCode -NoWelcome
@@ -103,6 +109,7 @@ public class AppRegistrationService
             ");
 
             var results = await Task.Run(() => ps.Invoke());
+
             if (ps.HadErrors)
             {
                 var err = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
@@ -223,6 +230,20 @@ public class AppRegistrationService
         }
     }
 
+    // Extrai o texto de um InformationRecord tratando HostInformationMessage do PS7.
+    private static string ExtractInfoMessage(InformationRecord? record)
+    {
+        if (record == null) return "";
+        var data = record.MessageData;
+        if (data == null) return record.ToString() ?? "";
+        // PowerShell 7: Write-Host → HostInformationMessage
+        if (data is HostInformationMessage him) return him.Message ?? "";
+        // Fallback: tenta ler via reflexão se o tipo não estiver referenciado diretamente
+        var msgProp = data.GetType().GetProperty("Message");
+        if (msgProp != null) return msgProp.GetValue(data)?.ToString() ?? "";
+        return data.ToString() ?? "";
+    }
+
     private void TryExtractUserCode(string sessionId, string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
@@ -230,14 +251,16 @@ public class AppRegistrationService
         // Já tem code? Não reprocessa.
         if (_states.TryGetValue(sessionId, out var cur) && !string.IsNullOrEmpty(cur.UserCode)) return;
 
-        // Padrão 1: "...devicelogin...code XXXX-XXXX" (ordem URL antes do código)
-        // Padrão 2: "...code XXXX-XXXX...devicelogin" (ordem invertida em algumas versões do módulo)
-        // Padrão 3: apenas o código standalone "enter the code XXXX-XXXX"
+        // Padrão 1: URL antes do código  "...devicelogin...code XXXXXXXX"
+        // Padrão 2: código antes da URL  "...code XXXX-XXXX...devicelogin"
+        // Padrão 3: "enter the code XXXXXXXX"
+        // Padrão 4: código sem hífen (formato novo do módulo Graph 2.x) — 8-9 chars alfanum maiúsculo
         var patterns = new[]
         {
-            @"https?://[^\s]*devicelogin[^\s]*.*?code\s+([A-Z0-9]{4,}-[A-Z0-9]{4,}(?:-[A-Z0-9]{4,})?)",
-            @"code\s+([A-Z0-9]{4,}-[A-Z0-9]{4,}(?:-[A-Z0-9]{4,})?).*?devicelogin",
-            @"enter\s+(?:the\s+)?code[:\s]+([A-Z0-9]{4,}-[A-Z0-9]{4,}(?:-[A-Z0-9]{4,})?)",
+            @"https?://[^\s]*devicelogin[^\s]*.*?code\s+([A-Z0-9]{6,12}(?:-[A-Z0-9]{4,})?)",
+            @"code\s+([A-Z0-9]{6,12}(?:-[A-Z0-9]{4,})?).*?devicelogin",
+            @"enter\s+(?:the\s+)?code[:\s]+([A-Z0-9]{6,12}(?:-[A-Z0-9]{4,})?)",
+            @"code[:\s]+([A-Z0-9]{8,12})\b",
         };
 
         foreach (var pattern in patterns)
