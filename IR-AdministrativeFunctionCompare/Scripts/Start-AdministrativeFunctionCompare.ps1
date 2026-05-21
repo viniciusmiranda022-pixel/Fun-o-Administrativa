@@ -58,7 +58,8 @@ function Write-Log {
     )
 
     $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
-    $line | Tee-Object -FilePath $LogPath -Append
+    Add-Content -Path $LogPath -Value $line
+    [Console]::WriteLine($line)
 
     if ($script:EventEntries -and $GridEvents) {
         $script:EventEntries.Insert(0, [PSCustomObject]@{
@@ -207,12 +208,14 @@ function Connect-AppOnlyWithRetry {
                 & $StatusCallback "App Registration replication: attempt $attempt of $maxAttempts (maximum 2-minute window)." 0
             }
 
-            if (-not [string]::IsNullOrWhiteSpace($ClientSecret)) {
+            if (-not [string]::IsNullOrWhiteSpace($Thumbprint)) {
+                Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+            } elseif (-not [string]::IsNullOrWhiteSpace($ClientSecret)) {
                 $secSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
                 $cred = New-Object System.Management.Automation.PSCredential($ClientId, $secSecret)
                 Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ContextScope Process | Out-Null
             } else {
-                Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+                throw "Nenhuma credencial disponível (Thumbprint nem ClientSecret)."
             }
             Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
             Write-Log "${Operation}: app-only connection succeeded on attempt $attempt."
@@ -335,12 +338,14 @@ function Load-CurrentTenantData {
         [string]$ClientSecret = ""
     )
 
-    if (-not [string]::IsNullOrWhiteSpace($ClientSecret)) {
+    if (-not [string]::IsNullOrWhiteSpace($Thumbprint)) {
+        Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+    } elseif (-not [string]::IsNullOrWhiteSpace($ClientSecret)) {
         $secSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
         $cred = New-Object System.Management.Automation.PSCredential($ClientId, $secSecret)
         Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ContextScope Process | Out-Null
     } else {
-        Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
+        throw "Nenhuma credencial disponível (Thumbprint nem ClientSecret)."
     }
 
     $definitions = Get-MgRoleManagementDirectoryRoleDefinition -All
