@@ -31,6 +31,13 @@ public class SetupController : ControllerBase
         });
     }
 
+    [HttpDelete("reset")]
+    public ActionResult<ApiResponse<object>> Reset()
+    {
+        _store.Reset();
+        return ApiResponse<object>.Ok(new { reset = true });
+    }
+
     [HttpPost("start")]
     public ActionResult<ApiResponse<object>> Start()
     {
