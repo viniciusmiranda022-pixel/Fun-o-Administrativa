@@ -64,9 +64,21 @@ export default function Setup() {
             <div className="flex gap-2"><dt className="font-semibold text-[#333] w-40">Tenant Bootstrap:</dt><dd className="font-mono text-xs">{state.bootstrapTenantId}</dd></div>
             <div className="flex gap-2"><dt className="font-semibold text-[#333] w-40">Criado em:</dt><dd>{state.createdAt ? new Date(state.createdAt).toLocaleString('pt-BR') : '—'}</dd></div>
           </dl>
-          <button onClick={() => navigate('/tenants')} className="px-4 py-2 bg-[#0078A8] text-white rounded text-sm">
-            Ir para Tenants
-          </button>
+          <div className="flex gap-3">
+            <button onClick={() => navigate('/tenants')} className="px-4 py-2 bg-[#0078A8] text-white rounded text-sm">
+              Ir para Tenants
+            </button>
+            <button
+              onClick={() => setState((s) => ({ ...s, isConfigured: false }))}
+              className="px-4 py-2 border border-[#DEE2E6] rounded text-sm text-[#555] hover:bg-[#F2F2F2]"
+              title="Re-autentica e atualiza os redirect URIs da aplicação no Azure AD"
+            >
+              Reconfigurar
+            </button>
+          </div>
+          <p className="text-xs text-[#888] mt-3">
+            Use <strong>Reconfigurar</strong> se o fluxo OAuth de consentimento de tenant retornar erro de redirect URI.
+          </p>
         </div>
       </div>
     );

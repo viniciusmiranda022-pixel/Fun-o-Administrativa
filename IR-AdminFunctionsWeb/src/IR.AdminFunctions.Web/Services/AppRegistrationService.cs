@@ -23,6 +23,13 @@ public class AppRegistrationService
     private const string PublicClientId = "14d82eec-204b-4c2f-b7e8-296a70dab67e";
     private const string Authority = "https://login.microsoftonline.com/organizations";
 
+    // Redirect URIs padrão para o fluxo OAuth de consentimento de tenant
+    private static readonly string[] DefaultRedirectUris =
+    [
+        "http://localhost:8080/api/oauth/callback",
+        "https://localhost:8080/api/oauth/callback",
+    ];
+
     // IDs de permissão do Microsoft Graph (globais)
     private const string GraphResourceAppId = "00000003-0000-0000-c000-000000000000";
     private const string RoleManagementReadDirectory = "483bed4a-2ad3-4361-a73b-c83ccdbdc53c";
@@ -169,6 +176,10 @@ public class AppRegistrationService
                             },
                         },
                     },
+                    web = new
+                    {
+                        redirectUris = DefaultRedirectUris,
+                    },
                 };
 
                 var createContent = new StringContent(
@@ -194,6 +205,9 @@ public class AppRegistrationService
                 _logger.LogInformation(
                     "[Setup:{SessionId}] App Registration criado. AppId={AppId}", sessionId, appClientId);
             }
+
+            // Garante redirect URIs na app (necessário para o fluxo OAuth de consentimento)
+            await EnsureRedirectUrisAsync(http, sessionId, appObjectId);
 
             // Garante Service Principal no tenant bootstrap
             string spId;
@@ -299,6 +313,50 @@ public class AppRegistrationService
         }
     }
 
+    private async Task EnsureRedirectUrisAsync(HttpClient http, string sessionId, string appObjectId)
+    {
+        try
+        {
+            var getResp = await http.GetAsync(
+                $"https://graph.microsoft.com/v1.0/applications/{appObjectId}?$select=web");
+            getResp.EnsureSuccessStatusCode();
+            var getJson = await getResp.Content.ReadAsStringAsync();
+            var appFull = JsonSerializer.Deserialize<GraphAppFull>(getJson, JsonOpts);
+
+            var existing = appFull?.Web?.RedirectUris ?? [];
+            var missing = DefaultRedirectUris.Except(existing).ToArray();
+
+            if (missing.Length == 0)
+            {
+                _logger.LogInformation("[Setup:{SessionId}] Redirect URIs já presentes na app.", sessionId);
+                return;
+            }
+
+            var merged = existing.Concat(missing).ToArray();
+            var patchPayload = new { web = new { redirectUris = merged } };
+            var patchContent = new StringContent(
+                JsonSerializer.Serialize(patchPayload, JsonOpts),
+                Encoding.UTF8, "application/json");
+
+            var patchReq = new HttpRequestMessage(HttpMethod.Patch,
+                $"https://graph.microsoft.com/v1.0/applications/{appObjectId}")
+            { Content = patchContent };
+
+            var patchResp = await http.SendAsync(patchReq);
+            if (patchResp.IsSuccessStatusCode)
+                _logger.LogInformation("[Setup:{SessionId}] Redirect URIs atualizadas: {Uris}", sessionId, string.Join(", ", missing));
+            else
+            {
+                var err = await patchResp.Content.ReadAsStringAsync();
+                _logger.LogWarning("[Setup:{SessionId}] Não foi possível atualizar redirect URIs: {Status} {Body}", sessionId, (int)patchResp.StatusCode, err);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Setup:{SessionId}] Erro ao garantir redirect URIs.", sessionId);
+        }
+    }
+
     private void UpdateStatus(string sessionId, Action<SetupStatus> mutator)
     {
         _states.AddOrUpdate(sessionId,
@@ -325,6 +383,16 @@ public class AppRegistrationService
     {
         public string? Id { get; set; }
         public string? AppId { get; set; }
+    }
+
+    private sealed class GraphAppFull
+    {
+        public GraphWebSection? Web { get; set; }
+    }
+
+    private sealed class GraphWebSection
+    {
+        public string[]? RedirectUris { get; set; }
     }
 
     private sealed class GraphSecret
