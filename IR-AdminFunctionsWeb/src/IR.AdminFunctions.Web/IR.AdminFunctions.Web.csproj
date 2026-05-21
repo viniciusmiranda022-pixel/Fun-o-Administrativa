@@ -21,7 +21,10 @@
   <ItemGroup>
     <Content Include="..\..\..\IR-AdministrativeFunctionBackup\Scripts\*"
              CopyToOutputDirectory="PreserveNewest"
-             Link="Scripts\%(Filename)%(Extension)" />
+             Link="Scripts\Backup\%(Filename)%(Extension)" />
+    <Content Include="..\..\..\IR-AdministrativeFunctionCompare\Scripts\*"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="Scripts\Compare\%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

@@ -71,6 +71,7 @@ export default function Differences() {
     setLoading(true);
     api.compareResults()
       .then((r) => {
+        if (!r?.success) { setRows([]); return; }
         const data = r?.data;
         if (!data) { setRows([]); return; }
         setGeneratedAt(data.generatedAt);

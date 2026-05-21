@@ -16,26 +16,38 @@ public class ScriptDeployer : IHostedService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        var sourceDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
-        if (!Directory.Exists(sourceDir))
+        var baseScriptsDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
+        if (!Directory.Exists(baseScriptsDir))
         {
-            _logger.LogWarning("Pasta de scripts embutidos não encontrada: {Dir} — scripts não serão atualizados automaticamente.", sourceDir);
+            _logger.LogWarning("Pasta de scripts embutidos não encontrada: {Dir} — scripts não serão atualizados automaticamente.", baseScriptsDir);
             return Task.CompletedTask;
         }
 
-        var destDir = Path.Combine(_options.BackupRoot, "Scripts");
-        Directory.CreateDirectory(destDir);
-
         var deployed = 0;
+
+        deployed += DeployFolder(
+            Path.Combine(baseScriptsDir, "Backup"),
+            Path.Combine(_options.BackupRoot, "Scripts"));
+
+        deployed += DeployFolder(
+            Path.Combine(baseScriptsDir, "Compare"),
+            Path.Combine(_options.CompareRoot, "Scripts"));
+
+        _logger.LogInformation("ScriptDeployer: {Count} script(s) implantado(s)", deployed);
+        return Task.CompletedTask;
+    }
+
+    private int DeployFolder(string sourceDir, string destDir)
+    {
+        if (!Directory.Exists(sourceDir)) return 0;
+        Directory.CreateDirectory(destDir);
+        var count = 0;
         foreach (var src in Directory.GetFiles(sourceDir))
         {
-            var dest = Path.Combine(destDir, Path.GetFileName(src));
-            File.Copy(src, dest, overwrite: true);
-            deployed++;
+            File.Copy(src, Path.Combine(destDir, Path.GetFileName(src)), overwrite: true);
+            count++;
         }
-
-        _logger.LogInformation("ScriptDeployer: {Count} script(s) implantado(s) em {Dest}", deployed, destDir);
-        return Task.CompletedTask;
+        return count;
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
