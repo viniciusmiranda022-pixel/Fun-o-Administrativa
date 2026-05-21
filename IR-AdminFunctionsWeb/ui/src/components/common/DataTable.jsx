@@ -10,6 +10,7 @@ export default function DataTable({
   showCheckboxes = true,
   totalCount,
   pageSize = 400,
+  onSelectionChange,
 }) {
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
@@ -30,19 +31,21 @@ export default function DataTable({
     if (allChecked) {
       setCheckedRows(new Set());
       setAllChecked(false);
+      if (onSelectionChange) onSelectionChange([]);
     } else {
-      setCheckedRows(new Set(rows.map((r, i) => r.id ?? i)));
+      const all = new Set(rows.map((r, i) => r.id ?? i));
+      setCheckedRows(all);
       setAllChecked(true);
+      if (onSelectionChange) onSelectionChange([...all]);
     }
   }
 
   function toggleRow(id) {
-    setCheckedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(checkedRows);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setCheckedRows(next);
+    if (onSelectionChange) onSelectionChange([...next]);
   }
 
   let sorted = [...(rows ?? [])];

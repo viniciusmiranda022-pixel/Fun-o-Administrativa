@@ -100,11 +100,28 @@ public class CompareController : ControllerBase
         try
         {
             using var doc = JsonDocument.Parse(System.IO.File.ReadAllText(latest.FullName));
+            var root = doc.RootElement;
+
+            string? backupId = null;
+            JsonElement dataElement;
+
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("SnapshotFolder", out var sfEl))
+            {
+                var snapshotFolder = sfEl.GetString();
+                backupId = snapshotFolder != null ? Path.GetFileName(snapshotFolder) : null;
+                dataElement = root.TryGetProperty("Data", out var dataEl) ? dataEl.Clone() : root.Clone();
+            }
+            else
+            {
+                dataElement = root.Clone();
+            }
+
             return ApiResponse<object>.Ok(new
             {
                 file = latest.Name,
                 generatedAt = latest.LastWriteTimeUtc,
-                data = doc.RootElement.Clone()
+                backupId,
+                data = dataElement
             });
         }
         catch (Exception ex)
