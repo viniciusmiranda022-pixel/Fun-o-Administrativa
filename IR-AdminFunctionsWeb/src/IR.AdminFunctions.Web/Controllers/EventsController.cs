@@ -16,9 +16,15 @@ public class EventsController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<ApiResponse<object>> List([FromQuery] string? severity)
+    public ActionResult<ApiResponse<object>> List([FromQuery] string? severity, [FromQuery] string? since)
     {
-        var events = _logs.ReadEvents(severity: severity);
+        DateTime? sinceDate = null;
+        if (!string.IsNullOrEmpty(since) && DateTime.TryParse(since, out var parsed))
+            sinceDate = parsed;
+        else if (string.IsNullOrEmpty(since))
+            sinceDate = DateTime.UtcNow.AddDays(-30); // padrão: últimos 30 dias
+
+        var events = _logs.ReadEvents(severity: severity, since: sinceDate);
         return ApiResponse<object>.Ok(new { items = events });
     }
 }

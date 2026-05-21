@@ -94,21 +94,30 @@ const COLUMNS = [
   { key: 'operation', header: 'Operation', width: '25%' },
 ];
 
+function sinceFromFilter(filter) {
+  const now = new Date();
+  if (filter === 'today') { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.toISOString(); }
+  if (filter === '7days') return new Date(now - 7 * 86400000).toISOString();
+  if (filter === '30days') return new Date(now - 30 * 86400000).toISOString();
+  return undefined;
+}
+
 export default function Tasks() {
   const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState('30days');
   const [selectedTask, setSelectedTask] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  function loadTasks() {
+  function loadTasks(filter) {
     setLoading(true);
-    api.tasks()
+    api.tasks(sinceFromFilter(filter ?? dateFilter))
       .then((r) => setTasks((r?.data?.items ?? []).map(mapTask)))
       .catch(() => setTasks([]))
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { loadTasks(); }, []);
+  useEffect(() => { loadTasks(dateFilter); }, [dateFilter]);
 
   const rows = tasks.filter(
     (r) => !search || r.name.toLowerCase().includes(search.toLowerCase()) || r.type.toLowerCase().includes(search.toLowerCase())
@@ -119,14 +128,29 @@ export default function Tasks() {
       <div className="flex-1 flex flex-col min-w-0">
         <div className="p-4 space-y-3 flex-1 overflow-auto">
           {/* Toolbar */}
-          <div className="bg-white border border-[#DEE2E6] px-3 py-2 flex items-center gap-2">
+          <div className="bg-white border border-[#DEE2E6] px-3 py-2 flex items-center gap-2 flex-wrap">
             <button
-              onClick={loadTasks}
+              onClick={() => loadTasks(dateFilter)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2]"
             >
               <RefreshCw size={13} />
               REFRESH
             </button>
+            <div className="flex border border-[#DEE2E6] overflow-hidden text-xs">
+              {[
+                { id: 'today', label: 'Today' },
+                { id: '7days', label: '7 days' },
+                { id: '30days', label: '30 days' },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => setDateFilter(opt.id)}
+                  className={`px-3 py-1 ${dateFilter === opt.id ? 'bg-[#E6F4FA] text-[#0078A8] border-[#0096D6]' : 'bg-white text-[#555] hover:bg-[#F2F2F2]'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2]">
               <Columns size={13} />
               EDIT COLUMNS

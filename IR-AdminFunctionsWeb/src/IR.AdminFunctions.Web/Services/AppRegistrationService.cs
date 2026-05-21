@@ -1,31 +1,54 @@
 using System.Collections.Concurrent;
-using System.Management.Automation;
-using System.Management.Automation.Host;
-using System.Management.Automation.Runspaces;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using Microsoft.Identity.Client;
 using IR.AdminFunctions.Web.Models;
 
 namespace IR.AdminFunctions.Web.Services;
 
-// Bootstrap auto-registra a aplicação multi-tenant no Azure AD usando
-// device code flow (Microsoft Graph PowerShell well-known ClientId).
-// O admin global autentica no navegador/celular com o user code e a sessão
-// resultante é usada para criar o App Registration definitivo.
+// Registra a aplicação multi-tenant no Azure AD usando MSAL device code flow.
+// O callback do device code fornece UserCode e VerificationUri diretamente,
+// sem depender de parsing de saída do PowerShell.
 public class AppRegistrationService
 {
     private readonly AppConfigStore _store;
     private readonly ILogger<AppRegistrationService> _logger;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ConcurrentDictionary<string, SetupStatus> _states = new();
+
     private const string AppDisplayName = "IR Administrative Function Recovery";
 
-    // Microsoft Graph permission IDs (constantes globais do tenant da Microsoft)
-    private const string GraphResourceAppId = "00000003-0000-0000-c000-000000000000";
-    private const string RoleManagementReadDirectory = "483bed4a-2ad3-4361-a73b-c83ccdbdc53c";       // Application
-    private const string RoleManagementReadWriteDirectory = "9e3f62cf-ca93-4989-b6ce-bf83c28f9fe8"; // Application
+    // Client ID público do Microsoft Graph PowerShell (bem conhecido, multi-tenant)
+    private const string PublicClientId = "14d82eec-204b-4c2f-b7e8-296a70dab67e";
+    private const string Authority = "https://login.microsoftonline.com/organizations";
 
-    public AppRegistrationService(AppConfigStore store, ILogger<AppRegistrationService> logger)
+    // IDs de permissão do Microsoft Graph (globais)
+    private const string GraphResourceAppId = "00000003-0000-0000-c000-000000000000";
+    private const string RoleManagementReadDirectory = "483bed4a-2ad3-4361-a73b-c83ccdbdc53c";
+    private const string RoleManagementReadWriteDirectory = "9e3f62cf-ca93-4989-b6ce-bf83c28f9fe8";
+
+    private static readonly string[] GraphScopes =
+    [
+        "https://graph.microsoft.com/Application.ReadWrite.All",
+        "https://graph.microsoft.com/Directory.ReadWrite.All",
+        "https://graph.microsoft.com/User.Read",
+    ];
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = false,
+    };
+
+    public AppRegistrationService(
+        AppConfigStore store,
+        ILogger<AppRegistrationService> logger,
+        IHttpClientFactory httpClientFactory)
     {
         _store = store;
         _logger = logger;
+        _httpClientFactory = httpClientFactory;
     }
 
     public SetupStatus GetStatus(string sessionId) =>
@@ -35,9 +58,8 @@ public class AppRegistrationService
     {
         var sessionId = Guid.NewGuid().ToString("N");
         _states[sessionId] = new SetupStatus { Status = "WaitingForUser", Message = "Aguardando usuário autenticar..." };
-        _logger.LogInformation("[Setup:{SessionId}] Setup iniciado. Task em background lançada.", sessionId);
+        _logger.LogInformation("[Setup:{SessionId}] Setup iniciado.", sessionId);
         _ = Task.Run(() => RunSetupAsync(sessionId));
-        // Retorna imediatamente — o frontend faz polling via /setup/status/{sessionId}
         return sessionId;
     }
 
@@ -45,87 +67,52 @@ public class AppRegistrationService
     {
         try
         {
-            _logger.LogInformation("[Setup:{SessionId}] Abrindo runspace PowerShell...", sessionId);
-            using var rs = RunspaceFactory.CreateRunspace();
-            rs.Open();
-            _logger.LogInformation("[Setup:{SessionId}] Runspace aberto.", sessionId);
+            // Etapa 1 — autenticação via device code (MSAL)
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 1/3 — Iniciando autenticação via device code (MSAL)...", sessionId);
 
-            // Define ExecutionPolicy Bypass no escopo do processo para permitir Import-Module
-            using (var psPolicy = PowerShell.Create())
+            var msalApp = PublicClientApplicationBuilder
+                .Create(PublicClientId)
+                .WithAuthority(Authority)
+                .Build();
+
+            AuthenticationResult tokenResult;
+            try
             {
-                psPolicy.Runspace = rs;
-                psPolicy.AddScript("Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force");
-                psPolicy.Invoke();
-                _logger.LogInformation("[Setup:{SessionId}] ExecutionPolicy definida como Bypass (Process).", sessionId);
+                tokenResult = await msalApp
+                    .AcquireTokenWithDeviceCode(GraphScopes, deviceCode =>
+                    {
+                        _logger.LogInformation(
+                            "[Setup:{SessionId}] Device code recebido. UserCode={Code}, Url={Url}",
+                            sessionId, deviceCode.UserCode, deviceCode.VerificationUri);
+
+                        UpdateStatus(sessionId, s =>
+                        {
+                            s.UserCode = deviceCode.UserCode;
+                            s.VerificationUrl = deviceCode.VerificationUri;
+                            s.Message = $"Acesse {deviceCode.VerificationUri} e digite o código: {deviceCode.UserCode}";
+                        });
+
+                        return Task.CompletedTask;
+                    })
+                    .ExecuteAsync();
             }
-
-            using var ps = PowerShell.Create();
-            ps.Runspace = rs;
-
-            // Captura Information, Warning e Verbose para extrair o device code.
-            // PowerShell 7: Write-Host emite HostInformationMessage — precisa checar o tipo.
-            ps.Streams.Information.DataAdded += (s, e) =>
+            catch (Exception ex)
             {
-                var record = ((PSDataCollection<InformationRecord>)s!)[e.Index];
-                var msg = ExtractInfoMessage(record);
-                _logger.LogInformation("[Setup:{SessionId}] [PS:Info] {Msg}", sessionId, msg);
-                TryExtractUserCode(sessionId, msg);
-            };
-            ps.Streams.Warning.DataAdded += (s, e) =>
-            {
-                var record = ((PSDataCollection<WarningRecord>)s!)[e.Index];
-                var msg = record?.Message ?? "";
-                _logger.LogWarning("[Setup:{SessionId}] [PS:Warn] {Msg}", sessionId, msg);
-                TryExtractUserCode(sessionId, msg);
-            };
-            ps.Streams.Verbose.DataAdded += (s, e) =>
-            {
-                var record = ((PSDataCollection<VerboseRecord>)s!)[e.Index];
-                var msg = record?.Message ?? "";
-                _logger.LogDebug("[Setup:{SessionId}] [PS:Verbose] {Msg}", sessionId, msg);
-                TryExtractUserCode(sessionId, msg);
-            };
-            ps.Streams.Error.DataAdded += (s, e) =>
-            {
-                var record = ((PSDataCollection<ErrorRecord>)s!)[e.Index];
-                _logger.LogError("[Setup:{SessionId}] [PS:Error] {Msg}", sessionId, record?.ToString() ?? "");
-            };
-
-            _logger.LogInformation("[Setup:{SessionId}] Etapa 1/3 — Importando módulos e iniciando Connect-MgGraph...", sessionId);
-
-            // 1) Connect-MgGraph com device code.
-            // $InformationPreference='Continue' garante que Write-Host (HostInformationMessage)
-            // flua para ps.Streams.Information, onde ExtractInfoMessage o converte corretamente.
-            ps.AddScript(@"
-                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-                $InformationPreference = 'Continue'
-                $WarningPreference     = 'Continue'
-                Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
-                Import-Module Microsoft.Graph.Applications -ErrorAction Stop
-                Connect-MgGraph -Scopes 'Application.ReadWrite.All','Directory.ReadWrite.All','User.Read' -UseDeviceCode -NoWelcome
-                $ctx = Get-MgContext
-                Write-Output $ctx.TenantId
-                Write-Output $ctx.Account
-            ");
-
-            var results = await Task.Run(() => ps.Invoke());
-
-            if (ps.HadErrors)
-            {
-                var err = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
-                _logger.LogError("[Setup:{SessionId}] Falha no Connect-MgGraph: {Err}", sessionId, err);
-                Fail(sessionId, $"Falha no Connect-MgGraph: {err}");
+                _logger.LogError(ex, "[Setup:{SessionId}] Falha na autenticação MSAL.", sessionId);
+                Fail(sessionId, $"Falha na autenticação: {ex.Message}");
                 return;
             }
 
-            var tenantId = results.FirstOrDefault()?.BaseObject?.ToString();
-            var account = results.Skip(1).FirstOrDefault()?.BaseObject?.ToString();
-            _logger.LogInformation("[Setup:{SessionId}] Etapa 1/3 concluída. TenantId={TenantId} Account={Account}",
-                sessionId, tenantId ?? "(nulo)", account ?? "(nulo)");
+            var tenantId = tokenResult.TenantId;
+            var account = tokenResult.Account?.Username;
+
+            _logger.LogInformation(
+                "[Setup:{SessionId}] Etapa 1/3 concluída. TenantId={TenantId}, Account={Account}",
+                sessionId, tenantId, account);
 
             if (string.IsNullOrEmpty(tenantId))
             {
-                Fail(sessionId, "Não foi possível obter TenantId após autenticação.");
+                Fail(sessionId, "Não foi possível obter o TenantId do token.");
                 return;
             }
 
@@ -135,84 +122,166 @@ public class AppRegistrationService
                 s.Message = $"Conectado como {account}. Criando App Registration...";
                 s.TenantId = tenantId;
             });
-            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 — Criando App Registration...", sessionId);
 
-            // 2) Criar App Registration multi-tenant com as permissões necessárias
-            using var ps2 = PowerShell.Create();
-            ps2.Runspace = rs;
-            ps2.AddScript($@"
-                $required = @(
-                    @{{
-                        ResourceAppId = '{GraphResourceAppId}'
-                        ResourceAccess = @(
-                            @{{ Id = '{RoleManagementReadDirectory}'; Type = 'Role' }},
-                            @{{ Id = '{RoleManagementReadWriteDirectory}'; Type = 'Role' }}
-                        )
-                    }}
-                )
-                $existing = Get-MgApplication -Filter ""displayName eq '{AppDisplayName}'"" -ErrorAction SilentlyContinue | Select-Object -First 1
-                if ($existing) {{
-                    $app = $existing
-                }} else {{
-                    $app = New-MgApplication -DisplayName '{AppDisplayName}' -SignInAudience 'AzureADMultipleOrgs' -RequiredResourceAccess $required
-                }}
+            // Etapa 2 — criar App Registration via Microsoft Graph REST
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 — Criando App Registration via Graph API...", sessionId);
 
-                # Garante service principal local no tenant bootstrap
-                $sp = Get-MgServicePrincipal -Filter ""appId eq '$($app.AppId)'"" -ErrorAction SilentlyContinue | Select-Object -First 1
-                if (-not $sp) {{
-                    $sp = New-MgServicePrincipal -AppId $app.AppId
-                }}
+            using var http = _httpClientFactory.CreateClient();
+            http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", tokenResult.AccessToken);
+            http.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json"));
 
-                # Cria client secret válido por 2 anos
-                $passwordCred = @{{
-                    DisplayName = 'Auto-generated by IR setup'
-                    EndDateTime = (Get-Date).AddYears(2).ToString('o')
-                }}
-                $secret = Add-MgApplicationPassword -ApplicationId $app.Id -PasswordCredential $passwordCred
+            // Verifica se o app já existe
+            string appObjectId;
+            string appClientId;
 
-                Write-Output $app.AppId
-                Write-Output $app.Id
-                Write-Output $sp.Id
-                Write-Output $secret.SecretText
+            var filterResp = await http.GetAsync(
+                $"https://graph.microsoft.com/v1.0/applications?$filter=displayName eq '{Uri.EscapeDataString(AppDisplayName)}'&$select=id,appId");
 
-                Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-            ");
+            filterResp.EnsureSuccessStatusCode();
+            var filterJson = await filterResp.Content.ReadAsStringAsync();
+            var filterDoc = JsonSerializer.Deserialize<GraphList>(filterJson, JsonOpts);
 
-            var appResults = await Task.Run(() => ps2.Invoke());
-            if (ps2.HadErrors)
+            if (filterDoc?.Value?.Length > 0)
             {
-                var err = string.Join("; ", ps2.Streams.Error.Select(e => e.ToString()));
-                _logger.LogError("[Setup:{SessionId}] Falha criando App Registration: {Err}", sessionId, err);
-                Fail(sessionId, $"Falha criando App Registration: {err}");
+                appObjectId = filterDoc.Value[0].Id!;
+                appClientId = filterDoc.Value[0].AppId!;
+                _logger.LogInformation(
+                    "[Setup:{SessionId}] App Registration existente encontrado. AppId={AppId}", sessionId, appClientId);
+            }
+            else
+            {
+                // Cria o App Registration
+                var appPayload = new
+                {
+                    displayName = AppDisplayName,
+                    signInAudience = "AzureADMultipleOrgs",
+                    requiredResourceAccess = new[]
+                    {
+                        new
+                        {
+                            resourceAppId = GraphResourceAppId,
+                            resourceAccess = new[]
+                            {
+                                new { id = RoleManagementReadDirectory, type = "Role" },
+                                new { id = RoleManagementReadWriteDirectory, type = "Role" },
+                            },
+                        },
+                    },
+                };
+
+                var createContent = new StringContent(
+                    JsonSerializer.Serialize(appPayload, JsonOpts),
+                    Encoding.UTF8, "application/json");
+
+                var createResp = await http.PostAsync(
+                    "https://graph.microsoft.com/v1.0/applications", createContent);
+
+                if (!createResp.IsSuccessStatusCode)
+                {
+                    var errBody = await createResp.Content.ReadAsStringAsync();
+                    _logger.LogError("[Setup:{SessionId}] Falha ao criar App Registration: {Status} {Body}",
+                        sessionId, (int)createResp.StatusCode, errBody);
+                    Fail(sessionId, $"Falha ao criar App Registration ({(int)createResp.StatusCode}): {errBody}");
+                    return;
+                }
+
+                var createJson = await createResp.Content.ReadAsStringAsync();
+                var created = JsonSerializer.Deserialize<GraphApp>(createJson, JsonOpts);
+                appObjectId = created?.Id ?? throw new InvalidOperationException("App criado sem Id.");
+                appClientId = created?.AppId ?? throw new InvalidOperationException("App criado sem AppId.");
+                _logger.LogInformation(
+                    "[Setup:{SessionId}] App Registration criado. AppId={AppId}", sessionId, appClientId);
+            }
+
+            // Garante Service Principal no tenant bootstrap
+            string spId;
+            var spFilterResp = await http.GetAsync(
+                $"https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '{appClientId}'&$select=id");
+
+            spFilterResp.EnsureSuccessStatusCode();
+            var spFilterJson = await spFilterResp.Content.ReadAsStringAsync();
+            var spFilterDoc = JsonSerializer.Deserialize<GraphList>(spFilterJson, JsonOpts);
+
+            if (spFilterDoc?.Value?.Length > 0)
+            {
+                spId = spFilterDoc.Value[0].Id!;
+                _logger.LogInformation("[Setup:{SessionId}] Service Principal existente. SpId={SpId}", sessionId, spId);
+            }
+            else
+            {
+                var spPayload = new { appId = appClientId };
+                var spContent = new StringContent(
+                    JsonSerializer.Serialize(spPayload, JsonOpts),
+                    Encoding.UTF8, "application/json");
+
+                var spResp = await http.PostAsync(
+                    "https://graph.microsoft.com/v1.0/servicePrincipals", spContent);
+
+                if (!spResp.IsSuccessStatusCode)
+                {
+                    var errBody = await spResp.Content.ReadAsStringAsync();
+                    _logger.LogError("[Setup:{SessionId}] Falha ao criar Service Principal: {Status} {Body}",
+                        sessionId, (int)spResp.StatusCode, errBody);
+                    Fail(sessionId, $"Falha ao criar Service Principal ({(int)spResp.StatusCode}): {errBody}");
+                    return;
+                }
+
+                var spJson = await spResp.Content.ReadAsStringAsync();
+                var sp = JsonSerializer.Deserialize<GraphApp>(spJson, JsonOpts);
+                spId = sp?.Id ?? throw new InvalidOperationException("SP criado sem Id.");
+                _logger.LogInformation("[Setup:{SessionId}] Service Principal criado. SpId={SpId}", sessionId, spId);
+            }
+
+            // Cria client secret válido por 2 anos
+            var secretPayload = new
+            {
+                passwordCredential = new
+                {
+                    displayName = "Auto-generated by IR setup",
+                    endDateTime = DateTimeOffset.UtcNow.AddYears(2).ToString("o"),
+                },
+            };
+
+            var secretContent = new StringContent(
+                JsonSerializer.Serialize(secretPayload, JsonOpts),
+                Encoding.UTF8, "application/json");
+
+            var secretResp = await http.PostAsync(
+                $"https://graph.microsoft.com/v1.0/applications/{appObjectId}/addPassword",
+                secretContent);
+
+            if (!secretResp.IsSuccessStatusCode)
+            {
+                var errBody = await secretResp.Content.ReadAsStringAsync();
+                _logger.LogError("[Setup:{SessionId}] Falha ao criar client secret: {Status} {Body}",
+                    sessionId, (int)secretResp.StatusCode, errBody);
+                Fail(sessionId, $"Falha ao criar client secret ({(int)secretResp.StatusCode}): {errBody}");
                 return;
             }
 
-            var list = appResults
-                .Select(r => r?.BaseObject?.ToString() ?? "")
-                .Where(v => !string.IsNullOrWhiteSpace(v))
-                .ToList();
+            var secretJson = await secretResp.Content.ReadAsStringAsync();
+            var secretDoc = JsonSerializer.Deserialize<GraphSecret>(secretJson, JsonOpts);
+            var clientSecret = secretDoc?.SecretText
+                ?? throw new InvalidOperationException("Client secret criado sem SecretText.");
 
-            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 concluída. Outputs recebidos: {Count}", sessionId, list.Count);
+            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 concluída. AppId={AppId}", sessionId, appClientId);
 
-            if (list.Count < 4)
-            {
-                var received = string.Join(", ", list.Select((v, i) => $"[{i}]={v}"));
-                _logger.LogError("[Setup:{SessionId}] Resposta incompleta do Graph. Recebidos: {Received}", sessionId, received);
-                Fail(sessionId, $"Resposta incompleta do Graph (esperado 4 valores, recebidos {list.Count}).");
-                return;
-            }
-
+            // Etapa 3 — persistir configuração
             _logger.LogInformation("[Setup:{SessionId}] Etapa 3/3 — Persistindo configuração...", sessionId);
+
             var config = new AppConfig
             {
-                ClientId = list[0],
-                ApplicationObjectId = list[1],
-                ServicePrincipalId = list[2],
-                ClientSecret = list[3],
+                ClientId = appClientId,
+                ApplicationObjectId = appObjectId,
+                ServicePrincipalId = spId,
+                ClientSecret = clientSecret,
                 DisplayName = AppDisplayName,
                 BootstrapTenantId = tenantId,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTimeOffset.UtcNow,
             };
+
             _store.Write(config);
             _logger.LogInformation("[Setup:{SessionId}] Setup concluído. ClientId={ClientId}", sessionId, config.ClientId);
 
@@ -230,60 +299,6 @@ public class AppRegistrationService
         }
     }
 
-    // Extrai o texto de um InformationRecord tratando HostInformationMessage do PS7.
-    private static string ExtractInfoMessage(InformationRecord? record)
-    {
-        if (record == null) return "";
-        var data = record.MessageData;
-        if (data == null) return record.ToString() ?? "";
-        // PowerShell 7: Write-Host → HostInformationMessage
-        if (data is HostInformationMessage him) return him.Message ?? "";
-        // Fallback: tenta ler via reflexão se o tipo não estiver referenciado diretamente
-        var msgProp = data.GetType().GetProperty("Message");
-        if (msgProp != null) return msgProp.GetValue(data)?.ToString() ?? "";
-        return data.ToString() ?? "";
-    }
-
-    private void TryExtractUserCode(string sessionId, string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return;
-
-        // Já tem code? Não reprocessa.
-        if (_states.TryGetValue(sessionId, out var cur) && !string.IsNullOrEmpty(cur.UserCode)) return;
-
-        // Padrão 1: URL antes do código  "...devicelogin...code XXXXXXXX"
-        // Padrão 2: código antes da URL  "...code XXXX-XXXX...devicelogin"
-        // Padrão 3: "enter the code XXXXXXXX"
-        // Padrão 4: código sem hífen (formato novo do módulo Graph 2.x) — 8-9 chars alfanum maiúsculo
-        var patterns = new[]
-        {
-            @"https?://[^\s]*devicelogin[^\s]*.*?code\s+([A-Z0-9]{6,12}(?:-[A-Z0-9]{4,})?)",
-            @"code\s+([A-Z0-9]{6,12}(?:-[A-Z0-9]{4,})?).*?devicelogin",
-            @"enter\s+(?:the\s+)?code[:\s]+([A-Z0-9]{6,12}(?:-[A-Z0-9]{4,})?)",
-            @"code[:\s]+([A-Z0-9]{8,12})\b",
-        };
-
-        foreach (var pattern in patterns)
-        {
-            var match = System.Text.RegularExpressions.Regex.Match(text, pattern,
-                System.Text.RegularExpressions.RegexOptions.Singleline |
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-            if (match.Success)
-            {
-                var code = match.Groups[1].Value.ToUpperInvariant();
-                _logger.LogInformation("[Setup:{SessionId}] UserCode extraído: {Code}", sessionId, code);
-                UpdateStatus(sessionId, s =>
-                {
-                    s.UserCode = code;
-                    s.VerificationUrl = "https://microsoft.com/devicelogin";
-                    s.Message = $"Acesse https://microsoft.com/devicelogin e digite o código: {code}";
-                });
-                return;
-            }
-        }
-    }
-
     private void UpdateStatus(string sessionId, Action<SetupStatus> mutator)
     {
         _states.AddOrUpdate(sessionId,
@@ -298,5 +313,22 @@ public class AppRegistrationService
             s.Status = "Failed";
             s.Message = reason;
         });
+    }
+
+    // DTOs para deserializar respostas do Graph
+    private sealed class GraphList
+    {
+        public GraphApp[]? Value { get; set; }
+    }
+
+    private sealed class GraphApp
+    {
+        public string? Id { get; set; }
+        public string? AppId { get; set; }
+    }
+
+    private sealed class GraphSecret
+    {
+        public string? SecretText { get; set; }
     }
 }
