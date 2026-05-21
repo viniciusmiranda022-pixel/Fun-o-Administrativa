@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Package, Columns, Search } from 'lucide-react';
 import DataTable from '../components/common/DataTable.jsx';
+import BackupUnpackingModal from '../components/BackupUnpackingModal.jsx';
 import { api } from '../api/client.js';
 
 const columns = [
@@ -70,6 +71,8 @@ export default function Backups() {
   const [dateFilter, setDateFilter] = useState('30days');
   const [backups, setBackups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState(null);
+  const [showUnpack, setShowUnpack] = useState(false);
 
   useEffect(() => {
     api.backups()
@@ -116,7 +119,11 @@ export default function Backups() {
 
         {/* Action toolbar */}
         <div className="bg-white border border-[#DEE2E6] px-3 py-2 flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2]">
+          <button
+            disabled={!selectedId}
+            onClick={() => setShowUnpack(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
             <Package size={13} />
             UNPACK
           </button>
@@ -149,9 +156,23 @@ export default function Backups() {
             No backups found. Use "CREATE BACKUP" on the Dashboard to create one.
           </div>
         ) : (
-          <DataTable columns={columns} rows={rows} totalCount={rows.length} />
+          <DataTable
+            columns={columns}
+            rows={rows}
+            totalCount={rows.length}
+            selectedRows={selectedId ? [selectedId] : []}
+            onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
+          />
         )}
       </div>
+
+      {showUnpack && (
+        <BackupUnpackingModal
+          backups={backups}
+          preSelectedId={selectedId}
+          onClose={() => setShowUnpack(false)}
+        />
+      )}
     </div>
   );
 }
