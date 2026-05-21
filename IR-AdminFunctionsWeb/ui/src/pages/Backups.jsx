@@ -58,7 +58,7 @@ function mapRow(b) {
   return {
     id: b.id,
     time: isNaN(d) ? b.id : d.toLocaleString(),
-    tenant: b.tenantId ? b.tenantId.slice(0, 8) + '…' : '—',
+    tenant: b.tenantId || b.id || '—',
     customRoles: b.roleDefinitionsCount ?? '—',
     roleAssignments: b.roleAssignmentsCount ?? '—',
     size: b.sizeDisplay ?? '—',
