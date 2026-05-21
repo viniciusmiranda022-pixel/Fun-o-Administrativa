@@ -45,6 +45,7 @@ builder.Services.AddSingleton<AppConfigStore>();
 builder.Services.AddSingleton<AppRegistrationService>();
 builder.Services.AddSingleton<ConsentChecker>();
 builder.Services.AddHttpClient();
+builder.Services.AddHostedService<ScriptDeployer>();
 builder.Services.AddHostedService<ProvisioningService>();
 
 builder.Services.AddControllers()
