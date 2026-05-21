@@ -203,6 +203,13 @@ public class CompareRunRequest
     public string? BackupId { get; set; }
 }
 
+public class UnpackRequest
+{
+    public bool ClearPrevious { get; set; }
+    public bool RunDiff { get; set; } = true;
+    public bool Validate { get; set; }
+}
+
 public class RestoreRequest
 {
     public string? BackupId { get; set; }
