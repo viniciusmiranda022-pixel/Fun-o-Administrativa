@@ -62,6 +62,8 @@ public class JobManager
         }
     }
 
+    public void ClearAll() => _jobs.Clear();
+
     public Job Enqueue(string kind, IDictionary<string, object?>? input, Func<Job, CancellationToken, Task<object?>> work)
     {
         var job = Create(kind, input);

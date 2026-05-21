@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, CheckSquare, Columns, Search, Info, AlertTriangle, XCircle } from 'lucide-react';
+import { Download, CheckSquare, Columns, Search, Info, AlertTriangle, XCircle, Trash2 } from 'lucide-react';
 import DataTable from '../components/common/DataTable.jsx';
 import { api } from '../api/client.js';
 
@@ -59,13 +59,19 @@ export default function Events() {
   const [allEvents, setAllEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  function loadEvents() {
     setLoading(true);
     api.events(severity || undefined, sinceFromFilter(dateFilter))
       .then((r) => setAllEvents((r?.data?.items ?? []).map(mapEvent)))
       .catch(() => setAllEvents([]))
       .finally(() => setLoading(false));
-  }, [severity, dateFilter]);
+  }
+
+  function clearEvents() {
+    api.clearEvents().then(() => loadEvents()).catch(() => {});
+  }
+
+  useEffect(() => { loadEvents(); }, [severity, dateFilter]);
 
   const rows = allEvents.filter((r) => {
     if (search && !r.description.toLowerCase().includes(search.toLowerCase()) && !r.source.toLowerCase().includes(search.toLowerCase())) return false;
@@ -120,6 +126,13 @@ export default function Events() {
           <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2]">
             <Columns size={13} />
             EDIT COLUMNS
+          </button>
+          <button
+            onClick={clearEvents}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#DC3545] hover:bg-[#FFF5F5]"
+          >
+            <Trash2 size={13} />
+            CLEAR
           </button>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-xs text-[#666]">
