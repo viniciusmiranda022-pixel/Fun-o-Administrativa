@@ -51,10 +51,8 @@ public class BackupsController : ControllerBase
 
         var job = _jobs.Enqueue("backup", input, async (_, ct) =>
         {
-            // Garante que o settings.json tem o thumbprint antes de rodar o script
-            var tenants = await _tenantStore.ListAsync();
-            foreach (var t in tenants)
-                await _tenantStore.AutoSyncCertificateAsync(t.TenantId);
+            // Garante que o settings.json está sincronizado com appConfig antes de rodar o script
+            await _tenantStore.EnsureSettingsJsonSyncedAsync();
 
             var result = await _runner.RunAsync(
                 _options.BackupScript,

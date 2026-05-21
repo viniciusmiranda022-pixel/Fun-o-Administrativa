@@ -140,6 +140,13 @@ public class TenantStore
         finally { _lock.Release(); }
     }
 
+    public async Task EnsureSettingsJsonSyncedAsync()
+    {
+        await _lock.WaitAsync();
+        try { SyncSettingsJson(ReadFile()); }
+        finally { _lock.Release(); }
+    }
+
     public async Task<bool> UpdateConsentsAsync(string tenantId, TenantConsentsState consents)
     {
         await _lock.WaitAsync();
