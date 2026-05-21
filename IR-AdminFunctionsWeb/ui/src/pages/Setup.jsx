@@ -69,9 +69,12 @@ export default function Setup() {
               Ir para Tenants
             </button>
             <button
-              onClick={() => setState((s) => ({ ...s, isConfigured: false }))}
+              onClick={async () => {
+                await api.setupReset().catch(() => {});
+                setState((s) => ({ ...s, isConfigured: false }));
+              }}
               className="px-4 py-2 border border-[#DEE2E6] rounded text-sm text-[#555] hover:bg-[#F2F2F2]"
-              title="Re-autentica e atualiza os redirect URIs da aplicação no Azure AD"
+              title="Apaga a configuração local e permite registrar um novo app"
             >
               Reconfigurar
             </button>

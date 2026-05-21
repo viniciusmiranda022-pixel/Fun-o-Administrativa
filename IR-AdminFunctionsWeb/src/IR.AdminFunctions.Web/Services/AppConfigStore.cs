@@ -45,4 +45,16 @@ public class AppConfigStore
             _logger.LogInformation("AppConfig salvo em {File}", _configFile);
         }
     }
+
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            if (File.Exists(_configFile))
+            {
+                File.Delete(_configFile);
+                _logger.LogInformation("AppConfig removido: {File}", _configFile);
+            }
+        }
+    }
 }
