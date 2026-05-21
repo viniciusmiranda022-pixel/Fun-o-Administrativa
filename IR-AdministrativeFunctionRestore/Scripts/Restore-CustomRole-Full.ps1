@@ -37,10 +37,15 @@ try {
 
 $ErrorActionPreference = "Stop"
 
-Import-Module Microsoft.Graph.Authentication
-Import-Module Microsoft.Graph.Identity.Governance
-$sharedModulePath = Join-Path $PSScriptRoot "..\..\IR-AdministrativeFunctionBackup\Scripts\IR-AdministrativeFunctions.psm1"
-Import-Module $sharedModulePath -Force
+try {
+    Import-Module Microsoft.Graph.Authentication
+    Import-Module Microsoft.Graph.Identity.Governance
+    $sharedModulePath = Join-Path $PSScriptRoot "..\..\IR-AdministrativeFunctionBackup\Scripts\IR-AdministrativeFunctions.psm1"
+    Import-Module $sharedModulePath -Force
+} catch {
+    Write-Error "Falha ao importar modulos necessarios: $($_.Exception.Message)"
+    exit 1
+}
 
 $RestoreInstallRoot = "C:\ProgramData\Quest\IR-AdministrativeFunctionRestore"
 
@@ -466,11 +471,16 @@ try {
     }
 
     Write-StructuredLog -Message "Fluxo de restore concluído com sucesso." -Result "SUCCESS"
+    exit 0
 }
 catch {
-    Write-StructuredLog -Message ("Fluxo de restore falhou: {0}" -f $_.Exception.Message) -Result "FAILED"
-    throw
+    $errorMsg = $_.Exception.Message
+    if ($script:StructuredLogPath) {
+        Write-StructuredLog -Message ("Fluxo de restore falhou: {0}" -f $errorMsg) -Result "FAILED"
+    }
+    Write-Error "Restore falhou: $errorMsg"
+    exit 1
 }
 finally {
-    Disconnect-MgGraph | Out-Null
+    try { Disconnect-MgGraph | Out-Null } catch {}
 }
