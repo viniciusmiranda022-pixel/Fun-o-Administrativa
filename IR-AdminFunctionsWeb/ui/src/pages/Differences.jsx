@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { RotateCcw, Download, RefreshCw, Columns, Search, FileText } from 'lucide-react';
+import { RotateCcw, Download, RefreshCw, Columns, Search, FileText, AlertTriangle } from 'lucide-react';
 import DataTable from '../components/common/DataTable.jsx';
+import Modal from '../components/common/Modal.jsx';
 import { api, pollJob } from '../api/client.js';
 
 function DiffCell({ row }) {
@@ -57,15 +58,140 @@ function mapResult(item) {
   };
 }
 
+function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
+  const [phase, setPhase] = useState('confirm'); // confirm | running | done
+  const [progress, setProgress] = useState({ current: 0, total: selectedRows.length, log: [] });
+  const [error, setError] = useState(null);
+
+  async function handleApply() {
+    if (!backupId) {
+      setError('BackupId não disponível. Execute um novo RUN COMPARE para recarregar os resultados.');
+      return;
+    }
+    setPhase('running');
+    const total = selectedRows.length;
+    const log = [];
+    for (let i = 0; i < total; i++) {
+      const roleName = selectedRows[i];
+      setProgress({ current: i + 1, total, log: [...log, `Restaurando: ${roleName}…`] });
+      try {
+        const resp = await api.applyRestore({ backupId, roleName });
+        const job = resp?.data;
+        if (!job?.id) throw new Error('Nenhum job id retornado');
+        const result = await pollJob(job.id, { intervalMs: 3000, timeoutMs: 300000 });
+        if (result?.status === 'Failed') {
+          log.push(`✗ ${roleName}: ${result.error || 'Falhou'}`);
+        } else {
+          log.push(`✓ ${roleName}: restaurado com sucesso`);
+        }
+      } catch (err) {
+        log.push(`✗ ${roleName}: ${err.message}`);
+      }
+      setProgress({ current: i + 1, total, log: [...log] });
+    }
+    setPhase('done');
+  }
+
+  return (
+    <Modal title="Restaurar Roles Selecionadas" onClose={phase !== 'running' ? onClose : undefined} maxWidth="max-w-lg">
+      <div className="p-5 space-y-4">
+        {phase === 'confirm' && (
+          <>
+            <div className="flex items-start gap-2 bg-[#FFF8E1] border border-[#FFC107] p-3 text-xs text-[#856404]">
+              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+              <span>
+                Esta operação vai restaurar {selectedRows.length} role(s) para o estado do backup. A ação não pode ser desfeita automaticamente.
+              </span>
+            </div>
+            {!backupId && (
+              <div className="text-xs text-[#DC3545]">
+                Atenção: BackupId não disponível. Execute um novo RUN COMPARE para que os resultados incluam o ID do backup.
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-semibold text-[#333] mb-1">Roles selecionadas:</p>
+              <ul className="space-y-1 max-h-48 overflow-auto">
+                {selectedRows.map((name) => (
+                  <li key={name} className="text-xs text-[#555] flex items-center gap-1.5">
+                    <RotateCcw size={11} className="text-[#0078A8] flex-shrink-0" />
+                    {name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {error && <p className="text-xs text-[#DC3545]">{error}</p>}
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={onClose}
+                className="px-4 py-1.5 text-xs border border-[#DEE2E6] bg-white text-[#555] hover:bg-[#F2F2F2]"
+              >
+                CANCELAR
+              </button>
+              <button
+                onClick={handleApply}
+                disabled={!backupId}
+                className="px-4 py-1.5 text-xs font-semibold bg-[#0078A8] text-white hover:bg-[#005f87] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                RESTAURAR
+              </button>
+            </div>
+          </>
+        )}
+
+        {phase === 'running' && (
+          <div className="space-y-3">
+            <p className="text-xs text-[#555]">
+              Restaurando {progress.current}/{progress.total}…
+            </p>
+            <div className="w-full bg-[#E9ECEF] h-1.5">
+              <div
+                className="bg-[#0078A8] h-1.5 transition-all"
+                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+              />
+            </div>
+            <ul className="space-y-0.5 max-h-48 overflow-auto">
+              {progress.log.map((line, i) => (
+                <li key={i} className="text-xs text-[#555] font-mono">{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {phase === 'done' && (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-[#28A745]">Operação concluída.</p>
+            <ul className="space-y-0.5 max-h-48 overflow-auto">
+              {progress.log.map((line, i) => (
+                <li key={i} className={`text-xs font-mono ${line.startsWith('✗') ? 'text-[#DC3545]' : 'text-[#28A745]'}`}>{line}</li>
+              ))}
+            </ul>
+            <div className="flex justify-end">
+              <button
+                onClick={onDone}
+                className="px-4 py-1.5 text-xs font-semibold bg-[#0078A8] text-white hover:bg-[#005f87]"
+              >
+                FECHAR
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 export default function Differences() {
   const [view, setView] = useState('list');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [rows, setRows] = useState([]);
   const [generatedAt, setGeneratedAt] = useState(null);
+  const [backupId, setBackupId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
 
   function loadResults() {
     setLoading(true);
@@ -75,6 +201,7 @@ export default function Differences() {
         const data = r?.data;
         if (!data) { setRows([]); return; }
         setGeneratedAt(data.generatedAt);
+        setBackupId(data.backupId ?? null);
         const items = Array.isArray(data.data) ? data.data : [];
         setRows(items.map(mapResult));
       })
@@ -87,6 +214,7 @@ export default function Differences() {
   async function handleRunCompare() {
     setRunning(true);
     setError(null);
+    setSelectedIds([]);
     try {
       const resp = await api.runCompare();
       const job = resp?.data;
@@ -112,8 +240,21 @@ export default function Differences() {
 
   const statusOptions = [...new Set(rows.map(r => r.diffType))];
 
+  const selectedRoleNames = selectedIds
+    .map((id) => rows.find((r) => r.id === id)?.name)
+    .filter(Boolean);
+
   return (
     <div className="flex flex-col h-full">
+      {showRestoreModal && (
+        <RestoreModal
+          selectedRows={selectedRoleNames}
+          backupId={backupId}
+          onClose={() => setShowRestoreModal(false)}
+          onDone={() => { setShowRestoreModal(false); setSelectedIds([]); loadResults(); }}
+        />
+      )}
+
       {/* Toggle + Filter bar */}
       <div className="bg-white border-b border-[#DEE2E6] px-4 py-2 flex items-center gap-3 flex-shrink-0 flex-wrap">
         <div className="flex border border-[#DEE2E6] overflow-hidden text-xs">
@@ -148,9 +289,17 @@ export default function Differences() {
       <div className="p-4 space-y-3 flex-1 overflow-auto">
         {/* Action toolbar */}
         <div className="bg-white border border-[#DEE2E6] px-3 py-2 flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] opacity-40 cursor-not-allowed">
+          <button
+            onClick={() => setShowRestoreModal(true)}
+            disabled={selectedIds.length === 0}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] ${
+              selectedIds.length === 0
+                ? 'opacity-40 cursor-not-allowed'
+                : 'hover:bg-[#F2F2F2] cursor-pointer'
+            }`}
+          >
             <RotateCcw size={13} />
-            RESTORE
+            RESTORE{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
           </button>
           <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2]">
             <Download size={13} />
@@ -199,7 +348,12 @@ export default function Differences() {
             No compare results yet. Click "RUN COMPARE" to compare the latest backup against the current tenant state.
           </div>
         ) : (
-          <DataTable columns={columns} rows={filtered} totalCount={filtered.length} />
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            totalCount={filtered.length}
+            onSelectionChange={setSelectedIds}
+          />
         )}
       </div>
     </div>
