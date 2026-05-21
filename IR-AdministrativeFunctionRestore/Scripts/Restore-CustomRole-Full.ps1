@@ -38,6 +38,7 @@ try {
 $ErrorActionPreference = "Stop"
 
 try {
+    Import-Module Microsoft.PowerShell.Utility
     Import-Module Microsoft.Graph.Authentication
     Import-Module Microsoft.Graph.Identity.Governance
     $sharedModulePath = Join-Path $PSScriptRoot "..\..\IR-AdministrativeFunctionBackup\Scripts\IR-AdministrativeFunctions.psm1"

@@ -79,8 +79,10 @@ function RestoreModal({ selectedRows, backupId, onClose, onDone }) {
         const job = resp?.data;
         if (!job?.id) throw new Error('Nenhum job id retornado');
         const result = await pollJob(job.id, { intervalMs: 3000, timeoutMs: 300000 });
-        if (result?.status === 'Failed') {
-          log.push(`✗ ${roleName}: ${result.error || 'Falhou'}`);
+        const scriptFailed = result?.status === 'Failed' || result?.result?.success === false;
+        if (scriptFailed) {
+          const errMsg = result?.error || result?.result?.errors?.[0] || 'Falhou';
+          log.push(`✗ ${roleName}: ${errMsg}`);
         } else {
           log.push(`✓ ${roleName}: restaurado com sucesso`);
         }
