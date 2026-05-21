@@ -24,6 +24,7 @@ export default function App() {
         <Route path="/tenants" element={<Tenants />} />
         <Route path="/tenants/:tenantId/consents" element={<TenantConsents />} />
         <Route path="/setup" element={<Setup />} />
+        <Route path="/support" element={<div className="p-6 text-sm text-[#555]">Support — em breve.</div>} />
       </Route>
     </Routes>
   );
