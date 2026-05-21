@@ -59,7 +59,9 @@ function Connect-AppOnlyGraphWithRetry {
                 Write-Host "Validando conexão app-only com Microsoft Graph (tentativa $attempt de $MaxAttempts)..." -ForegroundColor Cyan
             }
             if (-not [string]::IsNullOrWhiteSpace($ClientSecret)) {
-                $secSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
+                $secSecret = New-Object System.Security.SecureString
+                $ClientSecret.ToCharArray() | ForEach-Object { $secSecret.AppendChar($_) }
+                $secSecret.MakeReadOnly()
                 $cred = New-Object System.Management.Automation.PSCredential($ClientId, $secSecret)
                 Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ContextScope Process | Out-Null
             } else {
