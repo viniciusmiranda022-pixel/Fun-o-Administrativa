@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net.Http.Headers;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using IR.AdminFunctions.Web.Models;
 using IR.AdminFunctions.Web.Services;
@@ -11,7 +12,7 @@ namespace IR.AdminFunctions.Web.Controllers;
 [Route("api/oauth")]
 public class OAuthController : ControllerBase
 {
-    private static readonly ConcurrentDictionary<string, string> _states = new();
+    private static readonly ConcurrentDictionary<string, (string Hint, DateTimeOffset CreatedAt)> _states = new();
     private readonly ConsentChecker _consent;
     private readonly AppConfigStore _appStore;
     private readonly TenantStore _tenantStore;
@@ -36,8 +37,16 @@ public class OAuthController : ControllerBase
         if (!cfg.IsConfigured)
             return BadRequest(ApiResponse<object>.Fail("App not configured yet. Go to /setup first."));
 
+        // Clean up expired states (older than 10 minutes) before creating a new one
+        var expiredKeys = _states
+            .Where(kv => DateTimeOffset.UtcNow - kv.Value.CreatedAt > TimeSpan.FromMinutes(10))
+            .Select(kv => kv.Key)
+            .ToList();
+        foreach (var key in expiredKeys)
+            _states.TryRemove(key, out _);
+
         var state = Guid.NewGuid().ToString("N");
-        _states[state] = tenantHint ?? "";
+        _states[state] = (tenantHint ?? "", DateTimeOffset.UtcNow);
 
         var redirectUri = $"{Request.Scheme}://{Request.Host}/api/oauth/callback";
         var url = _consent.BuildAdminConsentUrl(redirectUri, state, tenantHint);
@@ -50,12 +59,19 @@ public class OAuthController : ControllerBase
     {
         if (!string.IsNullOrEmpty(error))
         {
-            return ContentResult($"Consent error: {error} — {errorDescription}", isError: true);
+            var safeError = HtmlEncoder.Default.Encode(error ?? "");
+            var safeDesc = HtmlEncoder.Default.Encode(errorDescription ?? "");
+            return ContentResult($"Consent error: {safeError} — {safeDesc}", isError: true);
         }
 
-        if (string.IsNullOrEmpty(state) || !_states.TryRemove(state, out _))
+        if (string.IsNullOrEmpty(state) || !_states.TryRemove(state, out var stateEntry))
         {
             return ContentResult("Invalid state. Please try again from the Tenants page.", isError: true);
+        }
+
+        if (DateTimeOffset.UtcNow - stateEntry.CreatedAt > TimeSpan.FromMinutes(10))
+        {
+            return ContentResult("Consent session expired. Please start the process again.", isError: true);
         }
 
         if (string.IsNullOrEmpty(tenant) || !string.Equals(adminConsent, "True", StringComparison.OrdinalIgnoreCase))

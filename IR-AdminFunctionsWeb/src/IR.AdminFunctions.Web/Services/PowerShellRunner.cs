@@ -25,7 +25,7 @@ public class PowerShellRunner
             throw new FileNotFoundException($"PowerShell script not found: {scriptPath}", scriptPath);
 
         var command = BuildPsCommand(scriptPath, parameters);
-        _logger.LogInformation("PS command: {Command}", command);
+        _logger.LogInformation("PS command: {Command}", RedactCommand(command));
 
         var psi = new ProcessStartInfo
         {
@@ -141,6 +141,23 @@ public class PowerShellRunner
 
         sb.Append("; exit $LASTEXITCODE");
         return sb.ToString();
+    }
+
+    private static readonly string[] SensitiveParams = ["ClientSecret", "Thumbprint", "CertificateThumbprint"];
+
+    private static string RedactCommand(string command)
+    {
+        var result = command;
+        foreach (var param in SensitiveParams)
+        {
+            // Replaces -ParamName 'value' with -ParamName '***'
+            result = System.Text.RegularExpressions.Regex.Replace(
+                result,
+                $@"-{param}\s+'[^']*'",
+                $"-{param} '***'",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+        return result;
     }
 
     private static List<string> SplitLines(string text) =>

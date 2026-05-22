@@ -40,8 +40,11 @@ public class AppConfigStore
     {
         lock (_lock)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_configFile)!);
-            File.WriteAllText(_configFile, JsonSerializer.Serialize(config, _json));
+            var dir = Path.GetDirectoryName(_configFile)!;
+            Directory.CreateDirectory(dir);
+            var tmp = _configFile + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(config, _json));
+            File.Move(tmp, _configFile, overwrite: true);
             _logger.LogInformation("AppConfig saved to {File}", _configFile);
         }
     }

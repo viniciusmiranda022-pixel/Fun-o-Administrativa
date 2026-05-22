@@ -57,7 +57,14 @@ public class BackupReader
     public BackupSnapshot? Get(string id)
     {
         var root = ResolveBackupRoot();
-        var path = Path.Combine(root, id);
+        var path = Path.GetFullPath(Path.Combine(root, id));
+        // Garante que o path resultante está dentro do root (proteção contra path traversal)
+        if (!path.StartsWith(Path.GetFullPath(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(path, Path.GetFullPath(root), StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("Tentativa de path traversal bloqueada: id='{Id}'", id);
+            return null;
+        }
         if (!Directory.Exists(path) || !IsValid(path)) return null;
         return Load(new DirectoryInfo(path));
     }

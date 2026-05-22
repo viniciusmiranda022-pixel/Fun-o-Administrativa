@@ -179,8 +179,11 @@ public class TenantStore
 
     private void WriteFile(List<TenantEntry> tenants)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(_tenantsFile)!);
-        File.WriteAllText(_tenantsFile, JsonSerializer.Serialize(tenants, _json));
+        var dir = Path.GetDirectoryName(_tenantsFile)!;
+        Directory.CreateDirectory(dir);
+        var tmp = _tenantsFile + ".tmp";
+        File.WriteAllText(tmp, JsonSerializer.Serialize(tenants, _json));
+        File.Move(tmp, _tenantsFile, overwrite: true);
     }
 
     private string? AutoDetectThumbprint(string? clientId)
@@ -292,13 +295,16 @@ public class TenantStore
                     flat[kv.Key] = kv.Value;
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(_settingsFile)!);
-            File.WriteAllText(_settingsFile, JsonSerializer.Serialize(flat,
+            var settingsDir = Path.GetDirectoryName(_settingsFile)!;
+            Directory.CreateDirectory(settingsDir);
+            var settingsTmp = _settingsFile + ".tmp";
+            File.WriteAllText(settingsTmp, JsonSerializer.Serialize(flat,
                 new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(settingsTmp, _settingsFile, overwrite: true);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to synchronize settings.json");
+            _logger.LogError(ex, "Failed to synchronize settings.json — backup/restore operations may use stale data");
         }
     }
 }
