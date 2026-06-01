@@ -56,17 +56,17 @@ export default function Setup() {
         <div className="bg-white border border-border-light rounded-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <CheckCircle2 className="text-green-600" size={24} />
-            <h2 className="text-base font-semibold">Aplicação já configurada</h2>
+            <h2 className="text-base font-semibold">Application already configured</h2>
           </div>
           <dl className="text-sm space-y-2 mb-4">
             <div className="flex gap-2"><dt className="font-semibold text-[#333] w-40">Display Name:</dt><dd>{state.displayName}</dd></div>
             <div className="flex gap-2"><dt className="font-semibold text-[#333] w-40">Client ID:</dt><dd className="font-mono text-xs">{state.clientId}</dd></div>
             <div className="flex gap-2"><dt className="font-semibold text-[#333] w-40">Tenant Bootstrap:</dt><dd className="font-mono text-xs">{state.bootstrapTenantId}</dd></div>
-            <div className="flex gap-2"><dt className="font-semibold text-[#333] w-40">Criado em:</dt><dd>{state.createdAt ? new Date(state.createdAt).toLocaleString('pt-BR') : '—'}</dd></div>
+            <div className="flex gap-2"><dt className="font-semibold text-[#333] w-40">Created at:</dt><dd>{state.createdAt ? new Date(state.createdAt).toLocaleString('en-US') : '—'}</dd></div>
           </dl>
           <div className="flex gap-3">
             <button onClick={() => navigate('/tenants')} className="px-4 py-2 bg-[#0078A8] text-white rounded text-sm">
-              Ir para Tenants
+              Go to Tenants
             </button>
             <button
               onClick={async () => {
@@ -74,13 +74,13 @@ export default function Setup() {
                 setState((s) => ({ ...s, isConfigured: false }));
               }}
               className="px-4 py-2 border border-[#DEE2E6] rounded text-sm text-[#555] hover:bg-[#F2F2F2]"
-              title="Apaga a configuração local e permite registrar um novo app"
+              title="Clears the local configuration and allows registering a new app"
             >
-              Reconfigurar
+              Reconfigure
             </button>
           </div>
           <p className="text-xs text-[#888] mt-3">
-            Use <strong>Reconfigurar</strong> se o fluxo OAuth de consentimento de tenant retornar erro de redirect URI.
+            Use <strong>Reconfigure</strong> if the tenant consent OAuth flow returns a redirect URI error.
           </p>
         </div>
       </div>
@@ -92,20 +92,20 @@ export default function Setup() {
       <div className="bg-white border border-border-light rounded-lg p-6">
         <h2 className="text-base font-semibold text-[#222] mb-1">Initial Setup</h2>
         <p className="text-sm text-text-secondary mb-6">
-          Antes de adicionar tenants, é necessário registrar esta aplicação como App Multi-Tenant no Microsoft Entra ID.
-          O processo é feito uma única vez por um Global Administrator.
+          Before adding tenants, you must register this application as a Multi-Tenant App in Microsoft Entra ID.
+          This process is done once by a Global Administrator.
         </p>
 
         {!session && (
           <>
             <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-4 text-sm">
-              <strong className="text-blue-900">O que vai acontecer:</strong>
+              <strong className="text-blue-900">What will happen:</strong>
               <ol className="list-decimal ml-5 mt-2 space-y-1 text-blue-800">
-                <li>Você verá um código curto (formato XXX-XXX-XXX).</li>
-                <li>Abre <code>https://microsoft.com/devicelogin</code> em qualquer navegador e digita o código.</li>
-                <li>Autentica com uma conta <strong>Global Administrator</strong> do seu tenant.</li>
-                <li>Aceita as permissões (Application.ReadWrite.All para criar o app).</li>
-                <li>Esta tela atualiza sozinha quando o app é registrado.</li>
+                <li>You will see a short code (format XXX-XXX-XXX).</li>
+                <li>Open <code>https://microsoft.com/devicelogin</code> in any browser and enter the code.</li>
+                <li>Authenticate with a <strong>Global Administrator</strong> account of your tenant.</li>
+                <li>Accept the permissions (Application.ReadWrite.All to create the app).</li>
+                <li>This screen will update automatically when the app is registered.</li>
               </ol>
             </div>
 
@@ -117,21 +117,21 @@ export default function Setup() {
               className="px-4 py-2 bg-[#0078A8] text-white rounded text-sm hover:bg-[#006090] disabled:opacity-60 flex items-center gap-2"
             >
               {starting && <Loader2 size={14} className="animate-spin" />}
-              Iniciar Setup
+              Start Setup
             </button>
           </>
         )}
 
         {session && session.status !== 'Completed' && session.status !== 'Failed' && (
           <div>
-            <div className="text-sm font-semibold mb-2">{session.message || 'Aguardando...'}</div>
+            <div className="text-sm font-semibold mb-2">{session.message || 'Waiting...'}</div>
 
             {session.userCode ? (
               <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded p-6 text-center mb-4">
-                <div className="text-xs text-text-secondary mb-2">Seu código de autenticação:</div>
+                <div className="text-xs text-text-secondary mb-2">Your authentication code:</div>
                 <div className="text-3xl font-mono font-bold tracking-widest text-[#0078A8] mb-3">{session.userCode}</div>
                 <button onClick={copyCode} className="text-xs text-[#0078A8] hover:underline inline-flex items-center gap-1 mr-3">
-                  <Copy size={12} /> Copiar código
+                  <Copy size={12} /> Copy code
                 </button>
                 <a
                   href={session.verificationUrl}
@@ -139,18 +139,18 @@ export default function Setup() {
                   rel="noreferrer"
                   className="text-xs text-[#0078A8] hover:underline inline-flex items-center gap-1"
                 >
-                  <ExternalLink size={12} /> Abrir microsoft.com/devicelogin
+                  <ExternalLink size={12} /> Open microsoft.com/devicelogin
                 </a>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-sm text-text-secondary mb-4">
-                <Loader2 className="animate-spin" size={14} /> Solicitando código à Microsoft...
+                <Loader2 className="animate-spin" size={14} /> Requesting code from Microsoft...
               </div>
             )}
 
             {session.status === 'Registering' && (
               <div className="flex items-center gap-2 text-sm text-green-700">
-                <Loader2 className="animate-spin" size={14} /> Usuário autenticado. Registrando aplicação...
+                <Loader2 className="animate-spin" size={14} /> User authenticated. Registering application...
               </div>
             )}
           </div>
@@ -159,21 +159,21 @@ export default function Setup() {
         {session?.status === 'Completed' && (
           <div className="bg-green-50 border border-green-200 rounded p-4">
             <div className="flex items-center gap-2 text-green-800 font-semibold mb-1">
-              <CheckCircle2 size={18} /> Setup concluído!
+              <CheckCircle2 size={18} /> Setup completed!
             </div>
             <p className="text-sm text-green-700">Client ID: <code className="font-mono">{session.clientId}</code></p>
-            <p className="text-xs text-green-600 mt-2">Redirecionando para a página de Tenants...</p>
+            <p className="text-xs text-green-600 mt-2">Redirecting to the Tenants page...</p>
           </div>
         )}
 
         {session?.status === 'Failed' && (
           <div className="bg-red-50 border border-red-200 rounded p-4">
             <div className="flex items-center gap-2 text-red-800 font-semibold mb-1">
-              <AlertCircle size={18} /> Setup falhou
+              <AlertCircle size={18} /> Setup failed
             </div>
             <p className="text-sm text-red-700">{session.message}</p>
             <button onClick={() => { setSession(null); setError(null); }} className="mt-3 text-xs text-[#0078A8] hover:underline">
-              Tentar novamente
+              Try again
             </button>
           </div>
         )}

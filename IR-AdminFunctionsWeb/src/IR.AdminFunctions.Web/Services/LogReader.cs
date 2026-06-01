@@ -52,7 +52,7 @@ public class LogReader
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Falha lendo log {Path}", file.FullName);
+                    _logger.LogWarning(ex, "Failed reading log {Path}", file.FullName);
                 }
             }
         }
@@ -119,15 +119,13 @@ public class LogReader
 
     private static string InferStatus(string msg)
     {
-        if (msg.Contains("sucesso", StringComparison.OrdinalIgnoreCase) ||
-            msg.Contains("concluí", StringComparison.OrdinalIgnoreCase) ||
+        if (msg.Contains("success", StringComparison.OrdinalIgnoreCase) ||
             msg.Contains("complet", StringComparison.OrdinalIgnoreCase))
         {
             return "Completed";
         }
-        if (msg.Contains("falha", StringComparison.OrdinalIgnoreCase) ||
-            msg.Contains("erro", StringComparison.OrdinalIgnoreCase) ||
-            msg.Contains("fail", StringComparison.OrdinalIgnoreCase))
+        if (msg.Contains("fail", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("error", StringComparison.OrdinalIgnoreCase))
         {
             return "Failed";
         }

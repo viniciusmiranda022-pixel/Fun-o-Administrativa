@@ -29,7 +29,7 @@ function Assert-PathExists {
     param([Parameter(Mandatory=$true)][string]$RelativePath)
     $fullPath = Join-Path $SourceRoot $RelativePath
     if (-not (Test-Path $fullPath)) {
-        throw "Caminho obrigatório ausente no repositório: $RelativePath"
+        throw "Required path missing from repository: $RelativePath"
     }
 }
 
@@ -49,10 +49,10 @@ function Copy-DirectoryContent {
     }
 }
 
-Write-Step 'Validando estrutura mínima do pacote...'
+Write-Step 'Validating minimum package structure...'
 foreach ($folder in $packageFolders) { Assert-PathExists -RelativePath $folder }
 foreach ($file in $requiredFiles) { Assert-PathExists -RelativePath $file }
-Write-Ok 'Estrutura mínima validada.'
+Write-Ok 'Minimum structure validated.'
 
 Write-Step "Gerando pacote em: $OutputRoot"
 if (Test-Path $OutputRoot) {
@@ -71,5 +71,5 @@ foreach ($folder in $packageFolders) {
     Copy-DirectoryContent -Source $source -Destination $destination
 }
 
-Write-Ok 'Pacote reproduzível gerado com sucesso.'
-Write-Host "Use o conteúdo de '$OutputRoot' como raiz do pacote de instalação." -ForegroundColor Yellow
+Write-Ok 'Reproducible package generated successfully.'
+Write-Host "Use the contents of '$OutputRoot' as the installation package root." -ForegroundColor Yellow

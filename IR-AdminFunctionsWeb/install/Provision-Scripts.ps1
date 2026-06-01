@@ -16,7 +16,7 @@ function Copy-ModuleFiles {
     )
 
     if (-not (Test-Path $SourceDir)) {
-        Write-Warning "Origem '$Label' não encontrada: $SourceDir (pulando)"
+        Write-Warning "Source '$Label' not found: $SourceDir (skipping)"
         return
     }
 
@@ -25,7 +25,7 @@ function Copy-ModuleFiles {
     foreach ($file in $files) {
         $target = Join-Path $DestinationDir $file.Name
         if ((Test-Path $target) -and -not $Force) {
-            Write-Host "  [skip] $($file.Name) já existe em $Label (use -Force para sobrescrever)" -ForegroundColor DarkGray
+            Write-Host "  [skip] $($file.Name) already exists in $Label (use -Force to overwrite)" -ForegroundColor DarkGray
         } else {
             Copy-Item -Path $file.FullName -Destination $target -Force
             Write-Host "  [copy] $($file.Name) → $Label" -ForegroundColor Green
@@ -33,7 +33,7 @@ function Copy-ModuleFiles {
     }
 }
 
-Write-Host "Provisionando motor PowerShell em $ProgramDataRoot" -ForegroundColor Cyan
+Write-Host "Provisioning PowerShell engine at $ProgramDataRoot" -ForegroundColor Cyan
 Write-Host "Repo: $RepoRoot" -ForegroundColor DarkGray
 Write-Host ""
 
@@ -79,15 +79,15 @@ foreach ($mod in $modules) {
 
 $settingsPath = Join-Path $ProgramDataRoot 'IR-AdministrativeFunctionBackup\Config\settings.json'
 if ((Test-Path $settingsPath) -and -not $Force) {
-    Write-Host "settings.json já existe em $settingsPath (preservado)" -ForegroundColor DarkGray
+    Write-Host "settings.json already exists at $settingsPath (preserved)" -ForegroundColor DarkGray
 } else {
     $template = [ordered]@{
         Tenants = @(
             [ordered]@{
-                Name = 'PREENCHER-NomeDoTenant'
-                TenantId = 'PREENCHER-TenantId'
-                ClientId = 'PREENCHER-ClientId'
-                Thumbprint = 'PREENCHER-Thumbprint'
+                Name = 'FILL-IN-TenantName'
+                TenantId = 'FILL-IN-TenantId'
+                ClientId = 'FILL-IN-ClientId'
+                Thumbprint = 'FILL-IN-Thumbprint'
             }
         )
         Defaults = [ordered]@{
@@ -96,13 +96,13 @@ if ((Test-Path $settingsPath) -and -not $Force) {
         }
     }
     $template | ConvertTo-Json -Depth 5 | Set-Content -Path $settingsPath -Encoding UTF8
-    Write-Host "Template settings.json criado em $settingsPath" -ForegroundColor Green
-    Write-Host "  → edite os campos 'PREENCHER-*' com os dados reais do seu Entra ID." -ForegroundColor Yellow
+    Write-Host "Template settings.json created at $settingsPath" -ForegroundColor Green
+    Write-Host "  → edit the 'FILL-IN-*' fields with your real Entra ID data." -ForegroundColor Yellow
 }
 
 Write-Host ""
-Write-Host "Provisionamento concluído." -ForegroundColor Green
-Write-Host "Próximos passos:" -ForegroundColor Cyan
-Write-Host "  1. Edite $settingsPath com TenantId, ClientId e Thumbprint reais." -ForegroundColor White
-Write-Host "  2. Importe o certificado correspondente em Cert:\LocalMachine\My\." -ForegroundColor White
-Write-Host "  3. Reinicie a aplicação web (Ctrl+C + dotnet run, ou Restart-Service IR-AdminFunctionsWeb)." -ForegroundColor White
+Write-Host "Provisioning complete." -ForegroundColor Green
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "  1. Edit $settingsPath with the real TenantId, ClientId and Thumbprint." -ForegroundColor White
+Write-Host "  2. Import the corresponding certificate at Cert:\LocalMachine\My\." -ForegroundColor White
+Write-Host "  3. Restart the web application (Ctrl+C + dotnet run, or Restart-Service IR-AdminFunctionsWeb)." -ForegroundColor White

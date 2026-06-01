@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 
 $installer = Join-Path $PSScriptRoot 'Install.ps1'
 if (-not (Test-Path $installer)) {
-    throw "Install.ps1 não encontrado em: $installer"
+    throw "Install.ps1 not found at: $installer"
 }
 
 & $installer -PackageRoot $SourcePath -ProgramDataRoot $InstallRoot

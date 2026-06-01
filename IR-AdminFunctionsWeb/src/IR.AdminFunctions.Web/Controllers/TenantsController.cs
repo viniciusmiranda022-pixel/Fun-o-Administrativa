@@ -29,9 +29,9 @@ public class TenantsController : ControllerBase
     public async Task<ActionResult<ApiResponse<TenantEntry>>> Add([FromBody] AddTenantRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.TenantId))
-            return BadRequest(ApiResponse<TenantEntry>.Fail("TenantId é obrigatório."));
+            return BadRequest(ApiResponse<TenantEntry>.Fail("TenantId is required."));
         if (string.IsNullOrWhiteSpace(req.ClientId))
-            return BadRequest(ApiResponse<TenantEntry>.Fail("ClientId é obrigatório."));
+            return BadRequest(ApiResponse<TenantEntry>.Fail("ClientId is required."));
 
         try
         {
@@ -48,7 +48,7 @@ public class TenantsController : ControllerBase
     public async Task<ActionResult<ApiResponse<bool>>> UpdateThumbprint(string tenantId, [FromBody] UpdateThumbprintRequest req)
     {
         var ok = await _store.UpdateCertificateAsync(tenantId, req.Thumbprint ?? string.Empty);
-        if (!ok) return NotFound(ApiResponse<bool>.Fail($"Tenant {tenantId} não encontrado."));
+        if (!ok) return NotFound(ApiResponse<bool>.Fail($"Tenant {tenantId} not found."));
         return ApiResponse<bool>.Ok(true);
     }
 
@@ -57,7 +57,7 @@ public class TenantsController : ControllerBase
     {
         var thumbprint = await _store.AutoSyncCertificateAsync(tenantId);
         if (thumbprint == null)
-            return NotFound(ApiResponse<object>.Fail("Tenant não encontrado ou nenhum certificado detectado no cert store para o ClientId configurado."));
+            return NotFound(ApiResponse<object>.Fail("Tenant not found or no certificate detected in the cert store for the configured ClientId."));
         return ApiResponse<object>.Ok(new { thumbprint });
     }
 
@@ -66,7 +66,7 @@ public class TenantsController : ControllerBase
     {
         var removed = await _store.RemoveAsync(tenantId);
         if (!removed)
-            return NotFound(ApiResponse<bool>.Fail($"Tenant {tenantId} não encontrado."));
+            return NotFound(ApiResponse<bool>.Fail($"Tenant {tenantId} not found."));
         return ApiResponse<bool>.Ok(true);
     }
 
@@ -75,7 +75,7 @@ public class TenantsController : ControllerBase
     {
         var tenant = await _store.GetAsync(tenantId);
         if (tenant == null)
-            return NotFound(ApiResponse<TenantStatusResult>.Fail("Tenant não encontrado."));
+            return NotFound(ApiResponse<TenantStatusResult>.Fail("Tenant not found."));
 
         if (!tenant.IsConfigured)
         {
@@ -83,7 +83,7 @@ public class TenantsController : ControllerBase
             {
                 TenantId = tenantId,
                 Status = "Unconfigured",
-                Message = "Preencha TenantId, ClientId e Thumbprint válidos."
+                Message = "Please fill in valid TenantId, ClientId and Thumbprint."
             });
         }
 
@@ -107,7 +107,7 @@ public class TenantsController : ControllerBase
                 {
                     TenantId = tenantId,
                     Status = "Error",
-                    Message = result.Errors.FirstOrDefault() ?? "Falha na conexão."
+                    Message = result.Errors.FirstOrDefault() ?? "Connection failed."
                 });
             }
 

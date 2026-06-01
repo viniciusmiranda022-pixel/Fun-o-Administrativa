@@ -45,7 +45,7 @@ public class TasksController : ControllerBase
         if (!string.IsNullOrEmpty(since) && DateTime.TryParse(since, out var parsed))
             sinceDate = parsed;
         else if (string.IsNullOrEmpty(since))
-            sinceDate = DateTime.UtcNow.AddDays(-30); // padrão: últimos 30 dias
+            sinceDate = DateTime.UtcNow.AddDays(-30); // default: last 30 days
 
         var fromLogs = _logs.ReadTasks(since: sinceDate);
         var fromJobs = _jobs.List()

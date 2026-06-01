@@ -43,7 +43,7 @@ public class BackupsController : ControllerBase
     public ActionResult<ApiResponse<BackupSnapshot>> Get(string id)
     {
         var snap = _reader.Get(id);
-        if (snap == null) return ApiResponse<BackupSnapshot>.Fail("Backup não encontrado");
+        if (snap == null) return ApiResponse<BackupSnapshot>.Fail("Backup not found");
         return ApiResponse<BackupSnapshot>.Ok(snap);
     }
 
@@ -52,7 +52,7 @@ public class BackupsController : ControllerBase
     {
         var job = _jobs.Enqueue("backup", null, async (_, ct) =>
         {
-            // Garante que o settings.json está sincronizado com appConfig antes de rodar o script
+            // Ensures settings.json is synchronized with appConfig before running the script
             await _tenantStore.EnsureSettingsJsonSyncedAsync();
 
             var raw = _settings.ReadRaw();
@@ -76,7 +76,7 @@ public class BackupsController : ControllerBase
             {
                 var msg = result.Errors.Count > 0
                     ? string.Join(" | ", result.Errors.Take(3))
-                    : "Script retornou com erros sem detalhes";
+                    : "Script returned with errors and no details";
                 throw new InvalidOperationException(msg);
             }
 
@@ -95,7 +95,7 @@ public class BackupsController : ControllerBase
     public ActionResult<ApiResponse<Job>> Unpack(string id, [FromBody] UnpackRequest? req)
     {
         var snap = _reader.Get(id);
-        if (snap == null) return ApiResponse<Job>.Fail("Backup não encontrado");
+        if (snap == null) return ApiResponse<Job>.Fail("Backup not found");
 
         var job = _jobs.Enqueue("unpack", new Dictionary<string, object?> { ["BackupId"] = id }, async (_, ct) =>
         {
@@ -104,7 +104,7 @@ public class BackupsController : ControllerBase
                 var required = new[] { "manifest.json", "roleDefinitions.json", "roleAssignments.json" };
                 var missing = required.Where(f => !System.IO.File.Exists(Path.Combine(snap.Path, f))).ToList();
                 if (missing.Count > 0)
-                    throw new InvalidOperationException($"Arquivo(s) ausente(s) no backup: {string.Join(", ", missing)}");
+                    throw new InvalidOperationException($"Missing file(s) in backup: {string.Join(", ", missing)}");
             }
 
             if (req?.RunDiff != false)
@@ -114,11 +114,11 @@ public class BackupsController : ControllerBase
                 var cfg = _appConfig.Read();
 
                 if (raw == null || string.IsNullOrWhiteSpace(raw.TenantId) || string.IsNullOrWhiteSpace(raw.ClientId))
-                    throw new InvalidOperationException("settings.json incompleto (TenantId/ClientId ausentes). Adicione um tenant primeiro.");
+                    throw new InvalidOperationException("settings.json is incomplete (TenantId/ClientId missing). Add a tenant first.");
 
                 var hasAuth = !string.IsNullOrWhiteSpace(raw.CertificateThumbprint) || !string.IsNullOrWhiteSpace(cfg.ClientSecret);
                 if (!hasAuth)
-                    throw new InvalidOperationException("Nenhuma credencial configurada. Execute o setup e conceda o consentimento Basic.");
+                    throw new InvalidOperationException("No credentials configured. Run the setup and grant Basic consent.");
 
                 var input = new Dictionary<string, object?>
                 {
@@ -134,7 +134,7 @@ public class BackupsController : ControllerBase
                 {
                     var msg = result.Errors.Count > 0
                         ? string.Join(" | ", result.Errors.Take(3))
-                        : "Comparação falhou sem detalhes";
+                        : "Comparison failed with no details";
                     throw new InvalidOperationException(msg);
                 }
             }

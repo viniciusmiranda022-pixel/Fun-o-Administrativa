@@ -9,9 +9,9 @@ using IR.AdminFunctions.Web.Models;
 
 namespace IR.AdminFunctions.Web.Services;
 
-// Registra a aplicação multi-tenant no Azure AD usando MSAL device code flow.
-// O callback do device code fornece UserCode e VerificationUri diretamente,
-// sem depender de parsing de saída do PowerShell.
+// Registers the multi-tenant application in Azure AD using MSAL device code flow.
+// The device code callback provides UserCode and VerificationUri directly,
+// without relying on PowerShell output parsing.
 public class AppRegistrationService
 {
     private readonly AppConfigStore _store;
@@ -21,18 +21,18 @@ public class AppRegistrationService
 
     private const string AppDisplayName = "IR Administrative Function Recovery";
 
-    // Client ID público do Microsoft Graph PowerShell (bem conhecido, multi-tenant)
+    // Public Client ID of Microsoft Graph PowerShell (well-known, multi-tenant)
     private const string PublicClientId = "14d82eec-204b-4c2f-b7e8-296a70dab67e";
     private const string Authority = "https://login.microsoftonline.com/organizations";
 
-    // Redirect URIs padrão para o fluxo OAuth de consentimento de tenant
+    // Default Redirect URIs for the tenant consent OAuth flow
     private static readonly string[] DefaultRedirectUris =
     [
         "http://localhost:8080/api/oauth/callback",
         "https://localhost:8080/api/oauth/callback",
     ];
 
-    // IDs de permissão do Microsoft Graph (globais)
+    // Microsoft Graph permission IDs (global)
     private const string GraphResourceAppId = "00000003-0000-0000-c000-000000000000";
     private const string RoleManagementReadDirectory = "483bed4a-2ad3-4361-a73b-c83ccdbdc53c";
     private const string RoleManagementReadWriteDirectory = "9e3f62cf-ca93-4989-b6ce-bf83c28f9fe8";
@@ -66,8 +66,8 @@ public class AppRegistrationService
     public string StartSetup()
     {
         var sessionId = Guid.NewGuid().ToString("N");
-        _states[sessionId] = new SetupStatus { Status = "WaitingForUser", Message = "Aguardando usuário autenticar..." };
-        _logger.LogInformation("[Setup:{SessionId}] Setup iniciado.", sessionId);
+        _states[sessionId] = new SetupStatus { Status = "WaitingForUser", Message = "Waiting for user to authenticate..." };
+        _logger.LogInformation("[Setup:{SessionId}] Setup started.", sessionId);
         _ = Task.Run(() => RunSetupAsync(sessionId));
         return sessionId;
     }
@@ -76,8 +76,8 @@ public class AppRegistrationService
     {
         try
         {
-            // Etapa 1 — autenticação via device code (MSAL)
-            _logger.LogInformation("[Setup:{SessionId}] Etapa 1/3 — Iniciando autenticação via device code (MSAL)...", sessionId);
+            // Step 1 — authentication via device code (MSAL)
+            _logger.LogInformation("[Setup:{SessionId}] Step 1/3 — Starting authentication via device code (MSAL)...", sessionId);
 
             var msalApp = PublicClientApplicationBuilder
                 .Create(PublicClientId)
@@ -91,14 +91,14 @@ public class AppRegistrationService
                     .AcquireTokenWithDeviceCode(GraphScopes, deviceCode =>
                     {
                         _logger.LogInformation(
-                            "[Setup:{SessionId}] Device code recebido. UserCode={Code}, Url={Url}",
+                            "[Setup:{SessionId}] Device code received. UserCode={Code}, Url={Url}",
                             sessionId, deviceCode.UserCode, deviceCode.VerificationUrl);
 
                         UpdateStatus(sessionId, s =>
                         {
                             s.UserCode = deviceCode.UserCode;
                             s.VerificationUrl = deviceCode.VerificationUrl;
-                            s.Message = $"Acesse {deviceCode.VerificationUrl} e digite o código: {deviceCode.UserCode}";
+                            s.Message = $"Go to {deviceCode.VerificationUrl} and enter the code: {deviceCode.UserCode}";
                         });
 
                         return Task.CompletedTask;
@@ -107,8 +107,8 @@ public class AppRegistrationService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[Setup:{SessionId}] Falha na autenticação MSAL.", sessionId);
-                Fail(sessionId, $"Falha na autenticação: {ex.Message}");
+                _logger.LogError(ex, "[Setup:{SessionId}] MSAL authentication failed.", sessionId);
+                Fail(sessionId, $"Authentication failed: {ex.Message}");
                 return;
             }
 
@@ -116,24 +116,24 @@ public class AppRegistrationService
             var account = tokenResult.Account?.Username;
 
             _logger.LogInformation(
-                "[Setup:{SessionId}] Etapa 1/3 concluída. TenantId={TenantId}, Account={Account}",
+                "[Setup:{SessionId}] Step 1/3 completed. TenantId={TenantId}, Account={Account}",
                 sessionId, tenantId, account);
 
             if (string.IsNullOrEmpty(tenantId))
             {
-                Fail(sessionId, "Não foi possível obter o TenantId do token.");
+                Fail(sessionId, "Could not retrieve the TenantId from the token.");
                 return;
             }
 
             UpdateStatus(sessionId, s =>
             {
                 s.Status = "Registering";
-                s.Message = $"Conectado como {account}. Criando App Registration...";
+                s.Message = $"Connected as {account}. Creating App Registration...";
                 s.TenantId = tenantId;
             });
 
-            // Etapa 2 — criar App Registration via Microsoft Graph REST
-            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 — Criando App Registration via Graph API...", sessionId);
+            // Step 2 — create App Registration via Microsoft Graph REST
+            _logger.LogInformation("[Setup:{SessionId}] Step 2/3 — Creating App Registration via Graph API...", sessionId);
 
             using var http = _httpClientFactory.CreateClient();
             http.DefaultRequestHeaders.Authorization =
@@ -141,7 +141,7 @@ public class AppRegistrationService
             http.DefaultRequestHeaders.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/json"));
 
-            // Verifica se o app já existe
+            // Checks whether the app already exists
             string appObjectId;
             string appClientId;
 
@@ -157,11 +157,11 @@ public class AppRegistrationService
                 appObjectId = filterDoc.Value[0].Id!;
                 appClientId = filterDoc.Value[0].AppId!;
                 _logger.LogInformation(
-                    "[Setup:{SessionId}] App Registration existente encontrado. AppId={AppId}", sessionId, appClientId);
+                    "[Setup:{SessionId}] Existing App Registration found. AppId={AppId}", sessionId, appClientId);
             }
             else
             {
-                // Cria o App Registration
+                // Creates the App Registration
                 var appPayload = new
                 {
                     displayName = AppDisplayName,
@@ -194,24 +194,24 @@ public class AppRegistrationService
                 if (!createResp.IsSuccessStatusCode)
                 {
                     var errBody = await createResp.Content.ReadAsStringAsync();
-                    _logger.LogError("[Setup:{SessionId}] Falha ao criar App Registration: {Status} {Body}",
+                    _logger.LogError("[Setup:{SessionId}] Failed to create App Registration: {Status} {Body}",
                         sessionId, (int)createResp.StatusCode, errBody);
-                    Fail(sessionId, $"Falha ao criar App Registration ({(int)createResp.StatusCode}): {errBody}");
+                    Fail(sessionId, $"Failed to create App Registration ({(int)createResp.StatusCode}): {errBody}");
                     return;
                 }
 
                 var createJson = await createResp.Content.ReadAsStringAsync();
                 var created = JsonSerializer.Deserialize<GraphApp>(createJson, JsonOpts);
-                appObjectId = created?.Id ?? throw new InvalidOperationException("App criado sem Id.");
-                appClientId = created?.AppId ?? throw new InvalidOperationException("App criado sem AppId.");
+                appObjectId = created?.Id ?? throw new InvalidOperationException("App created without Id.");
+                appClientId = created?.AppId ?? throw new InvalidOperationException("App created without AppId.");
                 _logger.LogInformation(
-                    "[Setup:{SessionId}] App Registration criado. AppId={AppId}", sessionId, appClientId);
+                    "[Setup:{SessionId}] App Registration created. AppId={AppId}", sessionId, appClientId);
             }
 
-            // Garante redirect URIs na app (necessário para o fluxo OAuth de consentimento)
+            // Ensures redirect URIs on the app (required for the OAuth consent flow)
             await EnsureRedirectUrisAsync(http, sessionId, appObjectId);
 
-            // Garante Service Principal no tenant bootstrap
+            // Ensures the Service Principal exists in the bootstrap tenant
             string spId;
             var spFilterResp = await http.GetAsync(
                 $"https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '{appClientId}'&$select=id");
@@ -223,7 +223,7 @@ public class AppRegistrationService
             if (spFilterDoc?.Value?.Length > 0)
             {
                 spId = spFilterDoc.Value[0].Id!;
-                _logger.LogInformation("[Setup:{SessionId}] Service Principal existente. SpId={SpId}", sessionId, spId);
+                _logger.LogInformation("[Setup:{SessionId}] Existing Service Principal found. SpId={SpId}", sessionId, spId);
             }
             else
             {
@@ -238,19 +238,19 @@ public class AppRegistrationService
                 if (!spResp.IsSuccessStatusCode)
                 {
                     var errBody = await spResp.Content.ReadAsStringAsync();
-                    _logger.LogError("[Setup:{SessionId}] Falha ao criar Service Principal: {Status} {Body}",
+                    _logger.LogError("[Setup:{SessionId}] Failed to create Service Principal: {Status} {Body}",
                         sessionId, (int)spResp.StatusCode, errBody);
-                    Fail(sessionId, $"Falha ao criar Service Principal ({(int)spResp.StatusCode}): {errBody}");
+                    Fail(sessionId, $"Failed to create Service Principal ({(int)spResp.StatusCode}): {errBody}");
                     return;
                 }
 
                 var spJson = await spResp.Content.ReadAsStringAsync();
                 var sp = JsonSerializer.Deserialize<GraphApp>(spJson, JsonOpts);
-                spId = sp?.Id ?? throw new InvalidOperationException("SP criado sem Id.");
-                _logger.LogInformation("[Setup:{SessionId}] Service Principal criado. SpId={SpId}", sessionId, spId);
+                spId = sp?.Id ?? throw new InvalidOperationException("SP created without Id.");
+                _logger.LogInformation("[Setup:{SessionId}] Service Principal created. SpId={SpId}", sessionId, spId);
             }
 
-            // Cria client secret válido por 2 anos
+            // Creates client secret valid for 2 years
             var secretPayload = new
             {
                 passwordCredential = new
@@ -271,34 +271,34 @@ public class AppRegistrationService
             if (!secretResp.IsSuccessStatusCode)
             {
                 var errBody = await secretResp.Content.ReadAsStringAsync();
-                _logger.LogError("[Setup:{SessionId}] Falha ao criar client secret: {Status} {Body}",
+                _logger.LogError("[Setup:{SessionId}] Failed to create client secret: {Status} {Body}",
                     sessionId, (int)secretResp.StatusCode, errBody);
-                Fail(sessionId, $"Falha ao criar client secret ({(int)secretResp.StatusCode}): {errBody}");
+                Fail(sessionId, $"Failed to create client secret ({(int)secretResp.StatusCode}): {errBody}");
                 return;
             }
 
             var secretJson = await secretResp.Content.ReadAsStringAsync();
             var secretDoc = JsonSerializer.Deserialize<GraphSecret>(secretJson, JsonOpts);
             var clientSecret = secretDoc?.SecretText
-                ?? throw new InvalidOperationException("Client secret criado sem SecretText.");
+                ?? throw new InvalidOperationException("Client secret created without SecretText.");
 
-            _logger.LogInformation("[Setup:{SessionId}] Etapa 2/3 concluída. AppId={AppId}", sessionId, appClientId);
+            _logger.LogInformation("[Setup:{SessionId}] Step 2/3 completed. AppId={AppId}", sessionId, appClientId);
 
-            // Etapa 2.5 — criar certificado de autenticação e registrar no Azure AD
+            // Step 2.5 — create authentication certificate and register in Azure AD
             string? certThumbprint = null;
             try
             {
-                UpdateStatus(sessionId, s => s.Message = "Criando certificado de autenticação...");
+                UpdateStatus(sessionId, s => s.Message = "Creating authentication certificate...");
                 certThumbprint = await CreateAndRegisterCertificateAsync(http, sessionId, appObjectId, appClientId);
-                _logger.LogInformation("[Setup:{SessionId}] Certificado criado. Thumbprint={Tp}", sessionId, certThumbprint);
+                _logger.LogInformation("[Setup:{SessionId}] Certificate created. Thumbprint={Tp}", sessionId, certThumbprint);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "[Setup:{SessionId}] Falha ao criar certificado. Setup continua sem certificado.", sessionId);
+                _logger.LogWarning(ex, "[Setup:{SessionId}] Failed to create certificate. Setup continues without a certificate.", sessionId);
             }
 
-            // Etapa 3 — persistir configuração
-            _logger.LogInformation("[Setup:{SessionId}] Etapa 3/3 — Persistindo configuração...", sessionId);
+            // Step 3 — persist configuration
+            _logger.LogInformation("[Setup:{SessionId}] Step 3/3 — Persisting configuration...", sessionId);
 
             var config = new AppConfig
             {
@@ -313,18 +313,18 @@ public class AppRegistrationService
             };
 
             _store.Write(config);
-            _logger.LogInformation("[Setup:{SessionId}] Setup concluído. ClientId={ClientId}", sessionId, config.ClientId);
+            _logger.LogInformation("[Setup:{SessionId}] Setup completed. ClientId={ClientId}", sessionId, config.ClientId);
 
             UpdateStatus(sessionId, s =>
             {
                 s.Status = "Completed";
-                s.Message = "App registrado com sucesso. Você já pode adicionar tenants.";
+                s.Message = "App registered successfully. You can now add tenants.";
                 s.ClientId = config.ClientId;
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[Setup:{SessionId}] Exceção não tratada no setup.", sessionId);
+            _logger.LogError(ex, "[Setup:{SessionId}] Unhandled exception during setup.", sessionId);
             Fail(sessionId, ex.Message);
         }
     }
@@ -332,7 +332,7 @@ public class AppRegistrationService
     private async Task<string?> CreateAndRegisterCertificateAsync(
         HttpClient http, string sessionId, string appObjectId, string appClientId)
     {
-        // Cria certificado auto-assinado em memória
+        // Creates a self-signed certificate in memory
         using var rsa = RSA.Create(2048);
         var req = new CertificateRequest(
             $"CN={appClientId}",
@@ -346,11 +346,11 @@ public class AppRegistrationService
             DateTimeOffset.UtcNow.AddDays(-1),
             DateTimeOffset.UtcNow.AddYears(2));
 
-        // Exporta como PFX e reimporta com flag de persistência no cert store
+        // Exports as PFX and re-imports with persistence flag in the cert store
         var pfxBytes = cert.Export(X509ContentType.Pkcs12);
         string thumbprint;
 
-        // Tenta LocalMachine primeiro (necessário para serviços do Windows)
+        // Tries LocalMachine first (required for Windows services)
         try
         {
             var flags = X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable;
@@ -359,21 +359,21 @@ public class AppRegistrationService
             store.Open(OpenFlags.ReadWrite);
             store.Add(persistent);
             thumbprint = persistent.Thumbprint;
-            _logger.LogInformation("[Setup:{SessionId}] Cert instalado em LocalMachine\\My: {Tp}", sessionId, thumbprint);
+            _logger.LogInformation("[Setup:{SessionId}] Cert installed in LocalMachine\\My: {Tp}", sessionId, thumbprint);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[Setup:{SessionId}] Não foi possível instalar em LocalMachine\\My, usando CurrentUser\\My.", sessionId);
+            _logger.LogWarning(ex, "[Setup:{SessionId}] Could not install in LocalMachine\\My, falling back to CurrentUser\\My.", sessionId);
             var flags = X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable;
             using var persistent = new X509Certificate2(pfxBytes, (string?)null, flags);
             using var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
             store.Open(OpenFlags.ReadWrite);
             store.Add(persistent);
             thumbprint = persistent.Thumbprint;
-            _logger.LogInformation("[Setup:{SessionId}] Cert instalado em CurrentUser\\My: {Tp}", sessionId, thumbprint);
+            _logger.LogInformation("[Setup:{SessionId}] Cert installed in CurrentUser\\My: {Tp}", sessionId, thumbprint);
         }
 
-        // Registra a chave pública no Azure AD via PATCH /applications/{id}
+        // Registers the public key in Azure AD via PATCH /applications/{id}
         var pubKeyDer = cert.Export(X509ContentType.Cert);
         var keyCredPayload = new
         {
@@ -400,12 +400,12 @@ public class AppRegistrationService
         if (!patchResp.IsSuccessStatusCode)
         {
             var errBody = await patchResp.Content.ReadAsStringAsync();
-            _logger.LogWarning("[Setup:{SessionId}] Falha ao registrar cert no Azure AD: {Status} {Body}",
+            _logger.LogWarning("[Setup:{SessionId}] Failed to register cert in Azure AD: {Status} {Body}",
                 sessionId, (int)patchResp.StatusCode, errBody);
         }
         else
         {
-            _logger.LogInformation("[Setup:{SessionId}] Certificado registrado no Azure AD com sucesso.", sessionId);
+            _logger.LogInformation("[Setup:{SessionId}] Certificate successfully registered in Azure AD.", sessionId);
         }
 
         return thumbprint;
@@ -426,7 +426,7 @@ public class AppRegistrationService
 
             if (missing.Length == 0)
             {
-                _logger.LogInformation("[Setup:{SessionId}] Redirect URIs já presentes na app.", sessionId);
+                _logger.LogInformation("[Setup:{SessionId}] Redirect URIs already present on the app.", sessionId);
                 return;
             }
 
@@ -442,16 +442,16 @@ public class AppRegistrationService
 
             var patchResp = await http.SendAsync(patchReq);
             if (patchResp.IsSuccessStatusCode)
-                _logger.LogInformation("[Setup:{SessionId}] Redirect URIs atualizadas: {Uris}", sessionId, string.Join(", ", missing));
+                _logger.LogInformation("[Setup:{SessionId}] Redirect URIs updated: {Uris}", sessionId, string.Join(", ", missing));
             else
             {
                 var err = await patchResp.Content.ReadAsStringAsync();
-                _logger.LogWarning("[Setup:{SessionId}] Não foi possível atualizar redirect URIs: {Status} {Body}", sessionId, (int)patchResp.StatusCode, err);
+                _logger.LogWarning("[Setup:{SessionId}] Could not update redirect URIs: {Status} {Body}", sessionId, (int)patchResp.StatusCode, err);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[Setup:{SessionId}] Erro ao garantir redirect URIs.", sessionId);
+            _logger.LogWarning(ex, "[Setup:{SessionId}] Error ensuring redirect URIs.", sessionId);
         }
     }
 
@@ -471,7 +471,7 @@ public class AppRegistrationService
         });
     }
 
-    // DTOs para deserializar respostas do Graph
+    // DTOs for deserializing Graph responses
     private sealed class GraphList
     {
         public GraphApp[]? Value { get; set; }

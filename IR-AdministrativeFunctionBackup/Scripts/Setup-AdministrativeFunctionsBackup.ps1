@@ -117,7 +117,7 @@ function Ensure-GraphApplicationPermissions {
         if ($role) {
             $roleMap[$value] = $role.Id
         } else {
-            & $StatusWriter "Permissão $value não encontrada nos appRoles do Graph."
+            & $StatusWriter "Permission $value not found in Graph appRoles."
         }
     }
 
@@ -131,14 +131,14 @@ function Ensure-GraphApplicationPermissions {
     }
 
     Update-MgApplication -ApplicationId $ApplicationId -RequiredResourceAccess @(@{ ResourceAppId = $GraphAppId; ResourceAccess = $resourceAccess })
-    & $StatusWriter 'Permissões de aplicação do Microsoft Graph configuradas no App Registration.'
+    & $StatusWriter 'Microsoft Graph application permissions configured in App Registration.'
 
     $existingAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ServicePrincipalId -All
     foreach ($pair in $roleMap.GetEnumerator()) {
         $already = $existingAssignments | Where-Object { $_.ResourceId -eq $graphSp.Id -and $_.AppRoleId -eq $pair.Value }
         if (-not $already) {
             New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ServicePrincipalId -PrincipalId $ServicePrincipalId -ResourceId $graphSp.Id -AppRoleId $pair.Value | Out-Null
-            & $StatusWriter "Admin consent concedido automaticamente para: $($pair.Key)"
+            & $StatusWriter "Admin consent automatically granted for: $($pair.Key)"
         }
     }
 }
@@ -150,7 +150,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'IR - Administrative Functions Backup | Configuração inicial'
+$form.Text = 'IR - Administrative Functions Backup | Initial Setup'
 $form.Width = 780
 $form.Height = 640
 $form.StartPosition = 'CenterScreen'
@@ -182,7 +182,7 @@ $txtClient.Width = 720
 $form.Controls.Add($txtClient)
 
 $lblMonths = New-Object System.Windows.Forms.Label
-$lblMonths.Text = 'Validade do certificado (meses):'
+$lblMonths.Text = 'Certificate validity (months):'
 $lblMonths.Left = 20
 $lblMonths.Top = 140
 $lblMonths.Width = 260
@@ -198,7 +198,7 @@ $numMonths.Value = $CertificateValidityMonths
 $form.Controls.Add($numMonths)
 
 $lblThumb = New-Object System.Windows.Forms.Label
-$lblThumb.Text = 'Thumbprint selecionado:'
+$lblThumb.Text = 'Selected thumbprint:'
 $lblThumb.Left = 20
 $lblThumb.Top = 205
 $lblThumb.Width = 200
@@ -211,49 +211,49 @@ $txtThumb.Width = 720
 $form.Controls.Add($txtThumb)
 
 $btnCreate = New-Object System.Windows.Forms.Button
-$btnCreate.Text = 'Criar certificado self-signed'
+$btnCreate.Text = 'Create self-signed certificate'
 $btnCreate.Left = 20
 $btnCreate.Top = 270
 $btnCreate.Width = 240
 $form.Controls.Add($btnCreate)
 
 $btnImport = New-Object System.Windows.Forms.Button
-$btnImport.Text = 'Importar .pfx existente'
+$btnImport.Text = 'Import existing .pfx'
 $btnImport.Left = 280
 $btnImport.Top = 270
 $btnImport.Width = 180
 $form.Controls.Add($btnImport)
 
 $btnExportCer = New-Object System.Windows.Forms.Button
-$btnExportCer.Text = 'Exportar .cer público'
+$btnExportCer.Text = 'Export public .cer'
 $btnExportCer.Left = 480
 $btnExportCer.Top = 270
 $btnExportCer.Width = 170
 $form.Controls.Add($btnExportCer)
 
 $btnAuto = New-Object System.Windows.Forms.Button
-$btnAuto.Text = 'Configurar automaticamente no tenant'
+$btnAuto.Text = 'Configure automatically in tenant'
 $btnAuto.Left = 20
 $btnAuto.Top = 315
 $btnAuto.Width = 300
 $form.Controls.Add($btnAuto)
 
 $btnTest = New-Object System.Windows.Forms.Button
-$btnTest.Text = 'Testar conexão Graph'
+$btnTest.Text = 'Test Graph connection'
 $btnTest.Left = 340
 $btnTest.Top = 315
 $btnTest.Width = 190
 $form.Controls.Add($btnTest)
 
 $btnSave = New-Object System.Windows.Forms.Button
-$btnSave.Text = 'Salvar configuração'
+$btnSave.Text = 'Save configuration'
 $btnSave.Left = 20
 $btnSave.Top = 355
 $btnSave.Width = 190
 $form.Controls.Add($btnSave)
 
 $btnClose = New-Object System.Windows.Forms.Button
-$btnClose.Text = 'Fechar'
+$btnClose.Text = 'Close'
 $btnClose.Left = 230
 $btnClose.Top = 355
 $btnClose.Width = 120
@@ -278,9 +278,9 @@ if (Test-Path $SettingsPath) {
         $txtTenant.Text = $existing.TenantId
         $txtClient.Text = $existing.ClientId
         $txtThumb.Text = $existing.CertificateThumbprint
-        Set-Status "Configuração existente carregada: $SettingsPath"
+        Set-Status "Existing configuration loaded: $SettingsPath"
     } catch {
-        Set-Status "Falha ao ler configuração existente: $($_.Exception.Message)"
+        Set-Status "Failed to read existing configuration: $($_.Exception.Message)"
     }
 }
 
@@ -290,17 +290,17 @@ $btnCreate.Add_Click({
         $cert = New-SelfSignedCertificate -DnsName 'IR-AdministrativeFunctionBackup' -FriendlyName $friendlyName -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddMonths([int]$numMonths.Value) -KeyExportPolicy Exportable -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
         $txtThumb.Text = $cert.Thumbprint
         $cer = Export-PublicCertificate -Thumbprint $cert.Thumbprint
-        Set-Status "Certificado criado em Cert:\LocalMachine\My. Thumbprint: $($cert.Thumbprint)"
-        Set-Status "Certificado público exportado para: $cer"
+        Set-Status "Certificate created in Cert:\LocalMachine\My. Thumbprint: $($cert.Thumbprint)"
+        Set-Status "Public certificate exported to: $cer"
     } catch {
-        Set-Status "Erro ao criar certificado: $($_.Exception.Message)"
-        [System.Windows.Forms.MessageBox]::Show("Erro ao criar certificado: $($_.Exception.Message)") | Out-Null
+        Set-Status "Error creating certificate: $($_.Exception.Message)"
+        [System.Windows.Forms.MessageBox]::Show("Error creating certificate: $($_.Exception.Message)") | Out-Null
     }
 })
 
 
 function Get-BootstrapInsufficientPrivilegeMessage {
-    return 'A autenticação foi concluída, mas a operação foi negada pelo Microsoft Graph (Authorization_RequestDenied/Insufficient privileges). Valide as permissões efetivas no tenant, políticas de acesso e restrições administrativas para atualização do objeto Application.'
+    return 'Authentication completed, but the operation was denied by Microsoft Graph (Authorization_RequestDenied/Insufficient privileges). Validate the effective permissions in the tenant, access policies, and administrative restrictions for updating the Application object.'
 }
 
 function Test-IsBootstrapPrivilegeError {
@@ -312,14 +312,14 @@ function Test-IsBootstrapPrivilegeError {
 function Start-AutomaticTenantSetup {
     try {
         $bootstrapScript = Join-Path $PSScriptRoot 'Start-TenantBootstrapInteractive.ps1'
-        if (-not (Test-Path $bootstrapScript)) { throw "Script não encontrado: $bootstrapScript" }
+        if (-not (Test-Path $bootstrapScript)) { throw "Script not found: $bootstrapScript" }
 
         $tenantId = $txtTenant.Text.Trim()
         if ([string]::IsNullOrWhiteSpace($tenantId)) {
-            throw 'Tenant ID é obrigatório para iniciar o bootstrap automático.'
+            throw 'Tenant ID is required to start the automatic bootstrap.'
         }
 
-        Set-Status 'Iniciando processo externo para autenticação Device Code e bootstrap do tenant...'
+        Set-Status 'Starting external process for Device Code authentication and tenant bootstrap...'
 
         $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
             '-NoProfile',
@@ -339,14 +339,14 @@ function Start-AutomaticTenantSetup {
             }
 
             if ([string]::IsNullOrWhiteSpace($tail)) {
-                throw 'O bootstrap falhou antes de inicializar o log. Verifique o caminho do script Start-TenantBootstrapInteractive.ps1 e os parâmetros usados pelo wizard.'
+                throw 'The bootstrap failed before the log could be initialized. Check the path of the Start-TenantBootstrapInteractive.ps1 script and the parameters used by the wizard.'
             }
 
-            throw "Bootstrap do tenant falhou com código $($proc.ExitCode). Causa real nas últimas linhas do log:`r`n$tail"
+            throw "Tenant bootstrap failed with exit code $($proc.ExitCode). Root cause in the last log lines:`r`n$tail"
         }
 
-        Set-Status 'Processo externo finalizado. Recarregando settings.json...'
-        if (-not (Test-Path $SettingsPath)) { throw "Arquivo de configuração não encontrado em: $SettingsPath" }
+        Set-Status 'External process finished. Reloading settings.json...'
+        if (-not (Test-Path $SettingsPath)) { throw "Configuration file not found at: $SettingsPath" }
 
         $settings = Get-Content -Path $SettingsPath -Raw | ConvertFrom-Json
         $txtTenant.Text = $settings.TenantId
@@ -355,22 +355,22 @@ function Start-AutomaticTenantSetup {
 
         try {
             Test-GraphConnection -TenantId $settings.TenantId -ClientId $settings.ClientId -Thumbprint $settings.CertificateThumbprint
-            Set-Status 'Configuração concluída com sucesso'
-            [System.Windows.Forms.MessageBox]::Show('Configuração concluída com sucesso','Sucesso','OK','Information') | Out-Null
+            Set-Status 'Configuration completed successfully'
+            [System.Windows.Forms.MessageBox]::Show('Configuration completed successfully','Success','OK','Information') | Out-Null
         } catch {
-            $warning = 'Configuração salva. A validação app-only final falhou, possivelmente por propagação do certificado no Microsoft Entra ID. Aguarde alguns minutos e teste novamente.'
-            Set-Status "$warning Detalhes: $($_.Exception.Message)"
-            [System.Windows.Forms.MessageBox]::Show($warning, 'Configuração salva com aviso', 'OK', 'Warning') | Out-Null
+            $warning = 'Configuration saved. The final app-only validation failed, possibly due to certificate propagation in Microsoft Entra ID. Wait a few minutes and test again.'
+            Set-Status "$warning Details: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show($warning, 'Configuration saved with warning', 'OK', 'Warning') | Out-Null
         }
     } catch {
         $errorMessage = $_.Exception.Message
         if (Test-IsBootstrapPrivilegeError -Message $errorMessage) {
             $friendly = Get-BootstrapInsufficientPrivilegeMessage
             Set-Status $friendly
-            [System.Windows.Forms.MessageBox]::Show($friendly, 'Permissões insuficientes', 'OK', 'Warning') | Out-Null
+            [System.Windows.Forms.MessageBox]::Show($friendly, 'Insufficient permissions', 'OK', 'Warning') | Out-Null
         } else {
-            Set-Status "Erro na configuração automática: $errorMessage"
-            [System.Windows.Forms.MessageBox]::Show("Erro na configuração automática: $errorMessage", 'Erro', 'OK', 'Error') | Out-Null
+            Set-Status "Error in automatic configuration: $errorMessage"
+            [System.Windows.Forms.MessageBox]::Show("Error in automatic configuration: $errorMessage", 'Error', 'OK', 'Error') | Out-Null
         }
     }
 }
@@ -384,36 +384,36 @@ $btnImport.Add_Click({
         $dialog = New-Object System.Windows.Forms.OpenFileDialog
         $dialog.Filter = 'PFX files (*.pfx)|*.pfx'
         if ($dialog.ShowDialog() -ne 'OK') { return }
-        $secure = Read-Host 'Digite a senha do PFX' -AsSecureString
+        $secure = Read-Host 'Enter the PFX password' -AsSecureString
         $cert = Import-PfxCertificate -FilePath $dialog.FileName -CertStoreLocation 'Cert:\LocalMachine\My' -Password $secure -Exportable
         $txtThumb.Text = $cert.Thumbprint
         $cer = Export-PublicCertificate -Thumbprint $cert.Thumbprint
-        Set-Status "PFX importado com sucesso. Thumbprint: $($cert.Thumbprint)"
-        Set-Status "Certificado público exportado para: $cer"
+        Set-Status "PFX imported successfully. Thumbprint: $($cert.Thumbprint)"
+        Set-Status "Public certificate exported to: $cer"
     } catch {
-        Set-Status "Erro ao importar PFX: $($_.Exception.Message)"
-        [System.Windows.Forms.MessageBox]::Show("Erro ao importar PFX: $($_.Exception.Message)") | Out-Null
+        Set-Status "Error importing PFX: $($_.Exception.Message)"
+        [System.Windows.Forms.MessageBox]::Show("Error importing PFX: $($_.Exception.Message)") | Out-Null
     }
 })
 
 $btnExportCer.Add_Click({
     try {
-        if (-not $txtThumb.Text) { throw 'Informe/seleciona um thumbprint primeiro.' }
+        if (-not $txtThumb.Text) { throw 'Please enter or select a thumbprint first.' }
         $cer = Export-PublicCertificate -Thumbprint $txtThumb.Text.Trim()
-        Set-Status "Certificado público exportado para: $cer"
+        Set-Status "Public certificate exported to: $cer"
     } catch {
-        Set-Status "Erro ao exportar CER: $($_.Exception.Message)"
+        Set-Status "Error exporting CER: $($_.Exception.Message)"
     }
 })
 
 $btnTest.Add_Click({
     try {
         Test-GraphConnection -TenantId $txtTenant.Text.Trim() -ClientId $txtClient.Text.Trim() -Thumbprint $txtThumb.Text.Trim()
-        Set-Status 'Conexão com Microsoft Graph testada com sucesso.'
-        [System.Windows.Forms.MessageBox]::Show('Conexão com Microsoft Graph realizada com sucesso.') | Out-Null
+        Set-Status 'Microsoft Graph connection tested successfully.'
+        [System.Windows.Forms.MessageBox]::Show('Microsoft Graph connection established successfully.') | Out-Null
     } catch {
-        Set-Status "Falha no teste de conexão: $($_.Exception.Message)"
-        [System.Windows.Forms.MessageBox]::Show("Falha no teste de conexão: $($_.Exception.Message)") | Out-Null
+        Set-Status "Connection test failed: $($_.Exception.Message)"
+        [System.Windows.Forms.MessageBox]::Show("Connection test failed: $($_.Exception.Message)") | Out-Null
     }
 })
 
@@ -424,12 +424,12 @@ $btnSave.Add_Click({
         $s.ClientId = $txtClient.Text.Trim()
         $s.CertificateThumbprint = $txtThumb.Text.Trim()
         Save-Settings -Settings $s -Path $SettingsPath
-        Set-Status "Configuração salva em: $SettingsPath"
-        if (-not $SkipGraphTest) { Test-GraphConnection -TenantId $s.TenantId -ClientId $s.ClientId -Thumbprint $s.CertificateThumbprint; Set-Status 'Validação final de conexão concluída com sucesso.' }
-        [System.Windows.Forms.MessageBox]::Show('Configuração concluída com sucesso.','Sucesso', 'OK', 'Information') | Out-Null
+        Set-Status "Configuration saved to: $SettingsPath"
+        if (-not $SkipGraphTest) { Test-GraphConnection -TenantId $s.TenantId -ClientId $s.ClientId -Thumbprint $s.CertificateThumbprint; Set-Status 'Final connection validation completed successfully.' }
+        [System.Windows.Forms.MessageBox]::Show('Configuration completed successfully.','Success', 'OK', 'Information') | Out-Null
     } catch {
-        Set-Status "Erro ao salvar/validar configuração: $($_.Exception.Message)"
-        [System.Windows.Forms.MessageBox]::Show("Erro ao salvar/validar configuração: $($_.Exception.Message)") | Out-Null
+        Set-Status "Error saving/validating configuration: $($_.Exception.Message)"
+        [System.Windows.Forms.MessageBox]::Show("Error saving/validating configuration: $($_.Exception.Message)") | Out-Null
     }
 })
 
