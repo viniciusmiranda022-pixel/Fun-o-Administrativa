@@ -12,7 +12,7 @@ export default function Topbar() {
       {/* Left */}
       <div className="flex items-center gap-3">
         <Menu size={18} className="cursor-pointer opacity-80 hover:opacity-100" />
-        <img src="/quest-logo.svg" alt="Quest" style={{ height: 22, width: 'auto', display: 'block' }} />
+        <img src="/quest-logo.png" alt="Quest" style={{ height: 22, width: 'auto', display: 'block' }} />
         <div className="h-6 w-px bg-[#555]" />
         <span className="text-[#999] text-xs">Security Management Platform</span>
         <span className="text-[#777] text-xs">-</span>
