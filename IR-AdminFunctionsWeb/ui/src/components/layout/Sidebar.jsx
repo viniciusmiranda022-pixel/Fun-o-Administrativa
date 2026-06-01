@@ -4,8 +4,10 @@ import { Home, Building2, RotateCw, Settings, HelpCircle } from 'lucide-react';
 const RECOVER_PATHS = ['/dashboard', '/backups', '/unpacked', '/differences', '/events', '/tasks'];
 const TENANT_PATHS = ['/tenants'];
 
+const HOME_URL = 'https://quest-on-demand.com/#/recovery/entraid/ng1/project-e71f6a66-3296-b0cf-e532-6fd2dea14c03/collection-ca9b03ea-578e-4277-b684-969fa2a34a9a/dashboard';
+
 const navItems = [
-  { key: 'home', icon: Home, label: 'Home', path: '/' },
+  { key: 'home', icon: Home, label: 'Home', path: HOME_URL, external: true },
   { key: 'tenants', icon: Building2, label: 'Tenants', path: '/tenants' },
   { key: 'recover', icon: RotateCw, label: 'Recover', path: '/dashboard' },
   { key: 'settings', icon: Settings, label: 'Settings', path: '/setup' },
@@ -37,7 +39,10 @@ export default function Sidebar() {
           return (
             <button
               key={item.key}
-              onClick={() => item.path !== '#' && navigate(item.path)}
+              onClick={() => {
+              if (item.external) { window.location.href = item.path; }
+              else if (item.path !== '#') { navigate(item.path); }
+            }}
               className="w-full flex flex-col items-center py-3 relative cursor-pointer transition-colors"
               style={{ backgroundColor: active ? '#3C3C3C' : 'transparent' }}
             >
