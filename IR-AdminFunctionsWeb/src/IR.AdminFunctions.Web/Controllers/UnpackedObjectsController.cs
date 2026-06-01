@@ -20,13 +20,13 @@ public class UnpackedObjectsController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(backupId))
         {
-            return ApiResponse<UnpackedObjects>.Fail("backupId é obrigatório");
+            return ApiResponse<UnpackedObjects>.Fail("backupId is required");
         }
 
         var data = _reader.GetUnpacked(backupId);
         if (data == null)
         {
-            return ApiResponse<UnpackedObjects>.Fail($"Backup {backupId} não encontrado");
+            return ApiResponse<UnpackedObjects>.Fail($"Backup {backupId} not found");
         }
 
         return ApiResponse<UnpackedObjects>.Ok(data);

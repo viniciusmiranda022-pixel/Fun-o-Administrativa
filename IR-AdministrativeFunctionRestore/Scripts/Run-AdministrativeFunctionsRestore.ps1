@@ -42,7 +42,7 @@ function Get-ValidBackupFolder {
 }
 
 if (-not (Test-Path $SettingsPath)) {
-    throw "settings.json não encontrado em $SettingsPath. Execute a configuração do backup primeiro."
+    throw "settings.json not found at $SettingsPath. Run the backup setup first."
 }
 
 $settings = Get-Content $SettingsPath -Raw | ConvertFrom-Json
@@ -52,26 +52,26 @@ $thumb = [string]$settings.CertificateThumbprint
 $clientSecret = [string]$settings.ClientSecret
 $backupRoot = if (-not [string]::IsNullOrWhiteSpace([string]$settings.BackupRoot)) { [string]$settings.BackupRoot } else { $DefaultBackupRoot }
 
-if ([string]::IsNullOrWhiteSpace($tenantId)) { throw "TenantId vazio. Verifique settings.json." }
-if ([string]::IsNullOrWhiteSpace($clientId)) { throw "ClientId vazio. Verifique settings.json." }
+if ([string]::IsNullOrWhiteSpace($tenantId)) { throw "TenantId is empty. Check settings.json." }
+if ([string]::IsNullOrWhiteSpace($clientId)) { throw "ClientId is empty. Check settings.json." }
 if ([string]::IsNullOrWhiteSpace($thumb) -and [string]::IsNullOrWhiteSpace($clientSecret)) {
-    throw "CertificateThumbprint ou ClientSecret é necessário. Verifique settings.json."
+    throw "CertificateThumbprint or ClientSecret is required. Check settings.json."
 }
 
 if ([string]::IsNullOrWhiteSpace($SnapshotFolder)) {
     if (-not (Test-Path $backupRoot)) {
-        throw "BackupRoot não existe: $backupRoot"
+        throw "BackupRoot does not exist: $backupRoot"
     }
 
     $SnapshotFolder = Get-ValidBackupFolder -BackupRoot $backupRoot
 
     if (-not $SnapshotFolder) {
-        throw "Nenhum snapshot de backup válido encontrado em $backupRoot (faltando manifest.json, roleDefinitions.json ou roleAssignments.json)."
+        throw "No valid backup snapshot found in $backupRoot (missing manifest.json, roleDefinitions.json or roleAssignments.json)."
     }
 }
 
 if (-not (Test-Path $RestoreScriptPath)) {
-    throw "Script de restauração não encontrado em $RestoreScriptPath"
+    throw "Restore script not found at $RestoreScriptPath"
 }
 
 & powershell.exe -ExecutionPolicy Bypass -File $RestoreScriptPath `

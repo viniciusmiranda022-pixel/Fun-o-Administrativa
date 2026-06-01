@@ -30,7 +30,7 @@ public class AppConfigStore
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro lendo {File}", _configFile);
+                _logger.LogError(ex, "Error reading {File}", _configFile);
                 return new AppConfig();
             }
         }
@@ -42,7 +42,7 @@ public class AppConfigStore
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_configFile)!);
             File.WriteAllText(_configFile, JsonSerializer.Serialize(config, _json));
-            _logger.LogInformation("AppConfig salvo em {File}", _configFile);
+            _logger.LogInformation("AppConfig saved to {File}", _configFile);
         }
     }
 
@@ -53,7 +53,7 @@ public class AppConfigStore
             if (File.Exists(_configFile))
             {
                 File.Delete(_configFile);
-                _logger.LogInformation("AppConfig removido: {File}", _configFile);
+                _logger.LogInformation("AppConfig removed: {File}", _configFile);
             }
         }
     }

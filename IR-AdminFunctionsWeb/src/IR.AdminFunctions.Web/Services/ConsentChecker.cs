@@ -4,11 +4,11 @@ using IR.AdminFunctions.Web.Models;
 
 namespace IR.AdminFunctions.Web.Services;
 
-// Verifica via Microsoft Graph se o Service Principal da nossa aplicação
-// já tem as permissões Basic (RoleManagement.Read.Directory) e Restore
-// (RoleManagement.ReadWrite.Directory) concedidas no tenant alvo.
+// Checks via Microsoft Graph whether the Service Principal of our application
+// already has Basic (RoleManagement.Read.Directory) and Restore
+// (RoleManagement.ReadWrite.Directory) permissions granted in the target tenant.
 //
-// Usa client credentials flow com o ClientId/Secret do AppConfig.
+// Uses client credentials flow with the ClientId/Secret from AppConfig.
 public class ConsentChecker
 {
     private readonly AppConfigStore _appStore;
@@ -40,12 +40,12 @@ public class ConsentChecker
             using var http = _httpClientFactory.CreateClient();
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            // Busca o Service Principal da nossa app no tenant alvo
+            // Searches for the Service Principal of our app in the target tenant
             var spUrl = $"https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '{cfg.ClientId}'&$select=id";
             var spResp = await http.GetAsync(spUrl, ct);
             if (!spResp.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Falha ao buscar SP no tenant {Tenant}: {Status}", tenantId, spResp.StatusCode);
+                _logger.LogWarning("Failed to retrieve SP in tenant {Tenant}: {Status}", tenantId, spResp.StatusCode);
                 return new TenantConsentsState();
             }
 
@@ -54,7 +54,7 @@ public class ConsentChecker
             var spId = spList?.Value?.FirstOrDefault()?.Id;
             if (spId == null) return new TenantConsentsState();
 
-            // Busca as app role assignments do SP
+            // Fetches the app role assignments of the SP
             var assignUrl = $"https://graph.microsoft.com/v1.0/servicePrincipals/{spId}/appRoleAssignments";
             var assignResp = await http.GetAsync(assignUrl, ct);
             if (!assignResp.IsSuccessStatusCode) return new TenantConsentsState();
@@ -73,16 +73,16 @@ public class ConsentChecker
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha ao consultar consents do tenant {Tenant}", tenantId);
+            _logger.LogWarning(ex, "Failed to query consents for tenant {Tenant}", tenantId);
             return new TenantConsentsState();
         }
     }
 
-    // Constrói a URL de admin consent que o navegador deve abrir.
+    // Builds the admin consent URL that the browser should open.
     public string BuildAdminConsentUrl(string redirectUri, string state, string? tenantHint = null)
     {
         var cfg = _appStore.Read();
-        if (!cfg.IsConfigured) throw new InvalidOperationException("App não configurado. Execute o setup inicial.");
+        if (!cfg.IsConfigured) throw new InvalidOperationException("App not configured. Run the initial setup.");
 
         var tenant = string.IsNullOrWhiteSpace(tenantHint) ? "common" : tenantHint;
         return $"https://login.microsoftonline.com/{tenant}/adminconsent" +
@@ -105,7 +105,7 @@ public class ConsentChecker
         if (!resp.IsSuccessStatusCode)
         {
             var err = await resp.Content.ReadAsStringAsync(ct);
-            _logger.LogWarning("Falha ao obter token para tenant {Tenant}: {Err}", tenantId, err);
+            _logger.LogWarning("Failed to obtain token for tenant {Tenant}: {Err}", tenantId, err);
             return null;
         }
         var json = await resp.Content.ReadAsStringAsync(ct);

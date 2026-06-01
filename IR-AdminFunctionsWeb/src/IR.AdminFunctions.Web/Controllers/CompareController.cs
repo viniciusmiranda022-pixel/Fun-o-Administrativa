@@ -41,11 +41,11 @@ public class CompareController : ControllerBase
         var raw = _settings.ReadRaw();
 
         if (raw == null || string.IsNullOrWhiteSpace(raw.TenantId) || string.IsNullOrWhiteSpace(raw.ClientId))
-            return ApiResponse<Job>.Fail("settings.json incompleto (TenantId/ClientId ausentes). Adicione um tenant primeiro.");
+            return ApiResponse<Job>.Fail("settings.json is incomplete (TenantId/ClientId missing). Add a tenant first.");
 
         var hasAuth = !string.IsNullOrWhiteSpace(raw.CertificateThumbprint) || !string.IsNullOrWhiteSpace(cfg.ClientSecret);
         if (!hasAuth)
-            return ApiResponse<Job>.Fail("Nenhuma credencial configurada. Execute o setup e conceda o consentimento Basic.");
+            return ApiResponse<Job>.Fail("No credentials configured. Run the setup and grant Basic consent.");
 
         var input = new Dictionary<string, object?>
         {
@@ -126,7 +126,7 @@ public class CompareController : ControllerBase
         }
         catch (Exception ex)
         {
-            return ApiResponse<object>.Fail("Falha lendo resultado da comparação", ex.Message);
+            return ApiResponse<object>.Fail("Failed reading comparison result", ex.Message);
         }
     }
 }

@@ -10,18 +10,18 @@ $ErrorActionPreference = 'Stop'
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
     if ($existing.Status -ne 'Stopped') {
-        Write-Host "Parando serviço..." -ForegroundColor Cyan
+        Write-Host "Stopping service..." -ForegroundColor Cyan
         Stop-Service -Name $ServiceName -Force
     }
-    Write-Host "Removendo serviço..." -ForegroundColor Cyan
+    Write-Host "Removing service..." -ForegroundColor Cyan
     sc.exe delete $ServiceName | Out-Null
 } else {
-    Write-Host "Serviço $ServiceName não está instalado." -ForegroundColor Yellow
+    Write-Host "Service $ServiceName is not installed." -ForegroundColor Yellow
 }
 
 if (-not $KeepFiles -and (Test-Path $InstallPath)) {
-    Write-Host "Removendo binários em $InstallPath..." -ForegroundColor Cyan
+    Write-Host "Removing binaries at $InstallPath..." -ForegroundColor Cyan
     Remove-Item -Path $InstallPath -Recurse -Force
 }
 
-Write-Host "Desinstalação concluída." -ForegroundColor Green
+Write-Host "Uninstallation complete." -ForegroundColor Green

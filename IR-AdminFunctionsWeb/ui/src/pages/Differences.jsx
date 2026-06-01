@@ -59,13 +59,13 @@ function mapResult(item) {
 }
 
 function extractRestoreError(errors) {
-  if (!errors?.length) return 'Falhou';
+  if (!errors?.length) return 'Failed';
   const metaRe = /^(No linha|At line|\+ |[ \t]*\+ Category|[ \t]*\+ FullyQualified)/;
   const useful = errors.filter(l => !metaRe.test(l)).join(' ');
-  const marker = 'Restore falhou:';
+  const marker = 'Restore failed:';
   const idx = useful.indexOf(marker);
   if (idx !== -1) return useful.slice(idx + marker.length).trim();
-  return useful.replace(/^[A-Za-z]:\\[^:]+\.ps1\s*:\s*/i, '').trim() || 'Falhou';
+  return useful.replace(/^[A-Za-z]:\\[^:]+\.ps1\s*:\s*/i, '').trim() || 'Failed';
 }
 
 // selectedRows: array of { name, diffType, roleType }
@@ -82,7 +82,7 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
 
   async function handleApply() {
     if (!backupId) {
-      setError('BackupId não disponível. Execute um novo RUN COMPARE para recarregar os resultados.');
+      setError('BackupId not available. Run a new RUN COMPARE to reload the results.');
       return;
     }
     setPhase('running');
@@ -93,18 +93,18 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
       const { name: roleName } = toRestore[i];
       const currentRoleName = targets[roleName] || undefined;
       const label = currentRoleName ? `${currentRoleName} → ${roleName}` : roleName;
-      setProgress({ current: i + 1, total, log: [...log, `Restaurando: ${label}…`] });
+      setProgress({ current: i + 1, total, log: [...log, `Restoring: ${label}…`] });
       try {
         const resp = await api.applyRestore({ backupId, roleName, currentRoleName });
         const job = resp?.data;
-        if (!job?.id) throw new Error('Nenhum job id retornado');
+        if (!job?.id) throw new Error('No job id returned');
         const result = await pollJob(job.id, { intervalMs: 3000, timeoutMs: 300000 });
         const scriptFailed = result?.status === 'Failed' || result?.result?.success === false;
         if (scriptFailed) {
-          const errMsg = result?.error || extractRestoreError(result?.result?.errors) || 'Falhou';
+          const errMsg = result?.error || extractRestoreError(result?.result?.errors) || 'Failed';
           log.push(`✗ ${label}: ${errMsg}`);
         } else {
-          log.push(`✓ ${label}: restaurado com sucesso`);
+          log.push(`✓ ${label}: restored successfully`);
         }
       } catch (err) {
         log.push(`✗ ${label}: ${err.message}`);
@@ -115,21 +115,21 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
   }
 
   return (
-    <Modal title="Restaurar Roles Selecionadas" onClose={phase !== 'running' ? onClose : undefined} maxWidth="max-w-lg">
+    <Modal title="Restore Selected Roles" onClose={phase !== 'running' ? onClose : undefined} maxWidth="max-w-lg">
       <div className="p-5 space-y-4">
         {phase === 'confirm' && (
           <>
             <div className="flex items-start gap-2 bg-[#FFF8E1] border border-[#FFC107] p-3 text-xs text-[#856404]">
               <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
               <span>
-                Esta operação vai restaurar {restorableRows.length > 0 ? restorableRows.length : selectedRows.length} role(s) para o estado do backup. A ação não pode ser desfeita automaticamente.
+                This operation will restore {restorableRows.length > 0 ? restorableRows.length : selectedRows.length} role(s) to the backup state. This action cannot be automatically undone.
               </span>
             </div>
             {newRoles.length > 0 && (
               <div className="flex items-start gap-2 bg-[#FFF3CD] border border-[#FFC107] p-3 text-xs text-[#856404]">
                 <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
                 <span>
-                  <strong>{newRoles.length} role(s) com status "New"</strong> foram ignoradas: estas roles existem apenas no tenant atual e não possuem snapshot no backup para restaurar.
+                  <strong>{newRoles.length} role(s) with status "New"</strong> were skipped: these roles only exist in the current tenant and have no snapshot in the backup to restore.
                   {newRoles.length > 0 && (
                     <span className="block mt-1 font-mono">{newRoles.map(r => r.name).join(', ')}</span>
                   )}
@@ -138,24 +138,24 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
             )}
             {!backupId && (
               <div className="text-xs text-[#DC3545]">
-                Atenção: BackupId não disponível. Execute um novo RUN COMPARE para que os resultados incluam o ID do backup.
+                Warning: BackupId not available. Run a new RUN COMPARE so that the results include the backup ID.
               </div>
             )}
             {restorableRows.length === 0 && newRoles.length > 0 && (
               <div className="text-xs text-[#DC3545]">
-                Nenhuma role selecionada pode ser restaurada. Selecione roles com status "Removed" ou "Changed".
+                No selected role can be restored. Select roles with status "Removed" or "Changed".
               </div>
             )}
             {removedRows.length > 0 && (
               <div className="flex items-start gap-2 bg-[#E7F3F8] border border-[#0078A8] p-3 text-xs text-[#0078A8]">
                 <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
                 <span>
-                  Para roles <strong>Removed</strong>: se a role foi renomeada no tenant, escolha o nome atual dela em "Aplicar sobre" — o backup será aplicado sobre essa role, renomeando-a de volta. Deixe em "Criar nova role" se ela foi realmente excluída.
+                  For <strong>Removed</strong> roles: if the role was renamed in the tenant, choose its current name under "Apply over" — the backup will be applied to that role, renaming it back. Leave as "Create new role" if it was truly deleted.
                 </span>
               </div>
             )}
             <div>
-              <p className="text-xs font-semibold text-[#333] mb-1">Roles selecionadas:</p>
+              <p className="text-xs font-semibold text-[#333] mb-1">Selected roles:</p>
               <ul className="space-y-1.5 max-h-56 overflow-auto">
                 {selectedRows.map((r) => (
                   <li key={r.name} className="text-xs text-[#555]">
@@ -163,17 +163,17 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
                       <RotateCcw size={11} className={r.diffType === 'New' ? 'text-[#FFC107] flex-shrink-0' : 'text-[#0078A8] flex-shrink-0'} />
                       <span className={r.diffType === 'New' ? 'line-through text-[#888]' : ''}>{r.name}</span>
                       <span className="text-[#888]">— {r.diffType}</span>
-                      {r.diffType === 'New' && <span className="text-[#888] italic">(ignorada)</span>}
+                      {r.diffType === 'New' && <span className="text-[#888] italic">(skipped)</span>}
                     </div>
                     {r.diffType === 'Removed' && (
                       <div className="ml-5 mt-1 flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[#888]">Aplicar sobre:</span>
+                        <span className="text-[#888]">Apply over:</span>
                         <select
                           value={targets[r.name] || ''}
                           onChange={(e) => setTargets((t) => ({ ...t, [r.name]: e.target.value }))}
                           className="border border-[#DEE2E6] px-1.5 py-0.5 text-xs bg-white max-w-[14rem]"
                         >
-                          <option value="">Criar nova role</option>
+                          <option value="">Create new role</option>
                           {targetCandidates.map((c) => (
                             <option key={c} value={c}>{c}</option>
                           ))}
@@ -190,14 +190,14 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
                 onClick={onClose}
                 className="px-4 py-1.5 text-xs border border-[#DEE2E6] bg-white text-[#555] hover:bg-[#F2F2F2]"
               >
-                CANCELAR
+                CANCEL
               </button>
               <button
                 onClick={handleApply}
                 disabled={!backupId || restorableRows.length === 0}
                 className="px-4 py-1.5 text-xs font-semibold bg-[#0078A8] text-white hover:bg-[#005f87] disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                RESTAURAR
+                RESTORE
               </button>
             </div>
           </>
@@ -206,7 +206,7 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
         {phase === 'running' && (
           <div className="space-y-3">
             <p className="text-xs text-[#555]">
-              Restaurando {progress.current}/{progress.total}…
+              Restoring {progress.current}/{progress.total}…
             </p>
             <div className="w-full bg-[#E9ECEF] h-1.5">
               <div
@@ -224,7 +224,7 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
 
         {phase === 'done' && (
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-[#28A745]">Operação concluída.</p>
+            <p className="text-xs font-semibold text-[#28A745]">Operation completed.</p>
             <ul className="space-y-0.5 max-h-48 overflow-auto">
               {progress.log.map((line, i) => (
                 <li key={i} className={`text-xs font-mono ${line.startsWith('✗') ? 'text-[#DC3545]' : 'text-[#28A745]'}`}>{line}</li>
@@ -235,7 +235,7 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
                 onClick={onDone}
                 className="px-4 py-1.5 text-xs font-semibold bg-[#0078A8] text-white hover:bg-[#005f87]"
               >
-                FECHAR
+                CLOSE
               </button>
             </div>
           </div>

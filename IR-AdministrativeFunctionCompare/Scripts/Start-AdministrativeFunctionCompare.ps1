@@ -215,7 +215,7 @@ function Connect-AppOnlyWithRetry {
                 $cred = New-Object System.Management.Automation.PSCredential($ClientId, $secSecret)
                 Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ContextScope Process | Out-Null
             } else {
-                throw "Nenhuma credencial disponível (Thumbprint nem ClientSecret)."
+                throw "No credentials available (neither Thumbprint nor ClientSecret)."
             }
             Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
             Write-Log "${Operation}: app-only connection succeeded on attempt $attempt."
@@ -345,7 +345,7 @@ function Load-CurrentTenantData {
         $cred = New-Object System.Management.Automation.PSCredential($ClientId, $secSecret)
         Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ContextScope Process | Out-Null
     } else {
-        throw "Nenhuma credencial disponível (Thumbprint nem ClientSecret)."
+        throw "No credentials available (neither Thumbprint nor ClientSecret)."
     }
 
     $definitions = Get-MgRoleManagementDirectoryRoleDefinition -All
@@ -803,7 +803,7 @@ function Run-ComparisonWorkflow {
         throw "Select a snapshot folder first."
     }
     if (-not (Test-ValidAdministrativeFunctionBackup -Path $TxtSnapshotFolder.Text)) {
-        throw "A pasta selecionada não é um snapshot válido. Selecione uma pasta dentro de $DefaultBackupRoot que contenha manifest.json, roleDefinitions.json e roleAssignments.json."
+        throw "The selected folder is not a valid snapshot. Select a folder inside $DefaultBackupRoot that contains manifest.json, roleDefinitions.json and roleAssignments.json."
     }
 
     Set-UiState -StatusText "Status: preparing comparison..." -Busy $true
@@ -879,10 +879,10 @@ function Invoke-ExternalRestore {
 }
 
 if ($Headless) {
-    if ([string]::IsNullOrWhiteSpace($TenantId))  { throw "-TenantId é obrigatório em modo headless." }
-    if ([string]::IsNullOrWhiteSpace($ClientId))  { throw "-ClientId é obrigatório em modo headless." }
+    if ([string]::IsNullOrWhiteSpace($TenantId))  { throw "-TenantId is required in headless mode." }
+    if ([string]::IsNullOrWhiteSpace($ClientId))  { throw "-ClientId is required in headless mode." }
     if ([string]::IsNullOrWhiteSpace($Thumbprint) -and [string]::IsNullOrWhiteSpace($ClientSecret)) {
-        throw "-Thumbprint ou -ClientSecret é obrigatório em modo headless."
+        throw "-Thumbprint or -ClientSecret is required in headless mode."
     }
 
     $headlessBackupRoot = Resolve-BackupRoot
@@ -901,23 +901,23 @@ if ($Headless) {
 
     if (-not $snapshotFolder) {
         if (-not (Test-Path $headlessBackupRoot)) {
-            throw "Pasta de backups não existe: $headlessBackupRoot"
+            throw "Backup folder does not exist: $headlessBackupRoot"
         }
         $candidate = Get-ChildItem -Path $headlessBackupRoot -Directory -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending |
             Where-Object { Test-ValidAdministrativeFunctionBackup -Path $_.FullName } |
             Select-Object -First 1
         if (-not $candidate) {
-            throw "Nenhum snapshot válido em $headlessBackupRoot."
+            throw "No valid snapshot found in $headlessBackupRoot."
         }
         $snapshotFolder = $candidate.FullName
     }
 
     if (-not (Test-ValidAdministrativeFunctionBackup -Path $snapshotFolder)) {
-        throw "Snapshot inválido: $snapshotFolder (faltam manifest.json/roleDefinitions.json/roleAssignments.json)."
+        throw "Invalid snapshot: $snapshotFolder (missing manifest.json/roleDefinitions.json/roleAssignments.json)."
     }
 
-    Write-Log "Headless compare iniciado. Snapshot: $snapshotFolder"
+    Write-Log "Headless compare started. Snapshot: $snapshotFolder"
 
     $snapshotData = Load-Snapshot -Folder $snapshotFolder
     Connect-AppOnlyWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $Thumbprint -ClientSecret $ClientSecret -Operation "Headless compare"
@@ -933,7 +933,7 @@ if ($Headless) {
         SnapshotFolder = $snapshotFolder
         Data = @($compareResults | Select-Object RoleName, RoleType, Status, DefinitionChanged, AssignmentsChanged, DifferenceCount, Summary)
     } | ConvertTo-Json -Depth 5 | Set-Content -Path $outputPath -Encoding UTF8
-    Write-Log "Headless compare concluído. Resultado: $outputPath"
+    Write-Log "Headless compare completed. Output: $outputPath"
     Write-Output $outputPath
     exit 0
 }
@@ -1066,7 +1066,7 @@ $script:ManageRestoreData.Add([pscustomobject]@{
     Tenant = "Contoso"
     ConsentIcon = "✔"
     ConsentColor = "#76B900"
-    ConsentTooltip = "Consentimento configurado e válido para operações de restore."
+    ConsentTooltip = "Consent configured and valid for restore operations."
     ConsentStatus = "Granted"
 })
 $GridManageRestoreTenants.ItemsSource = $script:ManageRestoreData
@@ -1139,7 +1139,7 @@ $BtnLoadBackups.Add_Click({
         $ManageBackupsOverlay.Visibility = "Visible"
     }
     catch {
-        [System.Windows.MessageBox]::Show("Não foi possível carregar automaticamente a lista de backups. Verifique o log do Compare.", "UI binding error")
+        [System.Windows.MessageBox]::Show("Could not automatically load the backup list. Check the Compare log.", "UI binding error")
         Write-Log ("UI binding error while loading backups: " + $_.Exception.ToString()) -Severity "ERROR"
         Add-TaskEntry -Task "Load Backups" -Status "Failed" -Details $_.Exception.Message
     }
@@ -1152,7 +1152,7 @@ $closeManageBackups = {
 
 $openConfigureBackup = {
     if (-not $GridManageBackupsTenants.SelectedItem) {
-        [System.Windows.MessageBox]::Show("Nenhum tenant configurado foi encontrado.", "Manage backups")
+        [System.Windows.MessageBox]::Show("No configured tenant was found.", "Manage backups")
         return
     }
     $ConfigureBackupOverlay.Visibility = "Visible"
@@ -1184,11 +1184,11 @@ $BtnCreateBackupCancel.Add_Click($closeCreateBackup)
 $GridManageRestoreTenants.Add_MouseDoubleClick({
     $selectedTenant = $GridManageRestoreTenants.SelectedItem
     if ($selectedTenant -and [string]$selectedTenant.ConsentStatus -eq "Granted") {
-        [System.Windows.MessageBox]::Show("A próxima etapa deve iniciar em modo de pré-visualização. Nenhuma alteração será aplicada sem confirmação explícita.", "Manage Restore")
-        Write-Log "Manage Restore: tenant '$($selectedTenant.Tenant)' pronto para avançar ao preview de restore."
+        [System.Windows.MessageBox]::Show("The next step should start in preview mode. No changes will be applied without explicit confirmation.", "Manage Restore")
+        Write-Log "Manage Restore: tenant '$($selectedTenant.Tenant)' ready to proceed to restore preview."
     }
     else {
-        [System.Windows.MessageBox]::Show("O consentimento necessário para restore não está configurado ou está incompleto.", "Manage Restore")
+        [System.Windows.MessageBox]::Show("The consent required for restore is not configured or is incomplete.", "Manage Restore")
     }
 })
 
@@ -1212,11 +1212,11 @@ $TxtManageRestoreSearch.Add_TextChanged({
 $BtnSaveConfigureBackup.Add_Click({
     $retentionValue = 0
     if (-not [int]::TryParse($TxtRetentionPolicy.Text, [ref]$retentionValue) -or $retentionValue -le 0) {
-        [System.Windows.MessageBox]::Show("A política de retenção deve ser informada em dias e precisa ser maior que zero.", "Configure backup")
+        [System.Windows.MessageBox]::Show("The retention policy must be entered in days and must be greater than zero.", "Configure backup")
         return
     }
     if (-not ($ChkOpt1.IsChecked -or $ChkOpt2.IsChecked -or $ChkOpt3.IsChecked -or $ChkOpt4.IsChecked)) {
-        [System.Windows.MessageBox]::Show("Selecione pelo menos uma opção de backup.", "Configure backup")
+        [System.Windows.MessageBox]::Show("Select at least one backup option.", "Configure backup")
         return
     }
 
@@ -1230,7 +1230,7 @@ $BtnSaveConfigureBackup.Add_Click({
     }
     Write-Log "Backup configuration updated for tenant Contoso."
     Add-TaskEntry -Task "Update Backup Configuration" -Status "Completed" -Details "Tenant Contoso"
-    [System.Windows.MessageBox]::Show("Configuração de backup salva com sucesso.", "Configure backup")
+    [System.Windows.MessageBox]::Show("Backup configuration saved successfully.", "Configure backup")
     & $closeConfigureBackup
 })
 
@@ -1264,7 +1264,7 @@ $BtnRefreshBackups.Add_Click({
         Add-TaskEntry -Task "Open Manage Restore" -Status "Completed" -Details "Tenant list loaded"
     }
     catch {
-        [System.Windows.MessageBox]::Show("Não foi possível abrir a tela Manage Restore.", "Manage Restore")
+        [System.Windows.MessageBox]::Show("Could not open the Manage Restore screen.", "Manage Restore")
         Write-Log ("Error opening Manage Restore: " + $_.Exception.ToString()) -Severity "ERROR"
         Add-TaskEntry -Task "Open Manage Restore" -Status "Failed" -Details $_.Exception.Message
     }
@@ -1320,8 +1320,8 @@ $BtnBrowseSnapshot.Add_Click({
             Add-TaskEntry -Task "Select Snapshot" -Status "Completed" -Details $dialog.SelectedPath
         }
         else {
-            $message = "A pasta selecionada não é um snapshot válido. Selecione uma pasta dentro de $DefaultBackupRoot que contenha manifest.json, roleDefinitions.json e roleAssignments.json."
-            [System.Windows.MessageBox]::Show($message, "Snapshot inválido")
+            $message = "The selected folder is not a valid snapshot. Select a folder inside $DefaultBackupRoot that contains manifest.json, roleDefinitions.json and roleAssignments.json."
+            [System.Windows.MessageBox]::Show($message, "Invalid snapshot")
             $TxtStatus.Text = "Status: invalid snapshot folder selected."
             Write-Log "Invalid snapshot selected manually: $($dialog.SelectedPath)" -Severity "WARN"
             Add-TaskEntry -Task "Select Snapshot" -Status "Failed" -Details $message
@@ -1488,10 +1488,10 @@ $BtnRestoreSelected.Add_Click({
         Set-UiState -StatusText "Status: running restore for '$($item.RoleName)'..." -Busy $true
         Write-Log "Starting external restore for role '$($item.RoleName)'"
 
-        if ([string]::IsNullOrWhiteSpace($script:TenantId)) { throw "TenantId vazio. Verifique settings.json." }
-        if ([string]::IsNullOrWhiteSpace($script:ClientId)) { throw "ClientId vazio. Verifique settings.json." }
-        if ([string]::IsNullOrWhiteSpace($script:CertificateThumbprint)) { throw "CertificateThumbprint vazio. Verifique settings.json." }
-        if ([string]::IsNullOrWhiteSpace($TxtSnapshotFolder.Text)) { throw "SnapshotFolder vazio. Selecione um backup válido." }
+        if ([string]::IsNullOrWhiteSpace($script:TenantId)) { throw "TenantId is empty. Check settings.json." }
+        if ([string]::IsNullOrWhiteSpace($script:ClientId)) { throw "ClientId is empty. Check settings.json." }
+        if ([string]::IsNullOrWhiteSpace($script:CertificateThumbprint)) { throw "CertificateThumbprint is empty. Check settings.json." }
+        if ([string]::IsNullOrWhiteSpace($TxtSnapshotFolder.Text)) { throw "SnapshotFolder is empty. Select a valid backup." }
 
         Invoke-ExternalRestore -TenantId $script:TenantId -ClientId $script:ClientId -Thumbprint $script:CertificateThumbprint -RoleName $item.RoleName -SnapshotFolder $TxtSnapshotFolder.Text
 

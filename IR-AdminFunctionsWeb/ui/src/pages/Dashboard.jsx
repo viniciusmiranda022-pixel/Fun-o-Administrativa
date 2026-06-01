@@ -347,7 +347,7 @@ function CreateBackupModal({ onClose, tenant }) {
       onClose();
       navigate('/tasks');
     } catch (err) {
-      setError(err.message || 'Falha ao iniciar backup');
+      setError(err.message || 'Failed to start backup');
       setSubmitting(false);
     }
   }
@@ -362,19 +362,19 @@ function CreateBackupModal({ onClose, tenant }) {
               {error}
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50">Fechar</button>
+              <button onClick={onClose} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50">Close</button>
             </div>
           </div>
         ) : (
           <>
             <p className="text-sm text-[#333] mb-2">
-              Deseja fazer backup das funções administrativas para este tenant?
+              Do you want to back up the administrative functions for this tenant?
             </p>
             <p className="text-sm font-semibold text-[#0078A8] mb-5">{tenant?.name ?? 'Unknown'}</p>
             <div className="flex justify-end gap-2">
-              <button onClick={onClose} disabled={submitting} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={onClose} disabled={submitting} className="px-4 py-1.5 text-xs border border-[#DEE2E6] hover:bg-gray-50 disabled:opacity-50">Cancel</button>
               <button onClick={handleCreate} disabled={submitting} className="px-4 py-1.5 text-xs bg-[#0078A8] text-white hover:bg-[#006090] disabled:opacity-50">
-                {submitting ? 'Iniciando...' : 'Criar'}
+                {submitting ? 'Starting...' : 'Create'}
               </button>
             </div>
           </>

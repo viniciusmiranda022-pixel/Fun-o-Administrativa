@@ -23,7 +23,7 @@ public class JobsController : ControllerBase
     public ActionResult<ApiResponse<Job>> Get(string id)
     {
         var job = _jobs.Get(id);
-        if (job == null) return ApiResponse<Job>.Fail("Job não encontrado");
+        if (job == null) return ApiResponse<Job>.Fail("Job not found");
         return ApiResponse<Job>.Ok(job);
     }
 }

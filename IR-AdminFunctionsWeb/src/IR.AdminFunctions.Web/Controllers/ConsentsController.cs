@@ -22,7 +22,7 @@ public class ConsentsController : ControllerBase
     {
         var tenant = await _tenantStore.GetAsync(tenantId);
         if (tenant == null)
-            return NotFound(ApiResponse<object>.Fail("Tenant não encontrado."));
+            return NotFound(ApiResponse<object>.Fail("Tenant not found."));
 
         var consents = await _checker.CheckAsync(tenantId, ct);
         await _tenantStore.UpdateConsentsAsync(tenantId, consents);
@@ -35,15 +35,15 @@ public class ConsentsController : ControllerBase
                 granted = consents.Basic.Granted,
                 grantedAt = consents.Basic.GrantedAt,
                 permission = "RoleManagement.Read.Directory",
-                description = "Permite ler role definitions e role assignments do Microsoft Entra ID (necessário para backup e comparação).",
-                operations = new[] { "Backup", "Comparação", "Inventário" }
+                description = "Allows reading role definitions and role assignments from Microsoft Entra ID (required for backup and comparison).",
+                operations = new[] { "Backup", "Comparison", "Inventory" }
             },
             restore = new
             {
                 granted = consents.Restore.Granted,
                 grantedAt = consents.Restore.GrantedAt,
                 permission = "RoleManagement.ReadWrite.Directory",
-                description = "Permite criar e atualizar custom role definitions e role assignments. ATENÇÃO: permite alteração no RBAC do diretório.",
+                description = "Allows creating and updating custom role definitions and role assignments. WARNING: permits changes to directory RBAC.",
                 operations = new[] { "Restore" },
                 sensitive = true
             }

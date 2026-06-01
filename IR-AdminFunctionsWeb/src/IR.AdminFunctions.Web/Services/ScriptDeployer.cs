@@ -19,7 +19,7 @@ public class ScriptDeployer : IHostedService
         var baseScriptsDir = Path.Combine(AppContext.BaseDirectory, "Scripts");
         if (!Directory.Exists(baseScriptsDir))
         {
-            _logger.LogWarning("Pasta de scripts embutidos não encontrada: {Dir} — scripts não serão atualizados automaticamente.", baseScriptsDir);
+            _logger.LogWarning("Embedded scripts folder not found: {Dir} — scripts will not be updated automatically.", baseScriptsDir);
             return Task.CompletedTask;
         }
 
@@ -37,7 +37,7 @@ public class ScriptDeployer : IHostedService
             Path.Combine(baseScriptsDir, "Restore"),
             Path.Combine(_options.RestoreRoot, "Scripts"));
 
-        _logger.LogInformation("ScriptDeployer: {Count} script(s) implantado(s)", deployed);
+        _logger.LogInformation("ScriptDeployer: {Count} script(s) deployed", deployed);
         return Task.CompletedTask;
     }
 

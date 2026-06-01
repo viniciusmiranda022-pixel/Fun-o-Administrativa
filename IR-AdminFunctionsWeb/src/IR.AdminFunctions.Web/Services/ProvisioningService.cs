@@ -27,10 +27,10 @@ public class ProvisioningService : IHostedService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Falha no auto-provisionamento de arquivos. A aplicação continuará.");
+            _logger.LogError(ex, "Failure during auto-provisioning of files. The application will continue.");
         }
 
-        // Instalação do Microsoft.Graph em background para não bloquear o startup
+        // Installing Microsoft.Graph in background to avoid blocking startup
         _ = Task.Run(() => EnsurePowerShellDependencies(cancellationToken), cancellationToken);
 
         return Task.CompletedTask;
@@ -47,11 +47,11 @@ public class ProvisioningService : IHostedService
 
             if (IsMicrosoftGraphAvailable(rs))
             {
-                _logger.LogInformation("Microsoft.Graph já está disponível — nenhuma instalação necessária.");
+                _logger.LogInformation("Microsoft.Graph is already available — no installation needed.");
                 return;
             }
 
-            _logger.LogInformation("Microsoft.Graph não encontrado. Instalando NuGet provider e Microsoft.Graph (Scope CurrentUser)...");
+            _logger.LogInformation("Microsoft.Graph not found. Installing NuGet provider and Microsoft.Graph (Scope CurrentUser)...");
 
             RunScript(rs, @"
                 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -64,11 +64,11 @@ public class ProvisioningService : IHostedService
                 Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
             ", "Install-Module Microsoft.Graph");
 
-            _logger.LogInformation("Microsoft.Graph instalado com sucesso em CurrentUser.");
+            _logger.LogInformation("Microsoft.Graph successfully installed for CurrentUser.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Falha ao instalar Microsoft.Graph. Execute manualmente: " +
+            _logger.LogError(ex, "Failed to install Microsoft.Graph. Run manually: " +
                 "Install-Module Microsoft.Graph -Scope CurrentUser -Force");
         }
     }
@@ -92,10 +92,10 @@ public class ProvisioningService : IHostedService
         if (ps.HadErrors)
         {
             var errors = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
-            throw new InvalidOperationException($"{label} falhou: {errors}");
+            throw new InvalidOperationException($"{label} failed: {errors}");
         }
 
-        _logger.LogInformation("{Label} concluído.", label);
+        _logger.LogInformation("{Label} completed.", label);
     }
 
     private void EnsureModule(string moduleName, string[] subFolders)
@@ -111,7 +111,7 @@ public class ProvisioningService : IHostedService
         var sourceModule = FindSourceModule(moduleName);
         if (sourceModule == null)
         {
-            _logger.LogWarning("Origem do módulo {Module} não encontrada — pastas criadas, mas scripts não foram copiados.", moduleName);
+            _logger.LogWarning("Source for module {Module} not found — folders created, but scripts were not copied.", moduleName);
             return;
         }
 
@@ -131,14 +131,14 @@ public class ProvisioningService : IHostedService
                 {
                     File.Copy(file, target);
                     copiedAny = true;
-                    _logger.LogInformation("Provisionado: {Source} → {Target}", file, target);
+                    _logger.LogInformation("Provisioned: {Source} → {Target}", file, target);
                 }
             }
         }
 
         if (copiedAny)
         {
-            _logger.LogInformation("Módulo {Module} provisionado a partir de {Source}", moduleName, sourceModule);
+            _logger.LogInformation("Module {Module} provisioned from {Source}", moduleName, sourceModule);
         }
     }
 
@@ -177,10 +177,10 @@ public class ProvisioningService : IHostedService
             {
                 new
                 {
-                    Name = "PREENCHER-NomeDoTenant",
-                    TenantId = "PREENCHER-TenantId",
-                    ClientId = "PREENCHER-ClientId",
-                    Thumbprint = "PREENCHER-Thumbprint"
+                    Name = "FILL-IN-TenantName",
+                    TenantId = "FILL-IN-TenantId",
+                    ClientId = "FILL-IN-ClientId",
+                    Thumbprint = "FILL-IN-Thumbprint"
                 }
             },
             Defaults = new
@@ -192,6 +192,6 @@ public class ProvisioningService : IHostedService
 
         var json = JsonSerializer.Serialize(template, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(path, json);
-        _logger.LogWarning("settings.json não existia — template criado em {Path}. Edite os campos PREENCHER-* antes de usar.", path);
+        _logger.LogWarning("settings.json did not exist — template created at {Path}. Edit the FILL-IN-* fields before use.", path);
     }
 }

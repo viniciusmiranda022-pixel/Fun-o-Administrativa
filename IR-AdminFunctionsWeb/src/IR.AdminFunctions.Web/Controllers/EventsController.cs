@@ -42,7 +42,7 @@ public class EventsController : ControllerBase
         if (!string.IsNullOrEmpty(since) && DateTime.TryParse(since, out var parsed))
             sinceDate = parsed;
         else if (string.IsNullOrEmpty(since))
-            sinceDate = DateTime.UtcNow.AddDays(-30); // padrão: últimos 30 dias
+            sinceDate = DateTime.UtcNow.AddDays(-30); // default: last 30 days
 
         var events = _logs.ReadEvents(severity: severity, since: sinceDate);
         return ApiResponse<object>.Ok(new { items = events });

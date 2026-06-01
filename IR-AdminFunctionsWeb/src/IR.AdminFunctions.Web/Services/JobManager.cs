@@ -78,7 +78,7 @@ public class JobManager
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job {JobId} ({Kind}) falhou", job.Id, job.Kind);
+                _logger.LogError(ex, "Job {JobId} ({Kind}) failed", job.Id, job.Kind);
                 Fail(job.Id, ex.Message, ex.StackTrace);
             }
         });

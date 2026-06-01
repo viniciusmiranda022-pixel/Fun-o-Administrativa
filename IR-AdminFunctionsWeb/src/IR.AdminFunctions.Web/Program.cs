@@ -70,7 +70,7 @@ try
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Falha fatal na inicialização do host");
+    Log.Fatal(ex, "Fatal failure during host initialization");
     throw;
 }
 finally

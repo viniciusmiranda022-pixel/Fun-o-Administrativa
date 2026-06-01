@@ -20,7 +20,7 @@ public class SettingsReader
         var path = _options.SettingsFile;
         if (!File.Exists(path))
         {
-            _logger.LogWarning("settings.json não encontrado em {Path}", path);
+            _logger.LogWarning("settings.json not found at {Path}", path);
             return null;
         }
 
@@ -46,7 +46,7 @@ public class SettingsReader
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Falha lendo settings.json em {Path}", path);
+            _logger.LogError(ex, "Failed reading settings.json at {Path}", path);
             return null;
         }
     }
@@ -56,7 +56,7 @@ public class SettingsReader
         var path = _options.SettingsFile;
         if (!File.Exists(path))
         {
-            _logger.LogWarning("settings.json não encontrado em {Path}", path);
+            _logger.LogWarning("settings.json not found at {Path}", path);
             return null;
         }
 
@@ -75,7 +75,7 @@ public class SettingsReader
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Falha lendo settings.json em {Path}", path);
+            _logger.LogError(ex, "Failed reading settings.json at {Path}", path);
             return null;
         }
     }

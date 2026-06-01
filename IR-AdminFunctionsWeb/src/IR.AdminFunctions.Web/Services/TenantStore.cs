@@ -38,9 +38,9 @@ public class TenantStore
         {
             var tenants = ReadFile();
             if (tenants.Any(t => t.TenantId.Equals(req.TenantId, StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidOperationException($"Tenant {req.TenantId} já existe.");
+                throw new InvalidOperationException($"Tenant {req.TenantId} already exists.");
 
-            // Prioridade: request → settings.json → AppConfig (setup) → cert store
+            // Priority: request → settings.json → AppConfig (setup) → cert store
             var thumbprint = req.CertificateThumbprint;
             var appCfg0 = _appConfig.Read();
             if (string.IsNullOrWhiteSpace(thumbprint))
@@ -48,13 +48,13 @@ public class TenantStore
             if (string.IsNullOrWhiteSpace(thumbprint) && !string.IsNullOrWhiteSpace(appCfg0.CertificateThumbprint))
             {
                 thumbprint = appCfg0.CertificateThumbprint;
-                _logger.LogInformation("CertificateThumbprint importado do AppConfig (setup): {Tp}", thumbprint);
+                _logger.LogInformation("CertificateThumbprint imported from AppConfig (setup): {Tp}", thumbprint);
             }
             if (string.IsNullOrWhiteSpace(thumbprint))
             {
                 thumbprint = AutoDetectThumbprint(appCfg0.ClientId);
                 if (!string.IsNullOrWhiteSpace(thumbprint))
-                    _logger.LogInformation("CertificateThumbprint detectado automaticamente no cert store: {Tp}", thumbprint);
+                    _logger.LogInformation("CertificateThumbprint automatically detected in the cert store: {Tp}", thumbprint);
             }
 
             var entry = new TenantEntry
@@ -71,7 +71,7 @@ public class TenantStore
             tenants.Add(entry);
             WriteFile(tenants);
             SyncSettingsJson(tenants);
-            _logger.LogInformation("Tenant adicionado: {Name} ({TenantId})", entry.Name, entry.TenantId);
+            _logger.LogInformation("Tenant added: {Name} ({TenantId})", entry.Name, entry.TenantId);
             return entry;
         }
         finally { _lock.Release(); }
@@ -87,7 +87,7 @@ public class TenantStore
             if (removed == 0) return false;
             WriteFile(tenants);
             SyncSettingsJson(tenants);
-            _logger.LogInformation("Tenant removido: {TenantId}", tenantId);
+            _logger.LogInformation("Tenant removed: {TenantId}", tenantId);
             return true;
         }
         finally { _lock.Release(); }
@@ -117,7 +117,7 @@ public class TenantStore
             tenant.CertificateThumbprint = detected;
             WriteFile(tenants);
             SyncSettingsJson(tenants);
-            _logger.LogInformation("CertificateThumbprint auto-detectado e salvo para tenant {TenantId}: {Tp}", tenantId, detected);
+            _logger.LogInformation("CertificateThumbprint auto-detected and saved for tenant {TenantId}: {Tp}", tenantId, detected);
             return detected;
         }
         finally { _lock.Release(); }
@@ -134,7 +134,7 @@ public class TenantStore
             tenant.CertificateThumbprint = thumbprint;
             WriteFile(tenants);
             SyncSettingsJson(tenants);
-            _logger.LogInformation("CertificateThumbprint atualizado para tenant {TenantId}", tenantId);
+            _logger.LogInformation("CertificateThumbprint updated for tenant {TenantId}", tenantId);
             return true;
         }
         finally { _lock.Release(); }
@@ -172,7 +172,7 @@ public class TenantStore
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro lendo {File}", _tenantsFile);
+            _logger.LogError(ex, "Error reading {File}", _tenantsFile);
             return new List<TenantEntry>();
         }
     }
@@ -202,7 +202,7 @@ public class TenantStore
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Erro ao ler cert store {Location}", location);
+                _logger.LogWarning(ex, "Error reading cert store {Location}", location);
             }
         }
         return null;
@@ -216,7 +216,7 @@ public class TenantStore
             var existing = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                 File.ReadAllText(_settingsFile)) ?? new();
 
-            // Só importa se o settings.json for do mesmo tenant (ou não tiver TenantId)
+            // Only imports if settings.json belongs to the same tenant (or has no TenantId)
             if (existing.TryGetValue("TenantId", out var tidEl))
             {
                 var tid = tidEl.GetString();
@@ -235,8 +235,8 @@ public class TenantStore
         catch { return null; }
     }
 
-    // Mantém settings.json (formato plano) sincronizado com o primeiro tenant configurado
-    // para compatibilidade com os scripts PowerShell existentes.
+    // Keeps settings.json (flat format) synchronized with the first configured tenant
+    // for compatibility with existing PowerShell scripts.
     private void SyncSettingsJson(List<TenantEntry> tenants)
     {
         try
@@ -246,7 +246,7 @@ public class TenantStore
 
             var appCfg = _appConfig.Read();
 
-            // Lê settings.json existente antes de montar o flat para preservar campos
+            // Reads existing settings.json before building the flat dict to preserve extra fields
             Dictionary<string, JsonElement> existingSettings = new();
             if (File.Exists(_settingsFile))
             {
@@ -254,8 +254,8 @@ public class TenantStore
                     File.ReadAllText(_settingsFile)) ?? new();
             }
 
-            // Prioridade thumbprint: AppConfig (setup atual) → tenant → settings.json → cert store
-            // AppConfig tem precedência pois é a fonte de verdade após novo setup/reset.
+            // Thumbprint priority: AppConfig (current setup) → tenant → settings.json → cert store
+            // AppConfig takes precedence as it is the source of truth after a new setup/reset.
             var thumbprint = !string.IsNullOrWhiteSpace(appCfg.CertificateThumbprint)
                 ? appCfg.CertificateThumbprint
                 : primary.CertificateThumbprint;
@@ -272,7 +272,7 @@ public class TenantStore
                 if (!string.IsNullOrWhiteSpace(detected))
                 {
                     thumbprint = detected;
-                    _logger.LogInformation("SyncSettingsJson: CertificateThumbprint detectado automaticamente: {Tp}", detected);
+                    _logger.LogInformation("SyncSettingsJson: CertificateThumbprint automatically detected: {Tp}", detected);
                 }
             }
 
@@ -285,7 +285,7 @@ public class TenantStore
                 ["ClientSecret"] = appCfg.ClientSecret
             };
 
-            // Preserva campos extras do settings.json existente (BackupRoot, LogRoot, etc.)
+            // Preserves extra fields from existing settings.json (BackupRoot, LogRoot, etc.)
             foreach (var kv in existingSettings)
             {
                 if (!flat.ContainsKey(kv.Key))
@@ -298,7 +298,7 @@ public class TenantStore
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha ao sincronizar settings.json");
+            _logger.LogWarning(ex, "Failed to synchronize settings.json");
         }
     }
 }

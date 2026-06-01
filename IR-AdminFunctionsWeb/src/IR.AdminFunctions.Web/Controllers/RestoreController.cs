@@ -44,24 +44,24 @@ public class RestoreController : ControllerBase
     {
         if (request == null || string.IsNullOrWhiteSpace(request.BackupId) || string.IsNullOrWhiteSpace(request.RoleName))
         {
-            return ApiResponse<Job>.Fail("BackupId e RoleName são obrigatórios.");
+            return ApiResponse<Job>.Fail("BackupId and RoleName are required.");
         }
 
         var snap = _backups.Get(request.BackupId);
         if (snap == null)
         {
-            return ApiResponse<Job>.Fail($"Backup {request.BackupId} não encontrado.");
+            return ApiResponse<Job>.Fail($"Backup {request.BackupId} not found.");
         }
 
         var cfg = _appConfig.Read();
         var raw = _settings.ReadRaw();
 
         if (raw == null || string.IsNullOrWhiteSpace(raw.TenantId) || string.IsNullOrWhiteSpace(raw.ClientId))
-            return ApiResponse<Job>.Fail("settings.json incompleto. Adicione um tenant primeiro.");
+            return ApiResponse<Job>.Fail("settings.json is incomplete. Add a tenant first.");
 
         var hasAuth = !string.IsNullOrWhiteSpace(raw.CertificateThumbprint) || !string.IsNullOrWhiteSpace(cfg.ClientSecret);
         if (!hasAuth)
-            return ApiResponse<Job>.Fail("Nenhuma credencial configurada. Conceda o consentimento Restore primeiro.");
+            return ApiResponse<Job>.Fail("No credentials configured. Grant Restore consent first.");
 
         var input = new Dictionary<string, object?>
         {

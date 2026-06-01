@@ -62,13 +62,13 @@ function Write-Log {
 }
 
 try {
-    Write-Log "Iniciando conexão com Microsoft Graph"
-    Connect-AppOnlyGraphWithRetry -ClientId $ClientId -TenantId $TenantId -Thumbprint $CertificateThumbprint -ClientSecret $ClientSecret -VerboseOutput -FailureMessage 'Falha ao conectar ao Graph em modo app-only após {0} tentativas. Último erro: {1}'
+    Write-Log "Connecting to Microsoft Graph"
+    Connect-AppOnlyGraphWithRetry -ClientId $ClientId -TenantId $TenantId -Thumbprint $CertificateThumbprint -ClientSecret $ClientSecret -VerboseOutput -FailureMessage 'Failed to connect to Graph in app-only mode after {0} attempts. Last error: {1}'
 
-    Write-Log "Coletando definições de função"
+    Write-Log "Collecting role definitions"
     $roleDefinitions = Get-MgRoleManagementDirectoryRoleDefinition -All
 
-    Write-Log "Coletando atribuições de função"
+    Write-Log "Collecting role assignments"
     $roleAssignments = Get-MgRoleManagementDirectoryRoleAssignment -All
 
     $roleDefinitionsPath = Join-Path $todayFolder "roleDefinitions.json"
@@ -95,17 +95,17 @@ try {
         $oldBackups = Get-ChildItem -Path $exportPath -Directory | Where-Object { $_.LastWriteTime -lt $cutoffDate }
         foreach ($backupFolder in $oldBackups) {
             Remove-Item -Path $backupFolder.FullName -Recurse -Force
-            Write-Log "Backup antigo removido por retenção ($RetentionDays dias): $($backupFolder.FullName)"
+            Write-Log "Old backup removed by retention policy ($RetentionDays days): $($backupFolder.FullName)"
         }
     }
 
-    Write-Log "Exportação concluída com sucesso"
+    Write-Log "Export completed successfully"
 }
 catch {
-    Write-Log "ERRO: $($_.Exception.Message)"
+    Write-Log "ERROR: $($_.Exception.Message)"
     throw
 }
 finally {
     Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-    Write-Log "Conexão encerrada"
+    Write-Log "Connection closed"
 }

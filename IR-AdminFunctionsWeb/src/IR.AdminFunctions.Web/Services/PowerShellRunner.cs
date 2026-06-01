@@ -19,13 +19,13 @@ public class PowerShellRunner
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(scriptPath))
-            throw new ArgumentException("scriptPath obrigatório", nameof(scriptPath));
+            throw new ArgumentException("scriptPath is required", nameof(scriptPath));
 
         if (!File.Exists(scriptPath))
-            throw new FileNotFoundException($"Script PowerShell não encontrado: {scriptPath}", scriptPath);
+            throw new FileNotFoundException($"PowerShell script not found: {scriptPath}", scriptPath);
 
         var command = BuildPsCommand(scriptPath, parameters);
-        _logger.LogInformation("Comando PS: {Command}", command);
+        _logger.LogInformation("PS command: {Command}", command);
 
         var psi = new ProcessStartInfo
         {
@@ -34,6 +34,8 @@ public class PowerShellRunner
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
         psi.ArgumentList.Add("-ExecutionPolicy");
         psi.ArgumentList.Add("Bypass");
@@ -44,7 +46,7 @@ public class PowerShellRunner
         using var process = new Process { StartInfo = psi };
 
         var sw = Stopwatch.StartNew();
-        _logger.LogInformation("Executando script {Script} com timeout {Timeout}s", scriptPath, timeoutSeconds);
+        _logger.LogInformation("Running script {Script} with timeout {Timeout}s", scriptPath, timeoutSeconds);
 
         process.Start();
 
@@ -61,8 +63,8 @@ public class PowerShellRunner
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             try { process.Kill(entireProcessTree: true); } catch { }
-            _logger.LogError("Script {Script} excedeu timeout de {Timeout}s", scriptPath, timeoutSeconds);
-            throw new TimeoutException($"Script {scriptPath} excedeu {timeoutSeconds}s");
+            _logger.LogError("Script {Script} exceeded timeout of {Timeout}s", scriptPath, timeoutSeconds);
+            throw new TimeoutException($"Script {scriptPath} exceeded {timeoutSeconds}s timeout");
         }
 
         var stdoutText = await stdoutTask;
@@ -74,7 +76,7 @@ public class PowerShellRunner
         var success = process.ExitCode == 0;
 
         _logger.LogInformation(
-            "Script {Script} concluído em {Elapsed}ms. ExitCode={ExitCode}",
+            "Script {Script} completed in {Elapsed}ms. ExitCode={ExitCode}",
             scriptPath, sw.ElapsedMilliseconds, process.ExitCode);
 
         if (!success)
@@ -87,7 +89,7 @@ public class PowerShellRunner
             else
             {
                 _logger.LogWarning(
-                    "Script falhou (ExitCode={ExitCode}) sem saída em stderr. Stdout ({Lines} linhas): {Preview}",
+                    "Script failed (ExitCode={ExitCode}) with no stderr output. Stdout ({Lines} lines): {Preview}",
                     process.ExitCode, stdout.Count,
                     string.Join(" | ", stdout.TakeLast(5)));
             }
@@ -102,7 +104,7 @@ public class PowerShellRunner
 
         var errors = stderr.Count > 0
             ? stderr
-            : (!success ? new List<string> { $"Script falhou com ExitCode={process.ExitCode}" } : new List<string>());
+            : (!success ? new List<string> { $"Script failed with ExitCode={process.ExitCode}" } : new List<string>());
 
         return new PowerShellResult
         {

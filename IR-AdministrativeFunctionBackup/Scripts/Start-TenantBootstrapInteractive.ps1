@@ -133,7 +133,7 @@ function Add-CertificateToApplication {
     if ($app.KeyCredentials) { $existingKeys = @($app.KeyCredentials) }
     $updatedKeys = @($existingKeys + $newKeyCredential)
 
-    Write-BootstrapLog "Atualizando certificado no Application ObjectId: $($app.Id)"
+    Write-BootstrapLog "Updating certificate on Application ObjectId: $($app.Id)"
     Update-MgApplication -ApplicationId $app.Id -KeyCredentials $updatedKeys
     return $true
 }
@@ -149,7 +149,7 @@ function Ensure-GraphApplicationPermissions {
     $roleMap = @{}
     foreach ($value in $requiredRoles) {
         $role = $graphSp.AppRoles | Where-Object { $_.Value -eq $value -and $_.AllowedMemberTypes -contains 'Application' }
-        if ($role) { $roleMap[$value] = $role.Id } else { Write-BootstrapLog "Permissão $value não encontrada nos appRoles do Graph." }
+        if ($role) { $roleMap[$value] = $role.Id } else { Write-BootstrapLog "Permission $value not found in Graph appRoles." }
     }
 
     $merged = @{}
@@ -159,7 +159,7 @@ function Ensure-GraphApplicationPermissions {
     $resourceAccess = @()
     foreach ($k in $merged.Keys) { $resourceAccess += @{ Id = $k; Type = 'Role' } }
     Update-MgApplication -ApplicationId $ApplicationId -RequiredResourceAccess @(@{ ResourceAppId = $GraphAppId; ResourceAccess = $resourceAccess })
-    Write-BootstrapLog 'Permissões de aplicação do Microsoft Graph configuradas no App Registration.'
+    Write-BootstrapLog 'Microsoft Graph application permissions configured in App Registration.'
 
     $existingAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ServicePrincipalId -All
     foreach ($pair in $roleMap.GetEnumerator()) {
@@ -167,10 +167,10 @@ function Ensure-GraphApplicationPermissions {
         if (-not $already) {
             try {
                 New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ServicePrincipalId -PrincipalId $ServicePrincipalId -ResourceId $graphSp.Id -AppRoleId $pair.Value | Out-Null
-                Write-BootstrapLog "Admin consent concedido automaticamente para: $($pair.Key)"
+                Write-BootstrapLog "Admin consent automatically granted for: $($pair.Key)"
             } catch {
                 $consentMsg = $_.Exception.Message
-                Write-BootstrapLog "falha ao conceder admin consent: $consentMsg"
+                Write-BootstrapLog "Failed to grant admin consent: $consentMsg"
                 throw
             }
         }
@@ -179,49 +179,49 @@ function Ensure-GraphApplicationPermissions {
 
 
 function New-InsufficientPrivilegeErrorMessage {
-    return 'A autenticação foi concluída, mas a operação foi negada pelo Microsoft Graph (Authorization_RequestDenied/Insufficient privileges). Valide as permissões efetivas no tenant, políticas de acesso e restrições administrativas para atualização do objeto Application.'
+    return 'Authentication completed, but the operation was denied by Microsoft Graph (Authorization_RequestDenied/Insufficient privileges). Validate the effective permissions in the tenant, access policies, and administrative restrictions for updating the Application object.'
 }
 
 
 function Test-GraphContextScopes {
     param([string[]]$ExpectedScopes)
     $ctx = Get-MgContext
-    if (-not $ctx.Account) { throw 'Falha na validação pós-login: conta autenticada não identificada.' }
-    if (-not $ctx.TenantId) { throw 'Falha na validação pós-login: tenant autenticado não identificado.' }
-    if ($ctx.TenantId -ne $TenantId) { throw "Falha na validação pós-login: tenant autenticado ($($ctx.TenantId)) difere do TenantId informado ($TenantId)." }
+    if (-not $ctx.Account) { throw 'Post-login validation failed: authenticated account not identified.' }
+    if (-not $ctx.TenantId) { throw 'Post-login validation failed: authenticated tenant not identified.' }
+    if ($ctx.TenantId -ne $TenantId) { throw "Post-login validation failed: authenticated tenant ($($ctx.TenantId)) differs from the provided TenantId ($TenantId)." }
 
     $missing = @($ExpectedScopes | Where-Object { $_ -notin $ctx.Scopes })
-    if ($missing.Count -gt 0) { throw "Falha na validação pós-login: scopes ausentes: $($missing -join ', ')." }
+    if ($missing.Count -gt 0) { throw "Post-login validation failed: missing scopes: $($missing -join ', ')." }
 
-    Write-BootstrapLog "Conta autenticada: $($ctx.Account)"
-    Write-BootstrapLog "Tenant autenticado: $($ctx.TenantId)"
-    Write-BootstrapLog "Scopes concedidos: $($ctx.Scopes -join ', ')"
+    Write-BootstrapLog "Authenticated account: $($ctx.Account)"
+    Write-BootstrapLog "Authenticated tenant: $($ctx.TenantId)"
+    Write-BootstrapLog "Granted scopes: $($ctx.Scopes -join ', ')"
 }
 
 function Set-AppLogoIfAvailable {
     param([string]$ApplicationId)
     if (-not (Test-Path $LogoPath)) {
-        Write-BootstrapLog "Logo não encontrado em $LogoPath. Prosseguindo sem aplicar identidade visual."
+        Write-BootstrapLog "Logo not found at $LogoPath. Proceeding without applying visual identity."
         return
     }
 
     $file = Get-Item $LogoPath
     $allowedExtensions = @('.png','.jpg','.jpeg','.gif','.bmp')
     if ($file.Extension.ToLowerInvariant() -notin $allowedExtensions) {
-        Write-BootstrapLog "WARNING: Formato de logo não suportado para upload ($($file.Extension))."
+        Write-BootstrapLog "WARNING: Logo format not supported for upload ($($file.Extension))."
         return
     }
 
     if ($file.Length -gt 102400KB) {
-        Write-BootstrapLog 'WARNING: Logo excede tamanho máximo esperado para upload (100 MB). Ignorando upload.'
+        Write-BootstrapLog 'WARNING: Logo exceeds the maximum expected size for upload (100 MB). Skipping upload.'
         return
     }
 
     try {
         Set-MgApplicationLogo -ApplicationId $ApplicationId -InFile $LogoPath
-        Write-BootstrapLog 'Logo aplicado com sucesso no App Registration.'
+        Write-BootstrapLog 'Logo successfully applied to App Registration.'
     } catch {
-        Write-BootstrapLog "WARNING: Falha ao aplicar logo no App Registration: $($_.Exception.Message)"
+        Write-BootstrapLog "WARNING: Failed to apply logo to App Registration: $($_.Exception.Message)"
     }
 }
 
@@ -238,18 +238,18 @@ function Test-AppOnlyGraphWithRetry {
     for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
         try {
-            Write-BootstrapLog "Validação app-only final: tentativa $attempt de $MaxAttempts."
+            Write-BootstrapLog "Final app-only validation: attempt $attempt of $MaxAttempts."
             Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome -ContextScope Process | Out-Null
             Get-MgRoleManagementDirectoryRoleDefinition -All | Select-Object -First 1 | Out-Null
-            Write-BootstrapLog "Teste app-only concluído com sucesso na tentativa $attempt."
+            Write-BootstrapLog "App-only test completed successfully on attempt $attempt."
             return
         } catch {
             $lastError = $_.Exception.Message
-            Write-BootstrapLog "WARNING: tentativa $attempt de validação app-only falhou: $lastError"
+            Write-BootstrapLog "WARNING: attempt $attempt of app-only validation failed: $lastError"
             if ($attempt -eq $MaxAttempts) {
-                throw "Configuração salva. A validação app-only final falhou, possivelmente por propagação do certificado no Microsoft Entra ID. Aguarde alguns minutos e teste novamente. Último erro: $lastError"
+                throw "Configuration saved. The final app-only validation failed, possibly due to certificate propagation in Microsoft Entra ID. Wait a few minutes and test again. Last error: $lastError"
             }
-            Write-BootstrapLog "Aguardando $DelaySeconds segundos antes de nova tentativa de validação app-only."
+            Write-BootstrapLog "Waiting $DelaySeconds seconds before next app-only validation attempt."
             Start-Sleep -Seconds $DelaySeconds
         }
     }
@@ -263,58 +263,58 @@ function Test-IsAuthorizationDenied {
 
 try {
     Initialize-BootstrapLog
-    Write-BootstrapLog 'Log de bootstrap inicializado.'
+    Write-BootstrapLog 'Bootstrap log initialized.'
     Ensure-MicrosoftGraphPowerShell
     Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-    Write-BootstrapLog 'Iniciando autenticação interativa (Device Code) no Microsoft Graph...'
+    Write-BootstrapLog 'Starting interactive authentication (Device Code) with Microsoft Graph...'
     Connect-MgGraph -TenantId $TenantId -Scopes $RequiredInteractiveScopes -UseDeviceCode -NoWelcome
     Test-GraphContextScopes -ExpectedScopes $RequiredInteractiveScopes
     $tenantId = $TenantId
-    Write-BootstrapLog "Autenticação concluída. Tenant: $tenantId"
+    Write-BootstrapLog "Authentication completed. Tenant: $tenantId"
 
     $existingApps = @(Get-MgApplication -Filter "displayName eq '$AppDisplayName'" -ConsistencyLevel eventual)
     $selectedApp = $null
     if ($existingApps.Count -gt 1) {
         $appList = ($existingApps | ForEach-Object { "$($_.DisplayName) [ObjectId=$($_.Id); AppId=$($_.AppId)]" }) -join '; '
-        $multiMsg = "Foram encontrados múltiplos App Registrations com o mesmo displayName '$AppDisplayName'. Não é seguro reutilizar automaticamente. Selecione explicitamente o App Registration correto ou crie um novo com sufixo único. Encontrados: $appList"
+        $multiMsg = "Multiple App Registrations with the same displayName '$AppDisplayName' were found. It is not safe to reuse one automatically. Explicitly select the correct App Registration or create a new one with a unique suffix. Found: $appList"
         Write-BootstrapLog $multiMsg
         throw $multiMsg
     }
     if ($existingApps.Count -eq 1) {
         $selectedApp = $existingApps[0]
         $null = Get-MgApplication -ApplicationId $selectedApp.Id -Property Id,AppId,DisplayName
-        Write-BootstrapLog "App Registration existente localizado e reutilizado. ObjectId: $($selectedApp.Id) | AppId: $($selectedApp.AppId)"
+        Write-BootstrapLog "Existing App Registration found and reused. ObjectId: $($selectedApp.Id) | AppId: $($selectedApp.AppId)"
     }
     if (-not $selectedApp) {
         $selectedApp = New-MgApplication -DisplayName $AppDisplayName -SignInAudience 'AzureADMyOrg'
-        Write-BootstrapLog "Novo App Registration criado. AppId: $($selectedApp.AppId)"
+        Write-BootstrapLog "New App Registration created. AppId: $($selectedApp.AppId)"
     }
 
     $sp = Get-MgServicePrincipal -Filter "appId eq '$($selectedApp.AppId)'"
-    if (-not $sp) { $sp = New-MgServicePrincipal -AppId $selectedApp.AppId; Write-BootstrapLog 'Service Principal criado no tenant.' } else { Write-BootstrapLog 'Service Principal existente localizado no tenant.' }
+    if (-not $sp) { $sp = New-MgServicePrincipal -AppId $selectedApp.AppId; Write-BootstrapLog 'Service Principal created in tenant.' } else { Write-BootstrapLog 'Existing Service Principal found in tenant.' }
 
     $friendlyName = 'Quest Recovery Function - Administrative Roles Backup'
     $cert = New-SelfSignedCertificate -DnsName 'IR-AdministrativeFunctionBackup' -FriendlyName $friendlyName -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddMonths([int]$CertificateValidityMonths) -KeyExportPolicy Exportable -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
-    Write-BootstrapLog "Certificado self-signed criado. Thumbprint: $($cert.Thumbprint)"
+    Write-BootstrapLog "Self-signed certificate created. Thumbprint: $($cert.Thumbprint)"
     $cerPath = Export-PublicCertificate -Thumbprint $cert.Thumbprint
-    Write-BootstrapLog "Certificado público exportado para: $cerPath"
+    Write-BootstrapLog "Public certificate exported to: $cerPath"
 
     try {
         $added = Add-CertificateToApplication -Application $selectedApp -Certificate $cert -CertificatePath $cerPath
-        if ($added) { Write-BootstrapLog 'Certificado público adicionado ao keyCredentials do App Registration.' } else { Write-BootstrapLog 'Certificado já estava presente no keyCredentials; nenhuma alteração necessária.' }
+        if ($added) { Write-BootstrapLog 'Public certificate added to App Registration keyCredentials.' } else { Write-BootstrapLog 'Certificate was already present in keyCredentials; no changes needed.' }
     } catch {
         $certMsg = $_.Exception.Message
-        Write-BootstrapLog "falha ao adicionar certificado ao App Registration (comando: Update-MgApplication -ApplicationId $($selectedApp.Id) -KeyCredentials ... ; ObjectId=$($selectedApp.Id)): $certMsg"
+        Write-BootstrapLog "Failed to add certificate to App Registration (command: Update-MgApplication -ApplicationId $($selectedApp.Id) -KeyCredentials ... ; ObjectId=$($selectedApp.Id)): $certMsg"
         if (Test-IsAuthorizationDenied -Message $certMsg) { throw (New-InsufficientPrivilegeErrorMessage) }
         throw
     }
 
     try {
         Ensure-GraphApplicationPermissions -ApplicationId $selectedApp.Id -ServicePrincipalId $sp.Id
-        Write-BootstrapLog 'Permissões Graph adicionadas ao App Registration.'
+        Write-BootstrapLog 'Graph permissions added to App Registration.'
     } catch {
         $permMsg = $_.Exception.Message
-        Write-BootstrapLog "falha ao adicionar permissões Graph: $permMsg"
+        Write-BootstrapLog "Failed to add Graph permissions: $permMsg"
         if (Test-IsAuthorizationDenied -Message $permMsg) { throw (New-InsufficientPrivilegeErrorMessage) }
         throw
     }
@@ -342,12 +342,12 @@ try {
     $settings | ConvertTo-Json -Depth 10 | Set-Content -Path $settingsPath -Encoding UTF8
 
     if (-not (Test-Path $settingsPath)) {
-        throw "Falha ao criar settings.json em $settingsPath"
+        throw "Failed to create settings.json at $settingsPath"
     }
 
-    Write-BootstrapLog "Configuração salva em: $settingsPath"
+    Write-BootstrapLog "Configuration saved to: $settingsPath"
 
-    Write-BootstrapLog 'Iniciando validação app-only final com retry...'
+    Write-BootstrapLog 'Starting final app-only validation with retry...'
     try {
         Test-AppOnlyGraphWithRetry -ClientId $settings.ClientId -TenantId $settings.TenantId -CertificateThumbprint $settings.CertificateThumbprint
         exit 0
@@ -359,14 +359,14 @@ try {
     $errorMsg = $_.Exception.Message
     if (Test-IsAuthorizationDenied -Message $errorMsg) {
         $friendlyMsg = New-InsufficientPrivilegeErrorMessage
-        try { Write-BootstrapLog "ERRO: $friendlyMsg" } catch { Write-Error "O bootstrap falhou antes de inicializar o log. Verifique o caminho do script Start-TenantBootstrapInteractive.ps1 e os parâmetros usados pelo wizard. Erro original: $friendlyMsg" }
+        try { Write-BootstrapLog "ERROR: $friendlyMsg" } catch { Write-Error "The bootstrap failed before the log could be initialized. Check the path of the Start-TenantBootstrapInteractive.ps1 script and the parameters used by the wizard. Original error: $friendlyMsg" }
         throw $friendlyMsg
     }
 
     try {
-        Write-BootstrapLog "ERRO: $errorMsg"
+        Write-BootstrapLog "ERROR: $errorMsg"
     } catch {
-        Write-Error "O bootstrap falhou antes de inicializar o log. Verifique o caminho do script Start-TenantBootstrapInteractive.ps1 e os parâmetros usados pelo wizard. Erro original: $errorMsg"
+        Write-Error "The bootstrap failed before the log could be initialized. Check the path of the Start-TenantBootstrapInteractive.ps1 script and the parameters used by the wizard. Original error: $errorMsg"
     }
     throw
 } finally {

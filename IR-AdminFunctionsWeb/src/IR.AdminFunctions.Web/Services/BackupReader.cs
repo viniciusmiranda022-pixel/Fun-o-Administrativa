@@ -39,7 +39,7 @@ public class BackupReader
         var root = ResolveBackupRoot();
         if (!Directory.Exists(root))
         {
-            _logger.LogWarning("Pasta de backups não existe: {Root}", root);
+            _logger.LogWarning("Backups folder does not exist: {Root}", root);
             yield break;
         }
 
@@ -83,7 +83,7 @@ public class BackupReader
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Falha lendo objetos do backup {Id}", id);
+            _logger.LogError(ex, "Failed reading objects from backup {Id}", id);
             return null;
         }
     }
@@ -117,7 +117,7 @@ public class BackupReader
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Manifest inválido em {Path}", manifestPath);
+                _logger.LogWarning(ex, "Invalid manifest at {Path}", manifestPath);
                 snap.ManifestError = ex.Message;
             }
         }

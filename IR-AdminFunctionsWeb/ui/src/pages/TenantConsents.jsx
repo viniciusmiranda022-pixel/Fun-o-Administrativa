@@ -18,7 +18,7 @@ function ConsentCard({ block, onGrant, granting, sensitive }) {
             <h3 className="text-base font-semibold text-[#222]">{block.title}</h3>
             {sensitive && (
               <span className="text-[10px] uppercase tracking-wide font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded">
-                Sensível
+                Sensitive
               </span>
             )}
           </div>
@@ -33,20 +33,20 @@ function ConsentCard({ block, onGrant, granting, sensitive }) {
         <div className="bg-orange-50 border border-orange-200 rounded p-2.5 text-xs text-orange-900 mb-3 flex gap-2">
           <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
           <span>
-            Esta permissão permite alteração no RBAC do Microsoft Entra ID. Conceda apenas quando o restore de funções administrativas for necessário.
+            This permission allows changes to Microsoft Entra ID RBAC. Grant only when restoring administrative functions is required.
           </span>
         </div>
       )}
 
       <div className="text-xs space-y-2 mb-3">
         <div>
-          <span className="font-semibold text-[#333]">Operações habilitadas: </span>
+          <span className="font-semibold text-[#333]">Enabled operations: </span>
           {block.operations.join(', ')}
         </div>
         {block.grantedAt && (
           <div>
-            <span className="font-semibold text-[#333]">Concedido em: </span>
-            {new Date(block.grantedAt).toLocaleString('pt-BR')}
+            <span className="font-semibold text-[#333]">Granted at: </span>
+            {new Date(block.grantedAt).toLocaleString('en-US')}
           </div>
         )}
       </div>
@@ -106,7 +106,7 @@ function CertificateSection({ tenantId, currentThumbprint }) {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
-      setSaveError(e.message || 'Erro ao salvar');
+      setSaveError(e.message || 'Error saving');
     } finally {
       setSaving(false);
     }
@@ -114,9 +114,9 @@ function CertificateSection({ tenantId, currentThumbprint }) {
 
   return (
     <div className="bg-white border border-[#DEE2E6] rounded-lg p-5 mt-4">
-      <h3 className="text-sm font-semibold text-[#222] mb-1">Autenticação por Certificado</h3>
+      <h3 className="text-sm font-semibold text-[#222] mb-1">Certificate Authentication</h3>
       <p className="text-xs text-[#666] mb-3">
-        O script de backup usa autenticação via certificado. Informe o thumbprint do certificado registrado no Azure AD para este aplicativo.
+        The backup script uses certificate authentication. Enter the thumbprint of the certificate registered in Azure AD for this application.
       </p>
       <div className="flex gap-2 items-center">
         <input
@@ -132,10 +132,10 @@ function CertificateSection({ tenantId, currentThumbprint }) {
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#0078A8] text-white hover:bg-[#006090] disabled:opacity-50"
         >
           {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-          Salvar
+          Save
         </button>
       </div>
-      {saved && <p className="text-xs text-[#28A745] mt-1.5">Thumbprint salvo com sucesso.</p>}
+      {saved && <p className="text-xs text-[#28A745] mt-1.5">Thumbprint saved successfully.</p>}
       {saveError && <p className="text-xs text-[#DC3545] mt-1.5">{saveError}</p>}
     </div>
   );
@@ -211,7 +211,7 @@ export default function TenantConsents() {
   return (
     <div className="p-6 max-w-4xl">
       <button onClick={() => navigate('/tenants')} className="text-xs text-[#0078A8] hover:underline flex items-center gap-1 mb-3">
-        <ArrowLeft size={12} /> Voltar para Tenants
+        <ArrowLeft size={12} /> Back to Tenants
       </button>
 
       <div className="mb-6">
@@ -222,14 +222,14 @@ export default function TenantConsents() {
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-900 mb-5">
-        Permissões são concedidas por categoria. <strong>Basic</strong> habilita backup e comparação (leitura).{' '}
-        <strong>Restore</strong> habilita recuperação (leitura + escrita). Ao clicar em <em>Grant</em>, você será redirecionado
-        para o login Microsoft e precisará autenticar como Global Administrator.
+        Permissions are granted by category. <strong>Basic</strong> enables backup and comparison (read).{' '}
+        <strong>Restore</strong> enables recovery (read + write). When clicking <em>Grant</em>, you will be redirected
+        to the Microsoft login and will need to authenticate as a Global Administrator.
       </div>
 
       <div className="flex justify-end mb-3">
         <button onClick={load} className="text-xs text-[#0078A8] hover:underline flex items-center gap-1">
-          <RefreshCw size={12} /> Atualizar status
+          <RefreshCw size={12} /> Refresh status
         </button>
       </div>
 

@@ -47,7 +47,7 @@ try {
     $sharedModulePath = Join-Path $PSScriptRoot "..\..\IR-AdministrativeFunctionBackup\Scripts\IR-AdministrativeFunctions.psm1"
     Import-Module $sharedModulePath -Force
 } catch {
-    Write-Error "Falha ao importar modulos necessarios: $($_.Exception.Message)"
+    Write-Error "Failed to import required modules: $($_.Exception.Message)"
     exit 1
 }
 
@@ -257,73 +257,73 @@ function Export-PreRestoreReport {
 
 try {
     Initialize-StructuredLog -TenantId $TenantId -RoleName $RoleName -SnapshotFolder $SnapshotFolder
-    Write-Log "Conectando ao Microsoft Graph (com retentativa para replicação do App Registration)"
-    Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $CertificateThumbprint -ClientSecret $ClientSecret -VerboseOutput -FailureMessage 'Falha ao conectar ao Graph em modo app-only após {0} tentativas. Último erro: {1}'
+    Write-Log "Connecting to Microsoft Graph (with retry for App Registration replication)"
+    Connect-AppOnlyGraphWithRetry -TenantId $TenantId -ClientId $ClientId -Thumbprint $CertificateThumbprint -ClientSecret $ClientSecret -VerboseOutput -FailureMessage 'Failed to connect to Graph in app-only mode after {0} attempts. Last error: {1}'
 
     $roleDefinitionsPath = Join-Path $SnapshotFolder "roleDefinitions.json"
     $roleAssignmentsPath = Join-Path $SnapshotFolder "roleAssignments.json"
 
     if (-not (Test-Path $roleDefinitionsPath)) {
-        throw "roleDefinitions.json não foi encontrado em $SnapshotFolder"
+        throw "roleDefinitions.json was not found in $SnapshotFolder"
     }
 
     if (-not (Test-Path $roleAssignmentsPath)) {
-        throw "roleAssignments.json não foi encontrado em $SnapshotFolder"
+        throw "roleAssignments.json was not found in $SnapshotFolder"
     }
 
-    Write-Log "Validando integridade do snapshot"
+    Write-Log "Validating snapshot integrity"
     Test-SnapshotIntegrity -SnapshotFolder $SnapshotFolder
 
-    Write-Log "Carregando arquivos do snapshot"
+    Write-Log "Loading snapshot files"
     $definitions = Get-Content $roleDefinitionsPath -Raw | ConvertFrom-Json
     $assignments = Get-Content $roleAssignmentsPath -Raw | ConvertFrom-Json
 
     $desiredRole = $definitions | Where-Object { $_.displayName -eq $RoleName } | Select-Object -First 1
 
     if (-not $desiredRole) {
-        throw "A função '$RoleName' não foi encontrada em roleDefinitions.json"
+        throw "The role '$RoleName' was not found in roleDefinitions.json"
     }
 
-    Write-Log "Função encontrada no snapshot: $($desiredRole.displayName)"
-    Write-Log "Modo de execução: $Mode"
+    Write-Log "Role found in snapshot: $($desiredRole.displayName)"
+    Write-Log "Execution mode: $Mode"
 
     if ($RemoveExtraAssignments -and $Mode -eq "WhatIf") {
-        Write-Log "-RemoveExtraAssignments foi informado com -Mode WhatIf. Nenhuma remoção de atribuição será executada no modo de pré-visualização."
+        Write-Log "-RemoveExtraAssignments was specified with -Mode WhatIf. No assignment removal will be executed in preview mode."
     }
 
-    # Enumeracao client-side: o filtro server-side ("displayName eq ...") sofre com
-    # latencia de replicacao e pode retornar vazio mesmo com a role ja existindo,
-    # levando o script ao caminho CREATE e a um erro 400 "conflicting object".
+    # Client-side enumeration: the server-side filter ("displayName eq ...") suffers from
+    # replication latency and may return empty even when the role already exists,
+    # leading the script down the CREATE path and to a 400 "conflicting object" error.
     $allRoleDefinitions = @(Get-MgRoleManagementDirectoryRoleDefinition -All)
 
-    # Quando -CurrentRoleName e informado, a role-alvo no tenant tem nome diferente
-    # do backup (foi renomeada). Localiza por esse nome; o UPDATE renomeia de volta
-    # para o displayName do backup.
+    # When -CurrentRoleName is provided, the target role in the tenant has a different name
+    # than in the backup (it was renamed). Locate it by that name; the UPDATE renames it back
+    # to the displayName from the backup.
     if (-not [string]::IsNullOrWhiteSpace($CurrentRoleName)) {
         $lookupName = $CurrentRoleName
         $currentRole = $allRoleDefinitions | Where-Object { $_.DisplayName -eq $CurrentRoleName } | Select-Object -First 1
         if (-not $currentRole) {
-            throw "A role-alvo '$CurrentRoleName' informada para sobrescrita nao foi encontrada no tenant. Execute um novo compare e tente novamente."
+            throw "The target role '$CurrentRoleName' specified for overwrite was not found in the tenant. Run a new compare and try again."
         }
     }
     else {
         $lookupName = $RoleName
         $currentRole = $allRoleDefinitions | Where-Object { $_.DisplayName -eq $RoleName } | Select-Object -First 1
     }
-    Write-Output "DIAG: roleDefinitions no tenant=$($allRoleDefinitions.Count) lookupName='$lookupName' currentRole encontrada=$([bool]$currentRole)"
+    Write-Output "DIAG: roleDefinitions in tenant=$($allRoleDefinitions.Count) lookupName='$lookupName' currentRole found=$([bool]$currentRole)"
 
     if ($currentRole -and $currentRole.IsBuiltIn) {
-        throw "A função existente '$RoleName' no tenant é built-in. Este restore suporta apenas funções personalizadas."
+        throw "The existing role '$RoleName' in the tenant is built-in. This restore only supports custom roles."
     }
 
     if (-not $currentRole) {
         Write-Output "DIAG: path=CREATE"
-        Write-Log "A função não existe atualmente. O snapshot exige criação da função."
+        Write-Log "The role does not currently exist. The snapshot requires creating the role."
         Write-Output "DIAG: snapshot displayName='$($desiredRole.displayName)' isEnabled=$($desiredRole.isEnabled)"
 
         if (-not [bool]$desiredRole.isEnabled) {
-            Write-Output "DIAG: ATENCAO isEnabled=false no snapshot. Role sera criada DESATIVADA."
-            Write-Log "ATENCAO: isEnabled=false no snapshot. A funcao sera criada como DESATIVADA e nao aparecera como ativa no portal Azure."
+            Write-Output "DIAG: WARNING isEnabled=false in snapshot. Role will be created DISABLED."
+            Write-Log "WARNING: isEnabled=false in snapshot. The role will be created as DISABLED and will not appear as active in the Azure portal."
         }
 
         if ($Mode -eq "Apply") {
@@ -340,8 +340,8 @@ try {
                 }
             }
 
-            # Passa o TemplateId original para que o portal Azure exiba a role corretamente.
-            # Se houver conflito 400 (role em soft-delete ainda ocupando o templateId), faz fallback sem TemplateId.
+            # Pass the original TemplateId so that the Azure portal displays the role correctly.
+            # If there is a 400 conflict (role in soft-delete still occupying the templateId), fall back without TemplateId.
             $templateIdFromSnapshot = if ($desiredRole.templateId) { [string]$desiredRole.templateId } else { $null }
             if ($templateIdFromSnapshot) {
                 $newRoleParams.TemplateId = $templateIdFromSnapshot
@@ -349,17 +349,17 @@ try {
 
             Write-Output "DIAG: chamando New-MgRoleManagementDirectoryRoleDefinition IsEnabled=$($newRoleParams.IsEnabled) TemplateId=$templateIdFromSnapshot"
 
-            # -ErrorAction Stop e obrigatorio: os cmdlets do Graph SDK emitem erros de API
-            # HTTP como nao-terminating, e o $ErrorActionPreference global nao os promove de
-            # forma confiavel. Sem isto, o try/catch nao captura o 400 e o fallback nao roda.
+            # -ErrorAction Stop is mandatory: Graph SDK cmdlets emit HTTP API errors
+            # as non-terminating, and the global $ErrorActionPreference does not promote them
+            # reliably. Without this, try/catch does not catch the 400 and the fallback does not run.
             try {
                 $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams -ErrorAction Stop
             }
             catch {
                 $createError = $_.Exception.Message
                 if ($templateIdFromSnapshot -and ($createError -match '400|BadRequest|[Cc]onflict|soft.deleted|already.*exist')) {
-                    Write-Log "Criacao com TemplateId=$templateIdFromSnapshot falhou (templateId ja ocupado no diretorio). Erro: $createError. Tentando sem TemplateId..."
-                    Write-Output "DIAG: retry CREATE sem TemplateId"
+                    Write-Log "Creation with TemplateId=$templateIdFromSnapshot failed (templateId already occupied in directory). Error: $createError. Retrying without TemplateId..."
+                    Write-Output "DIAG: retry CREATE without TemplateId"
                     $newRoleParams.Remove('TemplateId')
                     $currentRole = New-MgRoleManagementDirectoryRoleDefinition @newRoleParams -ErrorAction Stop
                 }
@@ -369,22 +369,22 @@ try {
             }
 
             if (-not $currentRole -or -not $currentRole.Id) {
-                throw "New-MgRoleManagementDirectoryRoleDefinition retornou vazio sem lancar excecao. Verifique se o App Registration tem a permissao 'RoleManagement.ReadWrite.Directory' e se o tenant possui licenca Entra ID P1/P2."
+                throw "New-MgRoleManagementDirectoryRoleDefinition returned empty without throwing an exception. Verify that the App Registration has the 'RoleManagement.ReadWrite.Directory' permission and that the tenant has an Entra ID P1/P2 license."
             }
-            Write-Output "DIAG: role criada Id=$($currentRole.Id) DisplayName='$($currentRole.DisplayName)' IsEnabled=$($currentRole.IsEnabled) TemplateId=$($currentRole.TemplateId)"
-            Write-Log "Funcao criada: Id=$($currentRole.Id), DisplayName='$($currentRole.DisplayName)', IsEnabled=$($currentRole.IsEnabled), TemplateId=$($currentRole.TemplateId)"
+            Write-Output "DIAG: role created Id=$($currentRole.Id) DisplayName='$($currentRole.DisplayName)' IsEnabled=$($currentRole.IsEnabled) TemplateId=$($currentRole.TemplateId)"
+            Write-Log "Role created: Id=$($currentRole.Id), DisplayName='$($currentRole.DisplayName)', IsEnabled=$($currentRole.IsEnabled), TemplateId=$($currentRole.TemplateId)"
         }
         else {
-            Write-Log "[PRÉVIA] A função seria criada com base na definição do snapshot."
+            Write-Log "[PREVIEW] The role would be created based on the snapshot definition."
         }
     }
     else {
         Write-Output "DIAG: path=UPDATE existingId=$($currentRole.Id)"
         if ($currentRole.DisplayName -ne $desiredRole.displayName) {
-            Write-Log "A role-alvo '$($currentRole.DisplayName)' sera sobrescrita e renomeada para '$($desiredRole.displayName)' conforme o backup."
+            Write-Log "The target role '$($currentRole.DisplayName)' will be overwritten and renamed to '$($desiredRole.displayName)' as per the backup."
         }
         else {
-            Write-Log "A função já existe. O snapshot exige sobrescrita completa da definição."
+            Write-Log "The role already exists. The snapshot requires a full overwrite of the definition."
         }
 
         if ($Mode -eq "Apply") {
@@ -407,16 +407,16 @@ try {
 
             $currentRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $currentRole.Id
             if (-not $currentRole -or -not $currentRole.Id) {
-                throw "Update-MgRoleManagementDirectoryRoleDefinition falhou silenciosamente. Verifique a permissao 'RoleManagement.ReadWrite.Directory' no App Registration."
+                throw "Update-MgRoleManagementDirectoryRoleDefinition failed silently. Verify the 'RoleManagement.ReadWrite.Directory' permission on the App Registration."
             }
-            Write-Log "Definição da função atualizada"
+            Write-Log "Role definition updated"
         }
         else {
-            Write-Log "[PRÉVIA] A definição da função seria atualizada para os valores do snapshot."
+            Write-Log "[PREVIEW] The role definition would be updated to the snapshot values."
         }
     }
 
-    Write-Log "Processando atribuições do snapshot"
+    Write-Log "Processing snapshot assignments"
 
     $desiredAssignments = @($assignments | Where-Object { $_.roleDefinitionId -eq $desiredRole.id })
 
@@ -437,21 +437,21 @@ try {
         -DesiredAssignments $desiredAssignments `
         -CurrentAssignments $currentAssignments
 
-    Write-Log "Relatório pré-restore exportado: $preRestoreReportPath"
+    Write-Log "Pre-restore report exported: $preRestoreReportPath"
 
     if ($Mode -eq "Apply") {
         Write-Host ""
-        Write-Host "Relatório pré-restore gerado em: $preRestoreReportPath" -ForegroundColor Yellow
+        Write-Host "Pre-restore report generated at: $preRestoreReportPath" -ForegroundColor Yellow
 
         if (-not $SkipConfirmation) {
-            $confirmation = Read-Host "Digite CONFIRM para continuar com as alterações de restore"
+            $confirmation = Read-Host "Type CONFIRM to proceed with the restore changes"
             if ($confirmation -ne "CONFIRM") {
-                throw "Restore cancelado pelo operador. Revise o relatório e execute novamente quando estiver pronto."
+                throw "Restore cancelled by operator. Review the report and run again when ready."
             }
-            Write-Log "Operador confirmou a execução do restore após revisar o relatório."
+            Write-Log "Operator confirmed restore execution after reviewing the report."
         }
         else {
-            Write-Log "Confirmação interativa ignorada por parâmetro -SkipConfirmation."
+            Write-Log "Interactive confirmation skipped by -SkipConfirmation parameter."
         }
     }
 
@@ -495,10 +495,10 @@ try {
 
             if ($Mode -eq "Apply") {
                 New-MgRoleManagementDirectoryRoleAssignment -BodyParameter $body | Out-Null
-                Write-Log "Atribuição recriada: $key"
+                Write-Log "Assignment recreated: $key"
             }
             else {
-                Write-Log "[PRÉVIA] A atribuição seria criada: $key"
+                Write-Log "[PREVIEW] The assignment would be created: $key"
             }
         }
     }
@@ -512,49 +512,49 @@ try {
         if (-not $desiredMap.ContainsKey($key)) {
             if ($Mode -eq "Apply" -and $RemoveExtraAssignments) {
                 Remove-MgRoleManagementDirectoryRoleAssignment -UnifiedRoleAssignmentId $a.Id -Confirm:$false
-                Write-Log "Atribuição extra removida: $key"
+                Write-Log "Extra assignment removed: $key"
             }
             else {
-                Write-Log "[PRÉVIA] Atribuição extra detectada (não removida): $key"
+                Write-Log "[PREVIEW] Extra assignment detected (not removed): $key"
             }
         }
     }
 
-    Write-Log "Validação final"
+    Write-Log "Final validation"
 
     if ($currentRole) {
         $finalRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $currentRole.Id
         $finalAssignments = @(Get-MgRoleManagementDirectoryRoleAssignment -All | Where-Object { $_.roleDefinitionId -eq $currentRole.Id })
 
         if ($Mode -eq "Apply") {
-            Write-Log "Função restaurada: $($finalRole.DisplayName)"
+            Write-Log "Role restored: $($finalRole.DisplayName)"
         }
         else {
-            Write-Log "Prévia concluída para a função: $($finalRole.DisplayName)"
+            Write-Log "Preview completed for role: $($finalRole.DisplayName)"
         }
 
-        Write-Output "DIAG: validacao final Id=$($finalRole.Id) DisplayName='$($finalRole.DisplayName)' IsEnabled=$($finalRole.IsEnabled) assignments=$($finalAssignments.Count)"
-        Write-Log "Descrição atual: $($finalRole.Description)"
-        Write-Log "IsEnabled atual: $($finalRole.IsEnabled)"
-        Write-Log "Quantidade atual de atribuições: $($finalAssignments.Count)"
+        Write-Output "DIAG: final validation Id=$($finalRole.Id) DisplayName='$($finalRole.DisplayName)' IsEnabled=$($finalRole.IsEnabled) assignments=$($finalAssignments.Count)"
+        Write-Log "Current description: $($finalRole.Description)"
+        Write-Log "Current IsEnabled: $($finalRole.IsEnabled)"
+        Write-Log "Current assignment count: $($finalAssignments.Count)"
 
         $finalRole | Select-Object Id, DisplayName, Description, IsEnabled
         $finalRole.RolePermissions | ConvertTo-Json -Depth 20
         $finalAssignments | Select-Object Id, PrincipalId, RoleDefinitionId, DirectoryScopeId, AppScopeId, Condition, ConditionVersion
     }
     else {
-        Write-Log "Prévia concluída. A função não existe atualmente e seria criada no modo Apply."
+        Write-Log "Preview completed. The role does not currently exist and would be created in Apply mode."
     }
 
-    Write-StructuredLog -Message "Fluxo de restore concluído com sucesso." -Result "SUCCESS"
+    Write-StructuredLog -Message "Restore flow completed successfully." -Result "SUCCESS"
     exit 0
 }
 catch {
     $errorMsg = $_.Exception.Message
     if ($script:StructuredLogPath) {
-        Write-StructuredLog -Message ("Fluxo de restore falhou: {0}" -f $errorMsg) -Result "FAILED"
+        Write-StructuredLog -Message ("Restore flow failed: {0}" -f $errorMsg) -Result "FAILED"
     }
-    Write-Error "Restore falhou: $errorMsg"
+    Write-Error "Restore failed: $errorMsg"
     exit 1
 }
 finally {

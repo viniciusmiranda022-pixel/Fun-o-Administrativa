@@ -21,7 +21,7 @@ public class SettingsController : ControllerBase
         var s = _reader.Read();
         if (s == null)
         {
-            return ApiResponse<BackupSettings>.Fail("settings.json não encontrado ou inválido");
+            return ApiResponse<BackupSettings>.Fail("settings.json not found or invalid");
         }
         return ApiResponse<BackupSettings>.Ok(s);
     }

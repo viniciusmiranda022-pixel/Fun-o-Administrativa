@@ -28,13 +28,13 @@ function Assert-Admin {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($identity)
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        throw 'Este instalador deve ser executado como administrador local.'
+        throw 'This installer must be run as a local administrator.'
     }
 }
 
 function Assert-PowerShell51 {
     if ($PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -lt 1) {
-        throw "PowerShell 5.1 é obrigatório. Versão atual: $($PSVersionTable.PSVersion)"
+        throw "PowerShell 5.1 is required. Current version: $($PSVersionTable.PSVersion)"
     }
 }
 
@@ -60,7 +60,7 @@ function Ensure-OperationalDirectories {
 }
 
 function Install-GraphPrerequisites {
-    Write-Step 'Instalando pré-requisitos Microsoft.Graph...'
+    Write-Step 'Installing Microsoft.Graph prerequisites...'
     Set-ExecutionPolicy Bypass -Scope Process -Force
     Install-PackageProvider NuGet -Force | Out-Null
     Install-Module Microsoft.Graph -MinimumVersion "2.0.0" -Scope AllUsers -Force -AllowClobber
@@ -70,7 +70,7 @@ function Install-GraphPrerequisites {
     Get-Command Disconnect-MgGraph -ErrorAction Stop | Out-Null
     Get-Module Microsoft.Graph -ListAvailable -ErrorAction Stop | Out-Null
     Get-Module Microsoft.Graph.Authentication -ListAvailable -ErrorAction Stop | Out-Null
-    Write-Ok 'Módulos Microsoft.Graph validados.'
+    Write-Ok 'Microsoft.Graph modules validated.'
 }
 
 function Copy-PackageContent {
@@ -79,7 +79,7 @@ function Copy-PackageContent {
         [string]$Target
     )
 
-    if (-not (Test-Path $Source)) { throw "Diretório de origem não encontrado: $Source" }
+    if (-not (Test-Path $Source)) { throw "Source directory not found: $Source" }
 
     foreach ($item in Get-ChildItem -Path $Source -Force) {
         $destination = Join-Path $Target $item.Name
@@ -103,7 +103,7 @@ function Run-PostInstallValidations {
     $compareXaml = Join-Path $CompareRoot 'Xaml\MainWindow.xaml'
 
     foreach ($required in @($rmadWrapper,$backupScript,$compareScript,$restoreScript,$restoreRoleScript,$compareXaml)) {
-        if (-not (Test-Path $required)) { throw "Arquivo obrigatório não encontrado: $required" }
+        if (-not (Test-Path $required)) { throw "Required file not found: $required" }
     }
 
     $settingsPath = Join-Path $BackupRoot 'Config\settings.json'
@@ -111,25 +111,25 @@ function Run-PostInstallValidations {
         try {
             $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
             if ($settings.BackupRoot -and -not (Test-Path $settings.BackupRoot)) {
-                throw "Caminho de backup configurado não existe: $($settings.BackupRoot)"
+                throw "Configured backup path does not exist: $($settings.BackupRoot)"
             }
         }
         catch {
-            throw "Falha ao validar settings.json: $($_.Exception.Message)"
+            throw "Failed to validate settings.json: $($_.Exception.Message)"
         }
     }
 
-    Write-Ok 'Validações pós-instalação concluídas.'
+    Write-Ok 'Post-installation validations completed.'
 }
 
-Write-Step 'Validando ambiente...'
+Write-Step 'Validating environment...'
 Assert-PowerShell51
 Assert-Admin
 Assert-WriteAccess
 Ensure-OperationalDirectories
 Install-GraphPrerequisites
 
-Write-Step 'Copiando arquivos do pacote (sem remoção de dados operacionais)...'
+Write-Step 'Copying package files (preserving operational data)...'
 Copy-PackageContent -Source $BackupPackage -Target $BackupRoot
 Copy-PackageContent -Source $ComparePackage -Target $CompareRoot
 Copy-PackageContent -Source $RestorePackage -Target $RestoreRoot
@@ -137,7 +137,7 @@ Ensure-OperationalDirectories
 
 Run-PostInstallValidations
 
-Write-Ok 'Instalação concluída com sucesso.'
+Write-Ok 'Installation completed successfully.'
 Write-Host "Backup UI: powershell -ExecutionPolicy Bypass -STA -File `"$(Join-Path $BackupRoot 'Scripts\Run-AdministrativeFunctionsBackup.ps1')`"" -ForegroundColor Green
 Write-Host "Compare UI: powershell -ExecutionPolicy Bypass -STA -File `"$(Join-Path $CompareRoot 'Scripts\Start-AdministrativeFunctionCompare.ps1')`"" -ForegroundColor Green
 Write-Host "Restore UI: powershell -ExecutionPolicy Bypass -STA -File `"$(Join-Path $RestoreRoot 'Scripts\Run-AdministrativeFunctionsRestore.ps1')`"" -ForegroundColor Green
