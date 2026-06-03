@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2, Columns, Search, X, Clock, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
-import { api } from '../api/client.js';
+import { api } from '../api/client';
+import type { TaskEntry } from '../types/api';
 
-function StatusIcon({ status }) {
+interface MappedTask {
+  id: string;
+  name: string;
+  status: string;
+  type: string;
+  modified: string;
+  operation: string;
+}
+
+function StatusIcon({ status }: { status: string }) {
   const s = (status || '').toLowerCase();
   if (s === 'completed') return <CheckCircle2 size={13} className="text-[#28A745]" />;
   if (s === 'failed') return <X size={13} className="text-[#DC3545]" />;
@@ -11,8 +21,8 @@ function StatusIcon({ status }) {
   return <Clock size={13} className="text-[#17A2B8]" />;
 }
 
-function TaskDetailPanel({ task, onClose }) {
-  const statusColor = (s) => {
+function TaskDetailPanel({ task, onClose }: { task: MappedTask; onClose: () => void }) {
+  const statusColor = (s: string) => {
     const v = (s || '').toLowerCase();
     if (v === 'completed') return '#28A745';
     if (v === 'failed') return '#DC3545';
@@ -55,15 +65,15 @@ function TaskDetailPanel({ task, onClose }) {
   );
 }
 
-function mapTask(t) {
-  const d = new Date(t.time || t.Time || '');
+function mapTask(t: TaskEntry): MappedTask {
+  const d = new Date(t.time || '');
   return {
     id: `${t.name}-${t.time}`,
-    name: t.name || t.Name || t.type || '—',
-    status: t.status || t.Status || '—',
-    type: t.type || t.Type || '—',
-    modified: isNaN(d) ? '—' : d.toLocaleString(),
-    operation: t.operation || t.Operation || '—',
+    name: t.name || t.type || '—',
+    status: t.status || '—',
+    type: t.type || '—',
+    modified: isNaN(d.getTime()) ? '—' : d.toLocaleString(),
+    operation: t.operation || '—',
   };
 }
 
@@ -79,7 +89,7 @@ const COLUMNS = [
   {
     key: 'status2', header: 'Status', width: '12%',
     render: (r) => {
-      const color = (s) => {
+      const color = (s: string) => {
         const v = (s || '').toLowerCase();
         if (v === 'completed') return '#28A745';
         if (v === 'failed') return '#DC3545';
@@ -94,22 +104,22 @@ const COLUMNS = [
   { key: 'operation', header: 'Operation', width: '25%' },
 ];
 
-function sinceFromFilter(filter) {
+function sinceFromFilter(filter: string): string | undefined {
   const now = new Date();
   if (filter === 'today') { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.toISOString(); }
-  if (filter === '7days') return new Date(now - 7 * 86400000).toISOString();
-  if (filter === '30days') return new Date(now - 30 * 86400000).toISOString();
+  if (filter === '7days') return new Date(now.getTime() - 7 * 86400000).toISOString();
+  if (filter === '30days') return new Date(now.getTime() - 30 * 86400000).toISOString();
   return undefined;
 }
 
 export default function Tasks() {
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('30days');
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [tasks, setTasks] = useState([]);
+  const [selectedTask, setSelectedTask] = useState<MappedTask | null>(null);
+  const [tasks, setTasks] = useState<MappedTask[]>([]);
   const [loading, setLoading] = useState(true);
 
-  function loadTasks(filter) {
+  function loadTasks(filter?: string) {
     setLoading(true);
     api.tasks(sinceFromFilter(filter ?? dateFilter))
       .then((r) => setTasks((r?.data?.items ?? []).map(mapTask)))

@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Trash2, WifiOff, AlertCircle, CheckCircle2, Loader2, Settings } from 'lucide-react';
-import { api } from '../api/client.js';
+import { api } from '../api/client';
+import type { TenantEntry } from '../types/api';
 
-function StatusPill({ granted }) {
+interface StatusPillProps {
+  granted: boolean | undefined;
+}
+
+function StatusPill({ granted }: StatusPillProps): ReactNode {
   if (granted) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold text-[#28A745] bg-green-50 rounded">
@@ -18,7 +24,14 @@ function StatusPill({ granted }) {
   );
 }
 
-function QuestModal({ title, onClose, children, maxWidth = 'max-w-md' }) {
+interface QuestModalProps {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  maxWidth?: string;
+}
+
+function QuestModal({ title, onClose, children, maxWidth = 'max-w-md' }: QuestModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className={`bg-white shadow-xl w-full ${maxWidth} mx-4`}>
@@ -32,7 +45,7 @@ function QuestModal({ title, onClose, children, maxWidth = 'max-w-md' }) {
   );
 }
 
-function AddTenantTypeModal({ onClose, onSelect }) {
+function AddTenantTypeModal({ onClose, onSelect }: { onClose: () => void; onSelect: (type: string) => void }) {
   const [type, setType] = useState('commercial');
   return (
     <QuestModal title="Add Tenant — Select Cloud" onClose={onClose}>
@@ -70,7 +83,7 @@ function AddTenantTypeModal({ onClose, onSelect }) {
   );
 }
 
-function AddTenantConsentModal({ onClose, onConfirm, loading }) {
+function AddTenantConsentModal({ onClose, onConfirm, loading }: { onClose: () => void; onConfirm: () => void; loading: boolean }) {
   return (
     <QuestModal title="Add Tenant — Grant Consent" onClose={onClose}>
       <div className="text-sm text-[#333] space-y-2 mb-5">
@@ -89,7 +102,7 @@ function AddTenantConsentModal({ onClose, onConfirm, loading }) {
   );
 }
 
-function ConfirmRemoveModal({ name, onClose, onConfirm, loading }) {
+function ConfirmRemoveModal({ name, onClose, onConfirm, loading }: { name: string; onClose: () => void; onConfirm: () => void; loading: boolean }) {
   return (
     <QuestModal title="Remove Tenant" onClose={onClose}>
       <p className="text-sm text-[#333] mb-5">
@@ -107,7 +120,13 @@ function ConfirmRemoveModal({ name, onClose, onConfirm, loading }) {
   );
 }
 
-function TenantCard({ tenant, onRemove, onEditConsents }) {
+interface TenantCardProps {
+  tenant: TenantEntry;
+  onRemove: (tenant: TenantEntry) => void;
+  onEditConsents: (tenant: TenantEntry) => void;
+}
+
+function TenantCard({ tenant, onRemove, onEditConsents }: TenantCardProps) {
   const added = tenant.addedAt ? new Date(tenant.addedAt).toLocaleDateString('en-US') : '—';
   const basic = tenant.consents?.basic?.granted;
   const restore = tenant.consents?.restore?.granted;
@@ -169,14 +188,14 @@ function TenantCard({ tenant, onRemove, onEditConsents }) {
 
 export default function Tenants() {
   const navigate = useNavigate();
-  const [tenants, setTenants] = useState([]);
+  const [tenants, setTenants] = useState<TenantEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [setupOk, setSetupOk] = useState(null);
-  const [addStep, setAddStep] = useState(null); // null | 'type' | 'consent'
+  const [setupOk, setSetupOk] = useState<boolean | null>(null);
+  const [addStep, setAddStep] = useState<'type' | 'consent' | null>(null);
   const [cloudType, setCloudType] = useState('commercial');
-  const [removeTarget, setRemoveTarget] = useState(null);
+  const [removeTarget, setRemoveTarget] = useState<TenantEntry | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -189,6 +208,7 @@ export default function Tenants() {
       // Use mock data if API not available
       setSetupOk(true);
       setTenants([{
+        id: 'ca9b03ea-578e-4277-b684-969fa2a34a9a',
         tenantId: 'ca9b03ea-578e-4277-b684-969fa2a34a9a',
         name: 'Contoso',
         domain: 'M365x24071226.onmicrosoft.com',
@@ -202,12 +222,12 @@ export default function Tenants() {
 
   useEffect(() => {
     load();
-    const onMsg = (ev) => { if (ev?.data?.type === 'oauth-complete') load(); };
+    const onMsg = (ev: MessageEvent) => { if (ev?.data?.type === 'oauth-complete') load(); };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, []);
 
-  const handleTypeSelected = (type) => {
+  const handleTypeSelected = (type: string) => {
     setCloudType(type);
     setAddStep('consent');
   };
@@ -220,7 +240,7 @@ export default function Tenants() {
       if (!w) window.location.href = r.data.url;
       setAddStep(null);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Unknown error');
       setAddStep(null);
     } finally {
       setBusy(false);
@@ -235,7 +255,7 @@ export default function Tenants() {
       setTenants((t) => t.filter((x) => x.tenantId !== removeTarget.tenantId));
       setRemoveTarget(null);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setBusy(false);
     }

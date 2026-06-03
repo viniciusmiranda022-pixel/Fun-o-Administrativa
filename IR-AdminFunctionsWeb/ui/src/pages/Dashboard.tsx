@@ -1,17 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
-import { buildBars } from '../utils/chartUtils.js';
+import type { ReactNode } from 'react';
+import { buildBars } from '../utils/chartUtils';
 import { useNavigate } from 'react-router-dom';
 import {
   Settings, ArrowDownToLine, RotateCcw, Package,
-  CheckCircle2, X, ChevronDown, Check, AlertCircle, Network
+  CheckCircle2, X, Check, AlertCircle, Network,
+  type LucideIcon,
 } from 'lucide-react';
-import { useApp } from '../context/AppContext.jsx';
-import Modal from '../components/common/Modal.jsx';
-import BackupUnpackingModal from '../components/BackupUnpackingModal.jsx';
-import { api, pollJob } from '../api/client.js';
+import { useApp } from '../context/AppContext';
+import Modal from '../components/common/Modal';
+import BackupUnpackingModal from '../components/BackupUnpackingModal';
+import { api } from '../api/client';
+import type { BackupSnapshot, TenantEntry, TaskEntry, EventEntry } from '../types/api';
+
+interface ToolBtnProps {
+  icon: LucideIcon;
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  title?: string;
+}
 
 /* ── Toolbar button ── */
-function ToolBtn({ icon: Icon, label, onClick, disabled, title }) {
+function ToolBtn({ icon: Icon, label, onClick, disabled, title }: ToolBtnProps) {
   return (
     <button
       onClick={onClick}
@@ -25,10 +36,18 @@ function ToolBtn({ icon: Icon, label, onClick, disabled, title }) {
   );
 }
 
-// buildBars imported from utils/chartUtils.js
+interface Bar {
+  label: string;
+  h: number;
+}
+
+interface BarChartProps {
+  bars?: Bar[];
+  fullWidth?: boolean;
+}
 
 /* ── Simple bar chart ── */
-function BarChart({ bars = [], fullWidth = false }) {
+function BarChart({ bars = [], fullWidth = false }: BarChartProps) {
   return (
     <div className={`flex items-end gap-1 ${fullWidth ? 'w-full' : 'flex-1'} px-1 pt-2`} style={{ height: fullWidth ? 100 : 80 }}>
       {bars.map((b, i) => (
@@ -44,8 +63,13 @@ function BarChart({ bars = [], fullWidth = false }) {
   );
 }
 
+interface DonutCounts {
+  definitions: number;
+  assignments: number;
+}
+
 /* ── SVG Donut chart from unpacked objects counts ── */
-function buildDonutPaths(counts) {
+function buildDonutPaths(counts: DonutCounts | undefined) {
   const segments = [
     { label: 'Role Definitions', count: counts?.definitions ?? 0, color: '#0096D6' },
     { label: 'Role Assignments', count: counts?.assignments ?? 0, color: '#6CB33F' },
@@ -71,7 +95,7 @@ function buildDonutPaths(counts) {
   return { segments, total, paths };
 }
 
-function DonutChart({ counts }) {
+function DonutChart({ counts }: { counts: DonutCounts }) {
   const { segments, total, paths } = useMemo(() => buildDonutPaths(counts), [counts?.definitions, counts?.assignments]);
 
   if (total === 0) {
@@ -109,8 +133,17 @@ function DonutChart({ counts }) {
   );
 }
 
+interface CardProps {
+  title: string;
+  icon?: ReactNode;
+  showAll?: boolean;
+  onShowAll?: () => void;
+  children: ReactNode;
+  accent?: string;
+}
+
 /* ── Card shell ── */
-function Card({ title, icon, showAll, onShowAll, children, accent }) {
+function Card({ title, icon, showAll, onShowAll, children, accent }: CardProps) {
   return (
     <div className="bg-white border border-[#DEE2E6] shadow-sm flex flex-col min-h-[220px] overflow-hidden">
       <div
@@ -132,8 +165,14 @@ function Card({ title, icon, showAll, onShowAll, children, accent }) {
   );
 }
 
+interface InfoRowProps {
+  label: string;
+  value: ReactNode;
+  valueColor?: string;
+}
+
 /* ── Info row in protected card ── */
-function InfoRow({ label, value, valueColor = '#0078A8' }) {
+function InfoRow({ label, value, valueColor = '#0078A8' }: InfoRowProps) {
   return (
     <div className="flex items-start justify-between text-xs py-0.5">
       <span className="text-[#555]">{label}:</span>
@@ -144,15 +183,23 @@ function InfoRow({ label, value, valueColor = '#0078A8' }) {
 
 /* ═══════════════════════ MODALS ═══════════════════════ */
 
-function ConfigureBackupModal({ tenant, onClose }) {
+interface BackupOpts {
+  roleDefs: boolean;
+  rolePerms: boolean;
+  roleAssignments: boolean;
+  scopes: boolean;
+  principals: boolean;
+}
+
+function ConfigureBackupModal({ tenant, onClose }: { tenant: TenantEntry | null; onClose: () => void }) {
   const [schedule, setSchedule] = useState('Enabled');
   const [retention, setRetention] = useState(1825);
-  const [opts, setOpts] = useState({
+  const [opts, setOpts] = useState<BackupOpts>({
     roleDefs: true, rolePerms: true, roleAssignments: true,
     scopes: true, principals: false,
   });
 
-  function toggleOpt(k) {
+  function toggleOpt(k: keyof BackupOpts) {
     setOpts((o) => ({ ...o, [k]: !o[k] }));
   }
 
@@ -180,13 +227,13 @@ function ConfigureBackupModal({ tenant, onClose }) {
           />
         </div>
         <div className="space-y-2">
-          {[
+          {([
             ['roleDefs', 'Back up custom administrative role definitions'],
             ['rolePerms', 'Back up administrative role permissions'],
             ['roleAssignments', 'Back up administrative role assignments'],
             ['scopes', 'Back up administrative assignment scopes'],
             ['principals', 'Back up referenced principals metadata'],
-          ].map(([k, label]) => (
+          ] as [keyof BackupOpts, string][]).map(([k, label]) => (
             <label key={k} className="flex items-center gap-2 text-xs text-[#333] cursor-pointer">
               <input type="checkbox" checked={opts[k]} onChange={() => toggleOpt(k)} />
               {label}
@@ -202,8 +249,8 @@ function ConfigureBackupModal({ tenant, onClose }) {
   );
 }
 
-function ManageBackupsModal({ onClose, tenants }) {
-  const [configuringTenant, setConfiguringTenant] = useState(null);
+function ManageBackupsModal({ onClose, tenants }: { onClose: () => void; tenants: TenantEntry[] }) {
+  const [configuringTenant, setConfiguringTenant] = useState<TenantEntry | null>(null);
   const rows = tenants.map((t) => ({
     ...t,
     schedule: 'Enabled',
@@ -272,7 +319,7 @@ function ManageBackupsModal({ onClose, tenants }) {
   );
 }
 
-function ManageRestoresModal({ onClose, tenants }) {
+function ManageRestoresModal({ onClose, tenants }: { onClose: () => void; tenants: TenantEntry[] }) {
   const rows = tenants.map((t) => ({
     ...t,
     basic: t.consents?.basic?.granted ? 'Granted' : 'Not Granted',
@@ -322,10 +369,10 @@ function ManageRestoresModal({ onClose, tenants }) {
   );
 }
 
-function CreateBackupModal({ onClose, tenant }) {
+function CreateBackupModal({ onClose, tenant }: { onClose: () => void; tenant: TenantEntry | null }) {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleCreate() {
     setSubmitting(true);
@@ -335,7 +382,7 @@ function CreateBackupModal({ onClose, tenant }) {
       onClose();
       navigate('/tasks');
     } catch (err) {
-      setError(err.message || 'Failed to start backup');
+      setError((err instanceof Error ? err.message : null) || 'Failed to start backup');
       setSubmitting(false);
     }
   }
@@ -377,10 +424,10 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { selectedTenant, tenants } = useApp();
 
-  const [modal, setModal] = useState(null);
-  const [backups, setBackups] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [events, setEvents] = useState([]);
+  const [modal, setModal] = useState<string | null>(null);
+  const [backups, setBackups] = useState<BackupSnapshot[]>([]);
+  const [tasks, setTasks] = useState<TaskEntry[]>([]);
+  const [events, setEvents] = useState<EventEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

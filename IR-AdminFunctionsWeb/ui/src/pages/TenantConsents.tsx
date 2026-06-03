@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, ShieldAlert, Loader2, ExternalLink, ChevronDown, ChevronRight, Save } from 'lucide-react';
-import { api } from '../api/client.js';
+import { api } from '../api/client';
+import type { TenantEntry, ConsentBlock } from '../types/api';
 
-function ConsentCard({ block, onGrant, granting, sensitive }) {
+interface ConsentCardProps {
+  block: ConsentBlock;
+  onGrant: (block: ConsentBlock) => void;
+  granting: boolean;
+  sensitive: boolean;
+}
+
+function ConsentCard({ block, onGrant, granting, sensitive }: ConsentCardProps) {
   const [showDetails, setShowDetails] = useState(false);
 
   const StatusIcon = block.granted ? CheckCircle2 : AlertCircle;
@@ -91,11 +99,11 @@ function ConsentCard({ block, onGrant, granting, sensitive }) {
   );
 }
 
-function CertificateSection({ tenantId, currentThumbprint }) {
+function CertificateSection({ tenantId, currentThumbprint }: { tenantId: string; currentThumbprint?: string }) {
   const [thumbprint, setThumbprint] = useState(currentThumbprint || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [saveError, setSaveError] = useState(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function handleSave() {
     setSaving(true);
@@ -106,7 +114,7 @@ function CertificateSection({ tenantId, currentThumbprint }) {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
-      setSaveError(e.message || 'Error saving');
+      setSaveError(e instanceof Error ? (e.message || 'Error saving') : 'Error saving');
     } finally {
       setSaving(false);
     }
@@ -142,13 +150,13 @@ function CertificateSection({ tenantId, currentThumbprint }) {
 }
 
 export default function TenantConsents() {
-  const { tenantId } = useParams();
+  const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
-  const [consents, setConsents] = useState(null);
-  const [tenant, setTenant] = useState(null);
+  const [consents, setConsents] = useState<{ basic: ConsentBlock; restore: ConsentBlock & { sensitive?: boolean } } | null>(null);
+  const [tenant, setTenant] = useState<TenantEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [granting, setGranting] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -161,7 +169,7 @@ export default function TenantConsents() {
       setConsents(c.data);
       setTenant((t.data || []).find((x) => x.tenantId === tenantId));
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -169,7 +177,7 @@ export default function TenantConsents() {
 
   useEffect(() => {
     load();
-    const onMsg = (ev) => {
+    const onMsg = (ev: MessageEvent) => {
       if (ev?.data?.type === 'oauth-complete') load();
     };
     window.addEventListener('message', onMsg);
@@ -183,7 +191,7 @@ export default function TenantConsents() {
       const w = window.open(r.data.url, 'oauth-consent', 'width=700,height=800');
       if (!w) window.location.href = r.data.url;
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setGranting(false);
     }
@@ -191,7 +199,7 @@ export default function TenantConsents() {
 
   if (loading) return <div className="p-6"><Loader2 className="animate-spin" /></div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
-  if (!consents) return null;
+  if (!consents || !tenantId) return null;
 
   const blocks = [
     {

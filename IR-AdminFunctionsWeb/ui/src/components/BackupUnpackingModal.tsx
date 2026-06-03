@@ -1,20 +1,35 @@
 import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import Modal from './common/Modal.jsx';
-import { api, pollJob } from '../api/client.js';
+import Modal from './common/Modal';
+import { api, pollJob } from '../api/client';
+import type { BackupSnapshot } from '../types/api';
 
-export default function BackupUnpackingModal({ onClose, backups, preSelectedId = null }) {
-  const [opts, setOpts] = useState({ clear: true, diff: true, validate: false });
-  const [selected, setSelected] = useState(preSelectedId ?? backups[0]?.id ?? null);
-  const [state, setState] = useState('idle');
+interface BackupUnpackingModalProps {
+  onClose: () => void;
+  backups: BackupSnapshot[];
+  preSelectedId?: string | null;
+}
+
+type UnpackState = 'idle' | 'running' | 'done' | 'error';
+
+interface UnpackOpts {
+  clear: boolean;
+  diff: boolean;
+  validate: boolean;
+}
+
+export default function BackupUnpackingModal({ onClose, backups, preSelectedId = null }: BackupUnpackingModalProps) {
+  const [opts, setOpts] = useState<UnpackOpts>({ clear: true, diff: true, validate: false });
+  const [selected, setSelected] = useState<string | null>(preSelectedId ?? backups[0]?.id ?? null);
+  const [state, setState] = useState<UnpackState>('idle');
   const [msg, setMsg] = useState('');
 
-  function toggle(k) { setOpts((o) => ({ ...o, [k]: !o[k] })); }
+  function toggle(k: keyof UnpackOpts) { setOpts((o) => ({ ...o, [k]: !o[k] })); }
 
-  function formatDate(snap) {
+  function formatDate(snap: BackupSnapshot | undefined): string {
     if (!snap) return '—';
     const d = new Date(snap.createdAt || snap.collectedAt || '');
-    if (isNaN(d)) return snap.id;
+    if (isNaN(d.getTime())) return snap.id;
     return d.toLocaleString();
   }
 
@@ -42,7 +57,7 @@ export default function BackupUnpackingModal({ onClose, backups, preSelectedId =
       }
     } catch (err) {
       setState('error');
-      setMsg(err.message);
+      setMsg(err instanceof Error ? err.message : 'Unknown error');
     }
   }
 
@@ -60,11 +75,11 @@ export default function BackupUnpackingModal({ onClose, backups, preSelectedId =
         ) : (
           <>
             <div className="space-y-2">
-              {[
+              {([
                 ['clear', 'Clear administrative function objects from previously unpacked backups'],
                 ['diff', 'Perform administrative function differences operation during unpack'],
                 ['validate', 'Validate backup integrity before unpack'],
-              ].map(([k, label]) => (
+              ] as [keyof UnpackOpts, string][]).map(([k, label]) => (
                 <label key={k} className="flex items-center gap-2 text-xs text-[#333] cursor-pointer">
                   <input type="checkbox" checked={opts[k]} onChange={() => toggle(k)} />
                   {label}

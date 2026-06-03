@@ -1,12 +1,20 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Building2, RotateCw, Settings, HelpCircle } from 'lucide-react';
+import { Home, Building2, RotateCw, Settings, HelpCircle, type LucideIcon } from 'lucide-react';
 
 const RECOVER_PATHS = ['/dashboard', '/backups', '/unpacked', '/differences', '/events', '/tasks'];
 const TENANT_PATHS = ['/tenants'];
 
 const HOME_URL = 'https://quest-on-demand.com/#/recovery/entraid/ng1/project-e71f6a66-3296-b0cf-e532-6fd2dea14c03/collection-ca9b03ea-578e-4277-b684-969fa2a34a9a/dashboard';
 
-const navItems = [
+interface NavItem {
+  key: string;
+  icon: LucideIcon;
+  label: string;
+  path: string;
+  external?: boolean;
+}
+
+const navItems: NavItem[] = [
   { key: 'home', icon: Home, label: 'Home', path: HOME_URL, external: true },
   { key: 'tenants', icon: Building2, label: 'Tenants', path: '/tenants' },
   { key: 'recover', icon: RotateCw, label: 'Recover', path: '/dashboard' },
@@ -21,7 +29,7 @@ export default function Sidebar() {
   const isRecoverActive = RECOVER_PATHS.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
   const isTenantsActive = TENANT_PATHS.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
 
-  function isActive(item) {
+  function isActive(item: NavItem): boolean {
     if (item.key === 'recover') return isRecoverActive;
     if (item.key === 'tenants') return isTenantsActive;
     if (item.key === 'settings') return location.pathname === '/setup';

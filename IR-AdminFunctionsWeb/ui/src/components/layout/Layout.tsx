@@ -1,8 +1,8 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import Sidebar from './Sidebar.jsx';
-import Topbar from './Topbar.jsx';
-import TabNav from './TabNav.jsx';
-import TenantSelector from './TenantSelector.jsx';
+import Sidebar from './Sidebar';
+import Topbar from './Topbar';
+import TabNav from './TabNav';
+import TenantSelector from './TenantSelector';
 
 const RECOVER_PATHS = ['/dashboard', '/backups', '/unpacked', '/differences', '/events', '/tasks'];
 

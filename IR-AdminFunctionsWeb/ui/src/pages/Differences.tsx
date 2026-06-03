@@ -1,10 +1,28 @@
 import { useState, useEffect } from 'react';
 import { RotateCcw, Download, RefreshCw, Columns, Search, FileText, AlertTriangle } from 'lucide-react';
-import DataTable from '../components/common/DataTable.jsx';
-import Modal from '../components/common/Modal.jsx';
-import { api, pollJob } from '../api/client.js';
+import DataTable from '../components/common/DataTable';
+import Modal from '../components/common/Modal';
+import { api, pollJob } from '../api/client';
+import type { CompareResultItem } from '../types/api';
 
-function DiffCell({ row }) {
+interface MappedDiffRow {
+  id: string;
+  name: string;
+  roleType: string;
+  diffType: string;
+  defChanged: string;
+  assignChanged: string;
+  diffCount: number;
+  diffText: string;
+}
+
+interface SelectedRole {
+  name: string;
+  diffType: string;
+  roleType: string;
+}
+
+function DiffCell({ row }: { row: MappedDiffRow }) {
   if (row.diffType === 'Removed') {
     return <span className="text-[#DC3545] line-through text-xs">{row.diffText}</span>;
   }
@@ -45,9 +63,9 @@ const columns = [
   },
 ];
 
-function mapResult(item) {
+function mapResult(item: CompareResultItem): MappedDiffRow {
   return {
-    id: item.RoleName || item.roleName,
+    id: item.RoleName || item.roleName || '',
     name: item.RoleName || item.roleName || '—',
     roleType: item.RoleType || item.roleType || '—',
     diffType: item.Status || item.status || 'Equal',
@@ -58,23 +76,39 @@ function mapResult(item) {
   };
 }
 
-function extractRestoreError(errors) {
+function extractRestoreError(errors: string[]): string {
   if (!errors?.length) return 'Failed';
   const metaRe = /^(No linha|At line|\+ |[ \t]*\+ Category|[ \t]*\+ FullyQualified)/;
-  const useful = errors.filter(l => !metaRe.test(l)).join(' ');
+  const useful = errors.filter((l: string) => !metaRe.test(l)).join(' ');
   const marker = 'Restore failed:';
   const idx = useful.indexOf(marker);
   if (idx !== -1) return useful.slice(idx + marker.length).trim();
   return useful.replace(/^[A-Za-z]:\\[^:]+\.ps1\s*:\s*/i, '').trim() || 'Failed';
 }
 
+interface RestoreModalProps {
+  selectedRows: SelectedRole[];
+  targetCandidates: string[];
+  backupId: string | null;
+  onClose: () => void;
+  onDone: () => void;
+}
+
+type RestorePhase = 'confirm' | 'running' | 'done';
+
+interface RestoreProgress {
+  current: number;
+  total: number;
+  log: string[];
+}
+
 // selectedRows: array of { name, diffType, roleType }
 // targetCandidates: array of role names (custom roles that exist in the tenant)
-function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDone }) {
-  const [phase, setPhase] = useState('confirm'); // confirm | running | done
-  const [progress, setProgress] = useState({ current: 0, total: selectedRows.length, log: [] });
-  const [error, setError] = useState(null);
-  const [targets, setTargets] = useState({}); // { roleName: currentRoleName }
+function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDone }: RestoreModalProps) {
+  const [phase, setPhase] = useState<RestorePhase>('confirm');
+  const [progress, setProgress] = useState<RestoreProgress>({ current: 0, total: selectedRows.length, log: [] });
+  const [error, setError] = useState<string | null>(null);
+  const [targets, setTargets] = useState<Record<string, string>>({}); // { roleName: currentRoleName }
 
   const newRoles = selectedRows.filter(r => r.diffType === 'New');
   const restorableRows = selectedRows.filter(r => r.diffType !== 'New');
@@ -99,15 +133,17 @@ function RestoreModal({ selectedRows, targetCandidates, backupId, onClose, onDon
         const job = resp?.data;
         if (!job?.id) throw new Error('No job id returned');
         const result = await pollJob(job.id, { intervalMs: 3000, timeoutMs: 300000 });
-        const scriptFailed = result?.status === 'Failed' || result?.result?.success === false;
+        const resultData = result?.result as Record<string, unknown> | undefined;
+        const scriptFailed = result?.status === 'Failed' || resultData?.['success'] === false;
         if (scriptFailed) {
-          const errMsg = result?.error || extractRestoreError(result?.result?.errors) || 'Failed';
+          const errors = resultData?.['errors'] as string[] | undefined;
+          const errMsg = result?.error || (errors ? extractRestoreError(errors) : null) || 'Failed';
           log.push(`✗ ${label}: ${errMsg}`);
         } else {
           log.push(`✓ ${label}: restored successfully`);
         }
       } catch (err) {
-        log.push(`✗ ${label}: ${err.message}`);
+        log.push(`✗ ${label}: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
       setProgress({ current: i + 1, total, log: [...log] });
     }
@@ -249,13 +285,13 @@ export default function Differences() {
   const [view, setView] = useState('list');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [rows, setRows] = useState([]);
-  const [generatedAt, setGeneratedAt] = useState(null);
-  const [backupId, setBackupId] = useState(null);
+  const [rows, setRows] = useState<MappedDiffRow[]>([]);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [backupId, setBackupId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
 
   function loadResults() {
@@ -290,7 +326,7 @@ export default function Differences() {
       });
       loadResults();
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setRunning(false);
     }
@@ -305,9 +341,9 @@ export default function Differences() {
 
   const statusOptions = [...new Set(rows.map(r => r.diffType))];
 
-  const selectedRoleNames = selectedIds
+  const selectedRoleNames: SelectedRole[] = selectedIds
     .map((id) => rows.find((r) => r.id === id))
-    .filter(Boolean)
+    .filter((r): r is MappedDiffRow => Boolean(r))
     .map((r) => ({ name: r.name, diffType: r.diffType, roleType: r.roleType }));
 
   const targetCandidates = rows

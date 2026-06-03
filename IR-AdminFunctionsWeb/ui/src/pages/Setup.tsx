@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, CheckCircle2, AlertCircle, ExternalLink, Copy } from 'lucide-react';
-import { api } from '../api/client.js';
+import { api } from '../api/client';
+import type { AppConfig, SetupStatus } from '../types/api';
+
+type SetupState = AppConfig & { isConfigured: boolean };
+
+interface SessionState extends SetupStatus {
+  sessionId: string;
+}
 
 export default function Setup() {
   const navigate = useNavigate();
-  const [state, setState] = useState(null);
-  const [session, setSession] = useState(null);
-  const [error, setError] = useState(null);
+  const [state, setState] = useState<SetupState | null>(null);
+  const [session, setSession] = useState<SessionState | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    api.setupState().then((r) => setState(r.data)).catch((e) => setError(e.message));
+    api.setupState().then((r) => setState(r.data as SetupState)).catch((e: Error) => setError(e.message));
   }, []);
 
   useEffect(() => {
@@ -20,13 +27,13 @@ export default function Setup() {
       try {
         const r = await api.setupStatus(session.sessionId);
         const s = r.data;
-        setSession((prev) => ({ ...prev, ...s }));
+        setSession((prev) => prev ? ({ ...prev, ...s }) : null);
         if (s.status === 'Completed') {
           clearInterval(timer);
           setTimeout(() => navigate('/tenants'), 2000);
         }
         if (s.status === 'Failed') clearInterval(timer);
-      } catch (e) { /* keep polling */ }
+      } catch { /* keep polling */ }
     }, 2000);
     return () => clearInterval(timer);
   }, [session?.sessionId, navigate]);
@@ -36,9 +43,9 @@ export default function Setup() {
     setError(null);
     try {
       const r = await api.setupStart();
-      setSession({ sessionId: r.data.sessionId, ...r.data });
+      setSession({ sessionId: r.data.sessionId, ...r.data } as SessionState);
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setStarting(false);
     }
@@ -71,7 +78,7 @@ export default function Setup() {
             <button
               onClick={async () => {
                 await api.setupReset().catch(() => {});
-                setState((s) => ({ ...s, isConfigured: false }));
+                setState((s) => s ? ({ ...s, isConfigured: false }) : null);
               }}
               className="px-4 py-2 border border-[#DEE2E6] rounded text-sm text-[#555] hover:bg-[#F2F2F2]"
               title="Clears the local configuration and allows registering a new app"

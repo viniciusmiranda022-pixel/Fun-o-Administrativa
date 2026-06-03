@@ -1,7 +1,43 @@
 import { useState, useEffect } from 'react';
 import { RotateCcw, Download, Columns, Search, FileText } from 'lucide-react';
-import DataTable from '../components/common/DataTable.jsx';
-import { api } from '../api/client.js';
+import DataTable from '../components/common/DataTable';
+import { api } from '../api/client';
+import type { BackupSnapshot } from '../types/api';
+
+interface UnpackedRow {
+  id: string;
+  name: string;
+  type: string;
+  roleId: string;
+  description: string;
+  permissions: number | string;
+  status: string;
+}
+
+interface RawDefinition {
+  id?: string;
+  Id?: string;
+  displayName?: string;
+  DisplayName?: string;
+  description?: string;
+  Description?: string;
+  isBuiltIn?: boolean;
+  IsBuiltIn?: boolean;
+  isEnabled?: boolean;
+  IsEnabled?: boolean;
+  rolePermissions?: Array<{ allowedResourceActions?: string[] }>;
+}
+
+interface RawAssignment {
+  id?: string;
+  Id?: string;
+  principalId?: string;
+  PrincipalId?: string;
+  roleDefinitionId?: string;
+  RoleDefinitionId?: string;
+  directoryScopeId?: string;
+  DirectoryScopeId?: string;
+}
 
 const columns = [
   {
@@ -23,10 +59,10 @@ const columns = [
   },
 ];
 
-function mapDefinition(d) {
+function mapDefinition(d: RawDefinition): UnpackedRow {
   const perms = (d.rolePermissions || []).reduce((sum, rp) => sum + (rp.allowedResourceActions?.length || 0), 0);
   return {
-    id: d.id || d.Id,
+    id: d.id || d.Id || '',
     name: d.displayName || d.DisplayName || '—',
     type: d.isBuiltIn || d.IsBuiltIn ? 'Built-in Role' : 'Custom Role',
     roleId: (d.id || d.Id || '').slice(0, 18) + '…',
@@ -36,9 +72,9 @@ function mapDefinition(d) {
   };
 }
 
-function mapAssignment(a) {
+function mapAssignment(a: RawAssignment): UnpackedRow {
   return {
-    id: a.id || a.Id,
+    id: a.id || a.Id || '',
     name: `${(a.principalId || a.PrincipalId || '—').slice(0, 8)}… → ${(a.roleDefinitionId || a.RoleDefinitionId || '—').slice(0, 8)}…`,
     type: 'Role Assignment',
     roleId: (a.roleDefinitionId || a.RoleDefinitionId || '').slice(0, 18) + '…',
@@ -52,11 +88,11 @@ export default function UnpackedObjects() {
   const [view, setView] = useState('list');
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ type: '' });
-  const [backups, setBackups] = useState([]);
-  const [selectedBackupId, setSelectedBackupId] = useState(null);
-  const [rows, setRows] = useState([]);
+  const [backups, setBackups] = useState<BackupSnapshot[]>([]);
+  const [selectedBackupId, setSelectedBackupId] = useState<string | null>(null);
+  const [rows, setRows] = useState<UnpackedRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.backups()
@@ -77,14 +113,14 @@ export default function UnpackedObjects() {
       .then((r) => {
         const data = r?.data;
         if (!data) { setRows([]); return; }
-        const defs = Array.isArray(data.roleDefinitions) ? data.roleDefinitions : [];
-        const assigns = Array.isArray(data.roleAssignments) ? data.roleAssignments : [];
+        const defs = Array.isArray(data.roleDefinitions) ? (data.roleDefinitions as RawDefinition[]) : [];
+        const assigns = Array.isArray(data.roleAssignments) ? (data.roleAssignments as RawAssignment[]) : [];
         setRows([
           ...defs.map(mapDefinition),
           ...assigns.map(mapAssignment),
         ]);
       })
-      .catch((err) => setError(err.message))
+      .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, [selectedBackupId]);
 

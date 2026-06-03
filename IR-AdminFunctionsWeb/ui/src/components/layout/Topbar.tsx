@@ -1,5 +1,5 @@
 import { Bell, Info, Menu, ChevronDown } from 'lucide-react';
-import { useApp } from '../../context/AppContext.jsx';
+import { useApp } from '../../context/AppContext';
 
 export default function Topbar() {
   const { selectedTenant } = useApp();

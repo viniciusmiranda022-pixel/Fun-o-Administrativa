@@ -1,15 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, AlignJustify } from 'lucide-react';
-import { useApp } from '../../context/AppContext.jsx';
+import { useApp } from '../../context/AppContext';
 
 export default function TenantSelector() {
   const { tenants, selectedTenant, setSelectedTenantId } = useApp();
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);

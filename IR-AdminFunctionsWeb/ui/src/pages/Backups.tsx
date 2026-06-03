@@ -1,11 +1,29 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Package, Columns, Search } from 'lucide-react';
-import DataTable from '../components/common/DataTable.jsx';
-import BackupUnpackingModal from '../components/BackupUnpackingModal.jsx';
-import { api } from '../api/client.js';
-import { buildBars } from '../utils/chartUtils.js';
+import DataTable from '../components/common/DataTable';
+import BackupUnpackingModal from '../components/BackupUnpackingModal';
+import { api } from '../api/client';
+import { buildBars } from '../utils/chartUtils';
+import type { BackupSnapshot } from '../types/api';
 
-const columns = [
+interface Bar {
+  label: string;
+  h: number;
+}
+
+interface MappedBackupRow {
+  id: string;
+  time: string;
+  tenant: string;
+  customRoles: number | string;
+  roleAssignments: number | string;
+  size: string;
+  status: string;
+}
+
+import type { Column } from '../components/common/DataTable';
+
+const columns: Column<MappedBackupRow>[] = [
   { key: 'time', header: 'Time', sortable: true, width: '18%' },
   { key: 'tenant', header: 'Tenant', sortable: true, width: '10%' },
   { key: 'customRoles', header: 'Custom Roles', width: '10%' },
@@ -21,9 +39,7 @@ const columns = [
   },
 ];
 
-// buildBars imported from utils/chartUtils.js
-
-function MiniBarChart({ bars }) {
+function MiniBarChart({ bars }: { bars: Bar[] }) {
   return (
     <div className="bg-white border border-[#DEE2E6] px-4 pt-3 pb-2">
       <div className="flex items-end gap-0.5" style={{ height: 60 }}>
@@ -37,11 +53,11 @@ function MiniBarChart({ bars }) {
   );
 }
 
-function mapRow(b) {
+function mapRow(b: BackupSnapshot): MappedBackupRow {
   const d = new Date(b.createdAt || b.collectedAt || '');
   return {
     id: b.id,
-    time: isNaN(d) ? b.id : d.toLocaleString(),
+    time: isNaN(d.getTime()) ? b.id : d.toLocaleString(),
     tenant: b.tenantId || b.id || '—',
     customRoles: b.roleDefinitionsCount ?? '—',
     roleAssignments: b.roleAssignmentsCount ?? '—',
@@ -53,9 +69,9 @@ function mapRow(b) {
 export default function Backups() {
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('30days');
-  const [backups, setBackups] = useState([]);
+  const [backups, setBackups] = useState<BackupSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showUnpack, setShowUnpack] = useState(false);
 
   useEffect(() => {

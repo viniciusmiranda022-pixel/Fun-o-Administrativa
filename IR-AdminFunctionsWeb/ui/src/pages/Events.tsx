@@ -1,16 +1,38 @@
 import { useState, useEffect } from 'react';
 import { Download, CheckSquare, Columns, Search, Info, AlertTriangle, XCircle, Trash2 } from 'lucide-react';
-import DataTable from '../components/common/DataTable.jsx';
-import { api } from '../api/client.js';
+import DataTable from '../components/common/DataTable';
+import { api } from '../api/client';
 
-function SeverityIcon({ severity }) {
+interface MappedEvent {
+  id: string;
+  time: string;
+  description: string;
+  source: string;
+  severity: string;
+}
+
+interface RawEvent {
+  time?: string;
+  Time?: string;
+  message?: string;
+  Message?: string;
+  description?: string;
+  source?: string;
+  Source?: string;
+  severity?: string;
+  Severity?: string;
+}
+
+function SeverityIcon({ severity }: { severity: string }) {
   const s = (severity || '').toLowerCase();
   if (s === 'error') return <XCircle size={13} className="text-[#DC3545]" />;
   if (s === 'warning') return <AlertTriangle size={13} className="text-[#FFC107]" />;
   return <Info size={13} className="text-[#17A2B8]" />;
 }
 
-const columns = [
+import type { Column } from '../components/common/DataTable';
+
+const columns: Column<MappedEvent>[] = [
   {
     key: 'severity', header: '', width: '3%',
     render: (r) => <SeverityIcon severity={r.severity} />
@@ -31,24 +53,24 @@ const columns = [
   },
 ];
 
-function mapEvent(e) {
+function mapEvent(e: RawEvent): MappedEvent {
   const d = new Date(e.time || e.Time || '');
   return {
     id: `${e.time}-${Math.random()}`,
-    time: isNaN(d) ? (e.time || '—') : d.toLocaleString(),
+    time: isNaN(d.getTime()) ? (e.time || '—') : d.toLocaleString(),
     description: e.message || e.Message || e.description || '—',
     source: e.source || e.Source || '—',
     severity: e.severity || e.Severity || 'Information',
   };
 }
 
-function sinceFromFilter(filter) {
+function sinceFromFilter(filter: string): string | undefined {
   const now = new Date();
   if (filter === 'today') {
     const d = new Date(now); d.setHours(0, 0, 0, 0); return d.toISOString();
   }
-  if (filter === '7days') return new Date(now - 7 * 86400000).toISOString();
-  if (filter === '30days') return new Date(now - 30 * 86400000).toISOString();
+  if (filter === '7days') return new Date(now.getTime() - 7 * 86400000).toISOString();
+  if (filter === '30days') return new Date(now.getTime() - 30 * 86400000).toISOString();
   return undefined;
 }
 
@@ -56,7 +78,7 @@ export default function Events() {
   const [severity, setSeverity] = useState('');
   const [dateFilter, setDateFilter] = useState('30days');
   const [search, setSearch] = useState('');
-  const [allEvents, setAllEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState<MappedEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   function loadEvents() {
