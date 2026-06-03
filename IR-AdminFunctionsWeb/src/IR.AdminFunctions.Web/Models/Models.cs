@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace IR.AdminFunctions.Web.Models;
 
@@ -192,6 +193,7 @@ public class Job
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? FinishedAt { get; set; }
+    [JsonIgnore]
     public IDictionary<string, object?>? Input { get; set; }
     public object? Result { get; set; }
     public string? Error { get; set; }
