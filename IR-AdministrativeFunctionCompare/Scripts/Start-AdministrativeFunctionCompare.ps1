@@ -5,7 +5,7 @@ param(
     [string]$TenantId,
     [string]$ClientId,
     [string]$Thumbprint = "",
-    [string]$ClientSecret = ""
+    [string]$ClientSecret = $env:IR_CLIENT_SECRET
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -192,10 +192,14 @@ function Connect-AppOnlyWithRetry {
         [string]$TenantId,
         [string]$ClientId,
         [string]$Thumbprint = "",
-        [string]$ClientSecret = "",
+        [string]$ClientSecret = $env:IR_CLIENT_SECRET,
         [string]$Operation = "Validation",
         [scriptblock]$StatusCallback
     )
+
+    if ([string]::IsNullOrWhiteSpace($ClientSecret) -and -not [string]::IsNullOrWhiteSpace($env:IR_CLIENT_SECRET)) {
+        $ClientSecret = $env:IR_CLIENT_SECRET
+    }
 
     $maxAttempts = 8
     $delaySeconds = 15
@@ -335,8 +339,12 @@ function Load-CurrentTenantData {
         [string]$TenantId,
         [string]$ClientId,
         [string]$Thumbprint = "",
-        [string]$ClientSecret = ""
+        [string]$ClientSecret = $env:IR_CLIENT_SECRET
     )
+
+    if ([string]::IsNullOrWhiteSpace($ClientSecret) -and -not [string]::IsNullOrWhiteSpace($env:IR_CLIENT_SECRET)) {
+        $ClientSecret = $env:IR_CLIENT_SECRET
+    }
 
     if (-not [string]::IsNullOrWhiteSpace($Thumbprint)) {
         Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
