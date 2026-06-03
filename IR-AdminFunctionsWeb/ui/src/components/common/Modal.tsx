@@ -1,4 +1,13 @@
-export default function Modal({ title, onClose, children, maxWidth = 'max-w-2xl' }) {
+import type { ReactNode } from 'react';
+
+interface ModalProps {
+  title: string;
+  onClose?: () => void;
+  children: ReactNode;
+  maxWidth?: string;
+}
+
+export default function Modal({ title, onClose, children, maxWidth = 'max-w-2xl' }: ModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className={`bg-white shadow-xl w-full ${maxWidth} mx-4`}>

@@ -1,7 +1,28 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
-export default function DataTable({
+export interface Column<T extends Record<string, unknown> = Record<string, unknown>> {
+  key: string;
+  header: string;
+  sortable?: boolean;
+  width?: string;
+  render?: (row: T) => ReactNode;
+}
+
+interface DataTableProps<T extends Record<string, unknown> = Record<string, unknown>> {
+  columns: Column<T>[];
+  rows: T[];
+  emptyMessage?: string;
+  onRowClick?: (row: T) => void;
+  selectedRows?: (string | number)[];
+  showCheckboxes?: boolean;
+  totalCount?: number;
+  pageSize?: number;
+  onSelectionChange?: (ids: (string | number)[]) => void;
+}
+
+export default function DataTable<T extends Record<string, unknown> = Record<string, unknown>>({
   columns,
   rows,
   emptyMessage = 'No items to display',
@@ -11,13 +32,13 @@ export default function DataTable({
   totalCount,
   pageSize = 400,
   onSelectionChange,
-}) {
-  const [sortKey, setSortKey] = useState(null);
-  const [sortDir, setSortDir] = useState('asc');
-  const [checkedRows, setCheckedRows] = useState(new Set());
+}: DataTableProps<T>) {
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [checkedRows, setCheckedRows] = useState<Set<string | number>>(new Set());
   const [allChecked, setAllChecked] = useState(false);
 
-  function handleSort(col) {
+  function handleSort(col: Column<T>) {
     if (!col.sortable) return;
     if (sortKey === col.key) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));

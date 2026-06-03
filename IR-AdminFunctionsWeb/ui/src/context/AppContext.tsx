@@ -23,7 +23,7 @@ export function AppProvider({ children }: AppProviderProps) {
   useEffect(() => {
     api.tenants()
       .then((r) => {
-        const list = r?.data ?? [];
+        const list: TenantEntry[] = r?.data ?? [];
         setTenants(list);
         if (list.length > 0) setSelectedTenantId(list[0].tenantId);
       })
@@ -41,7 +41,7 @@ export function AppProvider({ children }: AppProviderProps) {
   );
 }
 
-export function useApp() {
+export function useApp(): AppContextValue {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');
   return ctx;

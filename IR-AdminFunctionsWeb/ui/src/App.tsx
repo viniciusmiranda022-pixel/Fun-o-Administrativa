@@ -1,19 +1,19 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { AppProvider } from './context/AppContext.jsx';
-import Layout from './components/layout/Layout.jsx';
-import ErrorBoundary from './components/common/ErrorBoundary.jsx';
+import { AppProvider } from './context/AppContext';
+import Layout from './components/layout/Layout';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 // Route-level code splitting: each page is loaded only when first visited
-const Dashboard     = lazy(() => import('./pages/Dashboard.jsx'));
-const Backups       = lazy(() => import('./pages/Backups.jsx'));
-const UnpackedObjects = lazy(() => import('./pages/UnpackedObjects.jsx'));
-const Differences   = lazy(() => import('./pages/Differences.jsx'));
-const Events        = lazy(() => import('./pages/Events.jsx'));
-const Tasks         = lazy(() => import('./pages/Tasks.jsx'));
-const Tenants       = lazy(() => import('./pages/Tenants.jsx'));
-const TenantConsents = lazy(() => import('./pages/TenantConsents.jsx'));
-const Setup         = lazy(() => import('./pages/Setup.jsx'));
+const Dashboard     = lazy(() => import('./pages/Dashboard'));
+const Backups       = lazy(() => import('./pages/Backups'));
+const UnpackedObjects = lazy(() => import('./pages/UnpackedObjects'));
+const Differences   = lazy(() => import('./pages/Differences'));
+const Events        = lazy(() => import('./pages/Events'));
+const Tasks         = lazy(() => import('./pages/Tasks'));
+const Tenants       = lazy(() => import('./pages/Tenants'));
+const TenantConsents = lazy(() => import('./pages/TenantConsents'));
+const Setup         = lazy(() => import('./pages/Setup'));
 
 function PageLoader() {
   return (
