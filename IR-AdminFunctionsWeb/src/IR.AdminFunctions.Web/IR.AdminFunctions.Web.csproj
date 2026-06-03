@@ -19,6 +19,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>IR.AdminFunctions.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="..\..\..\IR-AdministrativeFunctionBackup\Scripts\*"
              CopyToOutputDirectory="PreserveNewest"
              Link="Scripts\Backup\%(Filename)%(Extension)" />
