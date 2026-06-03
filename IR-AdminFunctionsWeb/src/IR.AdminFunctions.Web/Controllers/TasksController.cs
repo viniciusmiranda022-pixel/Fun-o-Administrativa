@@ -39,8 +39,14 @@ public class TasksController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<ApiResponse<object>> List([FromQuery] string? since)
+    public ActionResult<ApiResponse<object>> List(
+        [FromQuery] string? since,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 100)
     {
+        take = Math.Clamp(take, 1, 500);
+        skip = Math.Max(0, skip);
+
         DateTime? sinceDate = null;
         if (!string.IsNullOrEmpty(since) && DateTime.TryParse(since, out var parsed))
             sinceDate = parsed;
@@ -59,10 +65,11 @@ public class TasksController : ControllerBase
                 Operation = j.Error ?? $"Job {j.Id}"
             });
 
-        var combined = fromJobs.Concat(fromLogs)
+        var all = fromJobs.Concat(fromLogs)
             .OrderByDescending(t => t.Time)
-            .Take(200);
+            .ToList();
 
-        return ApiResponse<object>.Ok(new { items = combined });
+        var page = all.Skip(skip).Take(take);
+        return ApiResponse<object>.Ok(new { items = page, total = all.Count, skip, take });
     }
 }

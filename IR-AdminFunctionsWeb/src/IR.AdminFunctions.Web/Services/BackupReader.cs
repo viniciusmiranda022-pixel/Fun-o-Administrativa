@@ -69,7 +69,7 @@ public class BackupReader
         return Load(new DirectoryInfo(path));
     }
 
-    public UnpackedObjects? GetUnpacked(string id)
+    public async Task<UnpackedObjects?> GetUnpackedAsync(string id)
     {
         var snap = Get(id);
         if (snap == null) return null;
@@ -79,8 +79,10 @@ public class BackupReader
 
         try
         {
-            var defs = JsonDocument.Parse(File.ReadAllText(defsPath));
-            var assigns = JsonDocument.Parse(File.ReadAllText(assignmentsPath));
+            var defsText = await File.ReadAllTextAsync(defsPath).ConfigureAwait(false);
+            var assignsText = await File.ReadAllTextAsync(assignmentsPath).ConfigureAwait(false);
+            var defs = JsonDocument.Parse(defsText);
+            var assigns = JsonDocument.Parse(assignsText);
             return new UnpackedObjects
             {
                 BackupId = id,
@@ -132,10 +134,9 @@ public class BackupReader
         try
         {
             long size = 0;
-            foreach (var f in dir.GetFiles("*", SearchOption.AllDirectories))
-            {
+            // TopDirectoryOnly avoids slow recursive scan across symlinks / deep trees
+            foreach (var f in dir.GetFiles("*", SearchOption.TopDirectoryOnly))
                 size += f.Length;
-            }
             snap.SizeBytes = size;
         }
         catch { }

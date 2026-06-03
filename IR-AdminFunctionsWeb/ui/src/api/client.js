@@ -9,7 +9,7 @@ const client = axios.create({
 client.interceptors.response.use(
   (resp) => resp,
   (err) => {
-    const message = err.response?.data?.error || err.message || 'Erro desconhecido';
+    const message = err.response?.data?.error || err.message || 'Unknown error';
     return Promise.reject(new Error(message));
   }
 );
@@ -47,8 +47,9 @@ export const api = {
   updateBackupSettings: (tenantId, data) => client.put(`/tenants/${tenantId}/backup-settings`, data).then((r) => r.data),
 };
 
-export async function pollJob(id, { intervalMs = 2000, timeoutMs = 600000, onTick } = {}) {
+export async function pollJob(id, { intervalMs = 5000, timeoutMs = 600000, onTick } = {}) {
   const start = Date.now();
+  let currentInterval = intervalMs;
   while (Date.now() - start < timeoutMs) {
     const resp = await api.job(id);
     const job = resp?.data;
@@ -56,7 +57,9 @@ export async function pollJob(id, { intervalMs = 2000, timeoutMs = 600000, onTic
     if (job?.status === 'Completed' || job?.status === 'Failed') {
       return job;
     }
-    await new Promise((r) => setTimeout(r, intervalMs));
+    await new Promise((r) => setTimeout(r, currentInterval));
+    // Exponential backoff: double interval up to 30s for long-running jobs
+    currentInterval = Math.min(currentInterval * 1.5, 30000);
   }
-  throw new Error(`Job ${id} excedeu timeout de polling`);
+  throw new Error(`Job ${id} exceeded polling timeout`);
 }

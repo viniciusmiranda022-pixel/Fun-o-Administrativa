@@ -16,14 +16,14 @@ public class UnpackedObjectsController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<ApiResponse<UnpackedObjects>> Get([FromQuery] string backupId)
+    public async Task<ActionResult<ApiResponse<UnpackedObjects>>> Get([FromQuery] string backupId)
     {
         if (string.IsNullOrWhiteSpace(backupId))
         {
             return ApiResponse<UnpackedObjects>.Fail("backupId is required");
         }
 
-        var data = _reader.GetUnpacked(backupId);
+        var data = await _reader.GetUnpackedAsync(backupId);
         if (data == null)
         {
             return ApiResponse<UnpackedObjects>.Fail($"Backup {backupId} not found");
