@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Package, Columns, Search } from 'lucide-react';
 import DataTable from '../components/common/DataTable.jsx';
 import BackupUnpackingModal from '../components/BackupUnpackingModal.jsx';
 import { api } from '../api/client.js';
+import { buildBars } from '../utils/chartUtils.js';
 
 const columns = [
   { key: 'time', header: 'Time', sortable: true, width: '18%' },
@@ -20,24 +21,7 @@ const columns = [
   },
 ];
 
-function buildBars(backups, days = 35) {
-  if (!backups || backups.length === 0) {
-    return Array.from({ length: days }, () => ({ h: 2 }));
-  }
-  const now = new Date();
-  const buckets = Array.from({ length: days }, (_, i) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() - (days - 1 - i));
-    return { count: 0, date: d.toDateString() };
-  });
-  backups.forEach((b) => {
-    const bDate = new Date(b.createdAt || b.collectedAt || '').toDateString();
-    const bucket = buckets.find((bk) => bk.date === bDate);
-    if (bucket) bucket.count++;
-  });
-  const max = Math.max(...buckets.map((b) => b.count), 1);
-  return buckets.map((b) => ({ h: Math.round((b.count / max) * 100) || 2 }));
-}
+// buildBars imported from utils/chartUtils.js
 
 function MiniBarChart({ bars }) {
   return (
@@ -81,7 +65,7 @@ export default function Backups() {
       .finally(() => setLoading(false));
   }, []);
 
-  const bars = buildBars(backups, 35);
+  const bars = useMemo(() => buildBars(backups, 35), [backups]);
 
   const rows = backups
     .map(mapRow)

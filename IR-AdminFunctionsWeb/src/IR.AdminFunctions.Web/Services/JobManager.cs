@@ -7,10 +7,12 @@ public class JobManager
 {
     private readonly ConcurrentDictionary<string, Job> _jobs = new();
     private readonly ILogger<JobManager> _logger;
+    private readonly IHostApplicationLifetime _lifetime;
 
-    public JobManager(ILogger<JobManager> logger)
+    public JobManager(ILogger<JobManager> logger, IHostApplicationLifetime lifetime)
     {
         _logger = logger;
+        _lifetime = lifetime;
     }
 
     public Job Create(string kind, IDictionary<string, object?>? input = null)
@@ -64,25 +66,49 @@ public class JobManager
 
     public void ClearAll() => _jobs.Clear();
 
+    /// <summary>Removes completed/failed jobs older than <paramref name="maxAgeDays"/> days.</summary>
+    public int Prune(int maxAgeDays = 30)
+    {
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-maxAgeDays);
+        var toRemove = _jobs.Values
+            .Where(j => j.Status is JobStatus.Completed or JobStatus.Failed
+                     && (j.FinishedAt ?? j.CreatedAt) < cutoff)
+            .Select(j => j.Id)
+            .ToList();
+
+        foreach (var id in toRemove)
+            _jobs.TryRemove(id, out _);
+
+        return toRemove.Count;
+    }
+
     public Job Enqueue(string kind, IDictionary<string, object?>? input, Func<Job, CancellationToken, Task<object?>> work)
     {
         var job = Create(kind, input);
+        // Use the application stopping token so jobs receive a cancellation signal on shutdown
+        var ct = _lifetime.ApplicationStopping;
 
         _ = Task.Run(async () =>
         {
             Start(job.Id);
             try
             {
-                var result = await work(job, CancellationToken.None).ConfigureAwait(false);
+                var result = await work(job, ct).ConfigureAwait(false);
                 Complete(job.Id, result);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                Fail(job.Id, "Job cancelled: application is shutting down");
+                _logger.LogWarning("Job {JobId} ({Kind}) cancelled due to application shutdown", job.Id, job.Kind);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Job {JobId} ({Kind}) failed", job.Id, job.Kind);
                 Fail(job.Id, ex.Message, ex.StackTrace);
             }
-        });
+        }, ct);
 
         return job;
     }
 }
+

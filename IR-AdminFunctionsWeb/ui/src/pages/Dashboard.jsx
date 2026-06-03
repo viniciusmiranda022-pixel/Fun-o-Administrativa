@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { buildBars } from '../utils/chartUtils.js';
 import { useNavigate } from 'react-router-dom';
 import {
   Settings, ArrowDownToLine, RotateCcw, Package,
@@ -24,28 +25,7 @@ function ToolBtn({ icon: Icon, label, onClick, disabled, title }) {
   );
 }
 
-/* ── Build bar chart from backup timestamps ── */
-function buildBars(backups, days = 10) {
-  if (!backups || backups.length === 0) {
-    return Array.from({ length: days }, (_, i) => ({ label: '', h: 0 }));
-  }
-
-  const now = new Date();
-  const buckets = Array.from({ length: days }, (_, i) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() - (days - 1 - i));
-    return { label: `${d.getMonth() + 1}/${d.getDate()}`, count: 0, date: d.toDateString() };
-  });
-
-  backups.forEach((b) => {
-    const bDate = new Date(b.createdAt || b.collectedAt || '').toDateString();
-    const bucket = buckets.find((bk) => bk.date === bDate);
-    if (bucket) bucket.count++;
-  });
-
-  const max = Math.max(...buckets.map((b) => b.count), 1);
-  return buckets.map((b) => ({ label: b.label, h: Math.round((b.count / max) * 100) || 2 }));
-}
+// buildBars imported from utils/chartUtils.js
 
 /* ── Simple bar chart ── */
 function BarChart({ bars = [], fullWidth = false }) {
@@ -65,31 +45,16 @@ function BarChart({ bars = [], fullWidth = false }) {
 }
 
 /* ── SVG Donut chart from unpacked objects counts ── */
-function DonutChart({ counts }) {
+function buildDonutPaths(counts) {
   const segments = [
     { label: 'Role Definitions', count: counts?.definitions ?? 0, color: '#0096D6' },
     { label: 'Role Assignments', count: counts?.assignments ?? 0, color: '#6CB33F' },
   ];
   const total = segments.reduce((s, x) => s + x.count, 0);
-  if (total === 0) {
-    return (
-      <div className="flex items-center gap-4 mt-2">
-        <svg width="120" height="120" viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="48" fill="#F2F2F2" />
-          <circle cx="60" cy="60" r="30" fill="white" />
-          <text x="60" y="57" textAnchor="middle" fontSize="11" fill="#888">0</text>
-          <text x="60" y="68" textAnchor="middle" fontSize="7" fill="#888">objects</text>
-        </svg>
-        <div className="text-xs text-[#888]">No unpacked objects yet.</div>
-      </div>
-    );
-  }
-
   const cx = 60; const cy = 60; const r = 48; const ir = 30;
   let angle = -Math.PI / 2;
   const paths = segments.filter(s => s.count > 0).map((seg) => {
-    const pct = seg.count / total;
-    const sweep = pct * 2 * Math.PI;
+    const sweep = (seg.count / total) * 2 * Math.PI;
     const x1 = cx + r * Math.cos(angle);
     const y1 = cy + r * Math.sin(angle);
     const x2 = cx + r * Math.cos(angle + sweep);
@@ -103,6 +68,25 @@ function DonutChart({ counts }) {
     angle += sweep;
     return { d, color: seg.color };
   });
+  return { segments, total, paths };
+}
+
+function DonutChart({ counts }) {
+  const { segments, total, paths } = useMemo(() => buildDonutPaths(counts), [counts?.definitions, counts?.assignments]);
+
+  if (total === 0) {
+    return (
+      <div className="flex items-center gap-4 mt-2">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="48" fill="#F2F2F2" />
+          <circle cx="60" cy="60" r="30" fill="white" />
+          <text x="60" y="57" textAnchor="middle" fontSize="11" fill="#888">0</text>
+          <text x="60" y="68" textAnchor="middle" fontSize="7" fill="#888">objects</text>
+        </svg>
+        <div className="text-xs text-[#888]">No unpacked objects yet.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-4 mt-2">
@@ -397,17 +381,25 @@ export default function Dashboard() {
   const [backups, setBackups] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.backups().then((r) => setBackups(r?.data ?? [])).catch(() => {});
-    api.tasks().then((r) => setTasks(r?.data?.items ?? [])).catch(() => {});
-    api.events('Error').then((r) => setEvents(r?.data?.items ?? [])).catch(() => {});
+    setLoading(true);
+    Promise.all([
+      api.backups().catch(() => null),
+      api.tasks().catch(() => null),
+      api.events('Error').catch(() => null),
+    ]).then(([b, t, e]) => {
+      setBackups(b?.data ?? []);
+      setTasks(t?.data?.items ?? []);
+      setEvents(e?.data?.items ?? []);
+    }).finally(() => setLoading(false));
   }, []);
 
   const backupCount = backups.length;
   const taskCount = tasks.length;
   const errorCount = events.filter(e => (e.severity || '').toLowerCase() === 'error').length;
-  const bars = buildBars(backups, 10);
+  const bars = useMemo(() => buildBars(backups, 10), [backups]);
   const firstBar = bars[0];
   const lastBar = bars[bars.length - 1];
 

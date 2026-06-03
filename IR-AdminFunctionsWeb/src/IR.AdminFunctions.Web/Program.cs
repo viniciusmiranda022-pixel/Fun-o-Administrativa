@@ -1,5 +1,8 @@
+using System.Threading.RateLimiting;
 using IR.AdminFunctions.Web;
 using IR.AdminFunctions.Web.Services;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Serilog;
 
@@ -47,6 +50,39 @@ builder.Services.AddSingleton<ConsentChecker>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<ScriptDeployer>();
 builder.Services.AddHostedService<ProvisioningService>();
+builder.Services.AddHostedService<JobCleanupService>();
+
+// Response compression (gzip/brotli) — reduces JSON payload size by 5-10x
+builder.Services.AddResponseCompression(opts =>
+{
+    opts.EnableForHttps = true;
+    opts.Providers.Add<BrotliCompressionProvider>();
+    opts.Providers.Add<GzipCompressionProvider>();
+    opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+        ["application/json", "text/html", "application/javascript"]);
+});
+
+// Rate limiting — prevents abuse of job-triggering endpoints
+builder.Services.AddRateLimiter(opts =>
+{
+    // General: 120 requests per minute per IP
+    opts.AddFixedWindowLimiter("general", o =>
+    {
+        o.PermitLimit = 120;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit = 10;
+    });
+    // Jobs: max 10 job triggers per minute per IP (backup/restore/compare)
+    opts.AddFixedWindowLimiter("jobs", o =>
+    {
+        o.PermitLimit = 10;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit = 2;
+    });
+    opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
 
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
@@ -57,15 +93,29 @@ builder.Services.AddControllers()
 
 var app = builder.Build();
 
+// Security headers on every response
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    ctx.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    ctx.Response.Headers["X-DNS-Prefetch-Control"] = "off";
+    await next(ctx);
+});
+
+app.UseResponseCompression();
+app.UseRateLimiter();
 app.UseSerilogRequestLogging();
 app.UseDefaultFiles();
 app.UseStaticFiles();
-app.MapControllers();
+app.MapControllers().RequireRateLimiting("general");
 app.MapFallbackToFile("index.html");
 
 try
 {
-    Log.Information("IR-AdminFunctionsWeb iniciando em {Urls}", builder.Configuration["Urls"]);
+    Log.Information("IR-AdminFunctionsWeb starting on {Urls}", builder.Configuration["Urls"] ?? "http://localhost:8080");
     app.Run();
 }
 catch (Exception ex)
