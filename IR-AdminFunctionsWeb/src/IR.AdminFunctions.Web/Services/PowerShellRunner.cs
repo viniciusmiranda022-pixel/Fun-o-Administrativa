@@ -43,12 +43,6 @@ public class PowerShellRunner
         psi.ArgumentList.Add("-Command");
         psi.ArgumentList.Add(command);
 
-        // Extract ClientSecret from params and pass via env var (never via command line)
-        if (parameters != null && parameters.TryGetValue("ClientSecret", out var secret) && secret is string secretStr && !string.IsNullOrEmpty(secretStr))
-        {
-            psi.EnvironmentVariables["IR_CLIENT_SECRET"] = secretStr;
-        }
-
         using var process = new Process { StartInfo = psi };
 
         var sw = Stopwatch.StartNew();
@@ -134,7 +128,6 @@ public class PowerShellRunner
         {
             foreach (var (key, value) in parameters)
             {
-                if (key == "ClientSecret") continue; // passed via IR_CLIENT_SECRET env var
                 if (value is null) continue;
                 if (value is string s0 && string.IsNullOrEmpty(s0)) continue;
                 if (value is bool b)
@@ -150,9 +143,9 @@ public class PowerShellRunner
         return sb.ToString();
     }
 
-    private static readonly string[] SensitiveParams = ["Thumbprint", "CertificateThumbprint"];
+    private static readonly string[] SensitiveParams = ["ClientSecret", "Thumbprint", "CertificateThumbprint"];
 
-    internal static string RedactCommand(string command)
+    private static string RedactCommand(string command)
     {
         var result = command;
         foreach (var param in SensitiveParams)
