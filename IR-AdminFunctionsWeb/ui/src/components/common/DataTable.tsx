@@ -54,14 +54,14 @@ export default function DataTable<T extends Record<string, unknown> = Record<str
       setAllChecked(false);
       if (onSelectionChange) onSelectionChange([]);
     } else {
-      const all = new Set(rows.map((r, i) => r.id ?? i));
+      const all = new Set<string | number>(rows.map((r, i) => (r.id as string | number) ?? i));
       setCheckedRows(all);
       setAllChecked(true);
       if (onSelectionChange) onSelectionChange([...all]);
     }
   }
 
-  function toggleRow(id) {
+  function toggleRow(id: string | number) {
     const next = new Set(checkedRows);
     if (next.has(id)) next.delete(id);
     else next.add(id);
@@ -71,9 +71,10 @@ export default function DataTable<T extends Record<string, unknown> = Record<str
 
   let sorted = [...(rows ?? [])];
   if (sortKey) {
+    const key = sortKey;
     sorted.sort((a, b) => {
-      const av = a[sortKey] ?? '';
-      const bv = b[sortKey] ?? '';
+      const av = a[key] ?? '';
+      const bv = b[key] ?? '';
       const cmp = String(av).localeCompare(String(bv));
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -130,7 +131,7 @@ export default function DataTable<T extends Record<string, unknown> = Record<str
           </thead>
           <tbody>
             {sorted.map((row, idx) => {
-              const rowId = row.id ?? idx;
+              const rowId = (row.id as string | number) ?? idx;
               const isChecked = checkedRows.has(rowId);
               const isSelected = selectedRows.includes(rowId);
               return (
@@ -157,7 +158,7 @@ export default function DataTable<T extends Record<string, unknown> = Record<str
                   )}
                   {columns.map((c) => (
                     <td key={c.key} className="px-3 py-2 whitespace-nowrap">
-                      {c.render ? c.render(row) : row[c.key] ?? '—'}
+                      {c.render ? c.render(row) : ((row[c.key] as string | undefined) ?? '—')}
                     </td>
                   ))}
                 </tr>
