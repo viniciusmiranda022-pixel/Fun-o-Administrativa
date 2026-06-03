@@ -4,7 +4,7 @@ import { buildBars } from '../utils/chartUtils';
 import { useNavigate } from 'react-router-dom';
 import {
   Settings, ArrowDownToLine, RotateCcw, Package,
-  CheckCircle2, X, Check, AlertCircle, Network,
+  CheckCircle2, X, Check, AlertCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -139,24 +139,20 @@ interface CardProps {
   showAll?: boolean;
   onShowAll?: () => void;
   children: ReactNode;
-  accent?: string;
 }
 
 /* ── Card shell ── */
-function Card({ title, icon, showAll, onShowAll, children, accent }: CardProps) {
+function Card({ title, icon, showAll, onShowAll, children }: CardProps) {
   return (
-    <div className="bg-white border border-[#DEE2E6] shadow-sm flex flex-col min-h-[220px] overflow-hidden">
-      <div
-        className="px-4 pt-3 pb-2.5 border-b border-[#DEE2E6] flex items-center gap-2"
-        style={accent ? { borderTop: `3px solid ${accent}` } : {}}
-      >
+    <div className="bg-white border border-[#DEE2E6] shadow-sm flex flex-col min-h-[220px]">
+      <div className="px-4 pt-3 pb-2 border-b border-[#DEE2E6] flex items-center gap-2">
         {icon}
-        <span className="text-[13px] font-semibold text-[#222]">{title}</span>
+        <span className="text-sm font-semibold text-[#222]">{title}</span>
       </div>
       <div className="flex-1 px-4 py-3 overflow-hidden">{children}</div>
       {showAll && (
         <div className="px-4 pb-3">
-          <button onClick={onShowAll} className="text-[11px] text-[#0078A8] hover:underline font-semibold tracking-wide">
+          <button onClick={onShowAll} className="text-xs text-[#0078A8] hover:underline font-semibold">
             SHOW ALL
           </button>
         </div>
@@ -455,13 +451,11 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col">
       {/* ── Toolbar ── */}
-      <div className="bg-white border-b border-[#DEE2E6] px-4 py-2 flex items-center gap-1.5 flex-shrink-0">
+      <div className="bg-white border-b border-[#DEE2E6] px-4 py-2 flex items-center gap-2 flex-shrink-0">
         <ToolBtn icon={Settings} label="MANAGE BACKUPS" onClick={() => setModal('manageBackups')} />
         <ToolBtn icon={ArrowDownToLine} label="MANAGE RESTORES" onClick={() => setModal('manageRestores')} />
         <ToolBtn icon={RotateCcw} label="CREATE BACKUP" onClick={() => setModal('createBackup')} disabled={!selectedTenant} />
         <ToolBtn icon={Package} label="UNPACK BACKUP" onClick={() => setModal('unpack')} disabled={backups.length === 0} />
-        <div className="w-px h-5 bg-[#DEE2E6] mx-1" />
-        <ToolBtn icon={Network} label="CONFIGURE HYBRID CONNECTION" disabled title="Hybrid connection requires an on-premises connector — contact your Quest administrator." />
       </div>
 
       {/* ── Cards grid ── */}
@@ -471,7 +465,6 @@ export default function Dashboard() {
         <Card
           title={selectedTenant ? 'Tenant is protected' : 'No tenant configured'}
           icon={<CheckCircle2 size={16} className={selectedTenant ? 'text-[#28A745]' : 'text-[#FFC107]'} />}
-          accent={selectedTenant ? '#28A745' : '#FFC107'}
         >
           {selectedTenant ? (
             <div className="space-y-0.5">
@@ -572,20 +565,6 @@ export default function Dashboard() {
                 <span>No tenant configured. Add a tenant to enable backups.</span>
               </div>
             )}
-          </div>
-        </Card>
-
-        {/* Card 8: Hybrid connection */}
-        <Card title="Hybrid connection" icon={<Network size={16} className="text-[#888]" />} accent="#888">
-          <div className="space-y-2 mt-2">
-            <div className="flex items-center gap-2 text-xs text-[#888]">
-              <Network size={14} className="text-[#aaa] flex-shrink-0" />
-              <span>No hybrid connector installed.</span>
-            </div>
-            <p className="text-[11px] text-[#aaa] leading-relaxed">
-              Install an on-premises connector to enable hybrid Active Directory recovery.
-              Contact your Quest administrator for instructions.
-            </p>
           </div>
         </Card>
 

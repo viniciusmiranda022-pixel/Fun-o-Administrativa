@@ -78,17 +78,12 @@ export default function Sidebar() {
       {/* Secondary nav - 145px, only when recover is active */}
       {isRecoverActive && (
         <div className="w-[145px] flex flex-col pt-4" style={{ backgroundColor: '#3A3A3A' }}>
-          {/* Microsoft Entra ID — active */}
           <div className="relative px-3 py-2">
             <span
               className="absolute left-0 top-0 bottom-0 w-[3px]"
               style={{ backgroundColor: '#0096D6' }}
             />
             <span className="text-xs text-white font-medium pl-2">Microsoft Entra ID</span>
-          </div>
-          {/* Active Directory — not yet licensed/available */}
-          <div className="relative px-3 py-2 select-none" title="Not available in this plan">
-            <span className="text-[11px] pl-2" style={{ color: '#555' }}>Active Directory</span>
           </div>
         </div>
       )}
