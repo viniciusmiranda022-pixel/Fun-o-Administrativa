@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Settings, ArrowDownToLine, RotateCcw, Package,
-  CheckCircle2, X, ChevronDown, Check, AlertCircle
+  CheckCircle2, X, ChevronDown, Check, AlertCircle, Network
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
 import Modal from '../components/common/Modal.jsx';
@@ -10,14 +10,15 @@ import BackupUnpackingModal from '../components/BackupUnpackingModal.jsx';
 import { api, pollJob } from '../api/client.js';
 
 /* ── Toolbar button ── */
-function ToolBtn({ icon: Icon, label, onClick, disabled }) {
+function ToolBtn({ icon: Icon, label, onClick, disabled, title }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2] disabled:opacity-40 disabled:cursor-not-allowed"
+      title={title}
+      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold border border-[#C8C8C8] bg-white text-[#0078A8] hover:bg-[#EBF5FB] hover:border-[#0078A8] disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
     >
-      <Icon size={13} />
+      <Icon size={13} className="flex-shrink-0" />
       {label}
     </button>
   );
@@ -125,17 +126,20 @@ function DonutChart({ counts }) {
 }
 
 /* ── Card shell ── */
-function Card({ title, icon, showAll, onShowAll, children }) {
+function Card({ title, icon, showAll, onShowAll, children, accent }) {
   return (
-    <div className="bg-white border border-[#DEE2E6] shadow-sm flex flex-col min-h-[220px]">
-      <div className="px-4 pt-3 pb-2 border-b border-[#DEE2E6] flex items-center gap-2">
+    <div className="bg-white border border-[#DEE2E6] shadow-sm flex flex-col min-h-[220px] overflow-hidden">
+      <div
+        className="px-4 pt-3 pb-2.5 border-b border-[#DEE2E6] flex items-center gap-2"
+        style={accent ? { borderTop: `3px solid ${accent}` } : {}}
+      >
         {icon}
-        <span className="text-sm font-semibold text-[#222]">{title}</span>
+        <span className="text-[13px] font-semibold text-[#222]">{title}</span>
       </div>
       <div className="flex-1 px-4 py-3 overflow-hidden">{children}</div>
       {showAll && (
         <div className="px-4 pb-3">
-          <button onClick={onShowAll} className="text-xs text-[#0078A8] hover:underline font-semibold">
+          <button onClick={onShowAll} className="text-[11px] text-[#0078A8] hover:underline font-semibold tracking-wide">
             SHOW ALL
           </button>
         </div>
@@ -412,11 +416,13 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col">
       {/* ── Toolbar ── */}
-      <div className="bg-white border-b border-[#DEE2E6] px-4 py-2 flex items-center gap-2 flex-shrink-0">
+      <div className="bg-white border-b border-[#DEE2E6] px-4 py-2 flex items-center gap-1.5 flex-shrink-0">
         <ToolBtn icon={Settings} label="MANAGE BACKUPS" onClick={() => setModal('manageBackups')} />
         <ToolBtn icon={ArrowDownToLine} label="MANAGE RESTORES" onClick={() => setModal('manageRestores')} />
         <ToolBtn icon={RotateCcw} label="CREATE BACKUP" onClick={() => setModal('createBackup')} disabled={!selectedTenant} />
         <ToolBtn icon={Package} label="UNPACK BACKUP" onClick={() => setModal('unpack')} disabled={backups.length === 0} />
+        <div className="w-px h-5 bg-[#DEE2E6] mx-1" />
+        <ToolBtn icon={Network} label="CONFIGURE HYBRID CONNECTION" disabled title="Hybrid connection requires an on-premises connector — contact your Quest administrator." />
       </div>
 
       {/* ── Cards grid ── */}
@@ -426,6 +432,7 @@ export default function Dashboard() {
         <Card
           title={selectedTenant ? 'Tenant is protected' : 'No tenant configured'}
           icon={<CheckCircle2 size={16} className={selectedTenant ? 'text-[#28A745]' : 'text-[#FFC107]'} />}
+          accent={selectedTenant ? '#28A745' : '#FFC107'}
         >
           {selectedTenant ? (
             <div className="space-y-0.5">
@@ -504,7 +511,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Card 7: Consent Status */}
-        <Card title="Consent Status" icon={<AlertCircle size={16} className="text-[#0096D6]" />}>
+        <Card title="Consent Status" icon={<AlertCircle size={16} className="text-[#0096D6]" />} accent="#0096D6">
           <div className="space-y-3 mt-2">
             <div className="flex items-center gap-2 text-xs">
               <CheckCircle2 size={14} className={selectedTenant?.consents?.basic?.granted ? 'text-[#28A745]' : 'text-[#DC3545]'} />
@@ -526,6 +533,20 @@ export default function Dashboard() {
                 <span>No tenant configured. Add a tenant to enable backups.</span>
               </div>
             )}
+          </div>
+        </Card>
+
+        {/* Card 8: Hybrid connection */}
+        <Card title="Hybrid connection" icon={<Network size={16} className="text-[#888]" />} accent="#888">
+          <div className="space-y-2 mt-2">
+            <div className="flex items-center gap-2 text-xs text-[#888]">
+              <Network size={14} className="text-[#aaa] flex-shrink-0" />
+              <span>No hybrid connector installed.</span>
+            </div>
+            <p className="text-[11px] text-[#aaa] leading-relaxed">
+              Install an on-premises connector to enable hybrid Active Directory recovery.
+              Contact your Quest administrator for instructions.
+            </p>
           </div>
         </Card>
 
