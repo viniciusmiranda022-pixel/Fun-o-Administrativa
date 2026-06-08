@@ -21,10 +21,13 @@ export default function Layout() {
           {isRecoverModule ? (
             <>
               {/* Module header bar */}
-              <div className="px-5 py-2.5 border-b border-[#DEE2E6] flex items-center justify-between flex-shrink-0 bg-white">
-                <h1 className="text-base font-normal text-[#0078A8]">
-                  Administrative Function Recovery for Microsoft Entra ID
-                </h1>
+              <div className="px-5 py-2 border-b border-[#DEE2E6] flex items-center justify-between flex-shrink-0 bg-white">
+                <div>
+                  <h1 className="text-[15px] font-semibold text-[#1a1a1a] leading-tight">
+                    Administrative Function Recovery
+                  </h1>
+                  <span className="text-xs text-[#0078A8] font-medium">for Microsoft Entra ID</span>
+                </div>
                 <TenantSelector />
               </div>
               <TabNav />
