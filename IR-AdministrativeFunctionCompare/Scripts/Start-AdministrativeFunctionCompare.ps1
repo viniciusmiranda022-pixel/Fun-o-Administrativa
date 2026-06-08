@@ -23,6 +23,30 @@ Add-Type -AssemblyName System.Windows.Forms
 Import-Module Microsoft.Graph.Authentication
 Import-Module Microsoft.Graph.Identity.Governance
 
+# When running as a Windows Service the PSModulePath may not include user-profile
+# module directories. Detect this and expand the path before retrying the import.
+if (-not (Get-Command -Name 'Get-MgRoleManagementDirectoryRoleDefinition' -ErrorAction SilentlyContinue)) {
+    $extraPaths = @(
+        "$env:USERPROFILE\Documents\WindowsPowerShell\Modules",
+        "$env:USERPROFILE\OneDrive - Corporativo\Documentos\WindowsPowerShell\Modules",
+        "$env:USERPROFILE\OneDrive\Documentos\WindowsPowerShell\Modules",
+        "$env:ProgramFiles\WindowsPowerShell\Modules",
+        "$env:ProgramFiles\PowerShell\Modules"
+    )
+    foreach ($p in $extraPaths) {
+        if ((Test-Path $p) -and ($env:PSModulePath -notlike "*$p*")) {
+            $env:PSModulePath = "$p;$env:PSModulePath"
+        }
+    }
+    Import-Module Microsoft.Graph.Authentication -Force
+    Import-Module Microsoft.Graph.Identity.Governance -Force
+}
+
+# Fail early with a clear message if the required cmdlet is still unavailable
+if (-not (Get-Command -Name 'Get-MgRoleManagementDirectoryRoleDefinition' -ErrorAction SilentlyContinue)) {
+    throw "Microsoft.Graph.Identity.Governance module not found. Install it with: Install-Module Microsoft.Graph.Identity.Governance -Scope AllUsers"
+}
+
 $ProgramDataQuestRoot = "C:\ProgramData\Quest"
 $BackupInstallRoot = Join-Path $ProgramDataQuestRoot "IR-AdministrativeFunctionBackup"
 $CompareInstallRoot = Join-Path $ProgramDataQuestRoot "IR-AdministrativeFunctionCompare"
