@@ -20,31 +20,33 @@ Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName System.Windows.Forms
 
-Import-Module Microsoft.Graph.Authentication
-Import-Module Microsoft.Graph.Identity.Governance
-
-# When running as a Windows Service the PSModulePath may not include user-profile
-# module directories. Detect this and expand the path before retrying the import.
-if (-not (Get-Command -Name 'Get-MgRoleManagementDirectoryRoleDefinition' -ErrorAction SilentlyContinue)) {
-    $extraPaths = @(
-        "$env:USERPROFILE\Documents\WindowsPowerShell\Modules",
-        "$env:USERPROFILE\OneDrive - Corporativo\Documentos\WindowsPowerShell\Modules",
-        "$env:USERPROFILE\OneDrive\Documentos\WindowsPowerShell\Modules",
-        "$env:ProgramFiles\WindowsPowerShell\Modules",
-        "$env:ProgramFiles\PowerShell\Modules"
-    )
-    foreach ($p in $extraPaths) {
-        if ((Test-Path $p) -and ($env:PSModulePath -notlike "*$p*")) {
-            $env:PSModulePath = "$p;$env:PSModulePath"
-        }
+# Expand PSModulePath to include user-profile paths that may be missing
+# when running under a Windows Service account
+$extraPaths = @(
+    "$env:USERPROFILE\Documents\WindowsPowerShell\Modules",
+    "$env:USERPROFILE\OneDrive - Corporativo\Documentos\WindowsPowerShell\Modules",
+    "$env:USERPROFILE\OneDrive\Documentos\WindowsPowerShell\Modules",
+    "$env:ProgramFiles\WindowsPowerShell\Modules",
+    "$env:ProgramFiles\PowerShell\Modules"
+)
+foreach ($p in $extraPaths) {
+    if ((Test-Path $p) -and ($env:PSModulePath -notlike "*$p*")) {
+        $env:PSModulePath = "$p;$env:PSModulePath"
     }
-    Import-Module Microsoft.Graph.Authentication -Force
-    Import-Module Microsoft.Graph.Identity.Governance -Force
 }
 
-# Fail early with a clear message if the required cmdlet is still unavailable
+Import-Module Microsoft.Graph.Authentication -Force
+
+# Try the sub-module directly first; if not found, import the full
+# Microsoft.Graph meta-module which contains all sub-modules
+if (Get-Module -Name 'Microsoft.Graph.Identity.Governance' -ListAvailable) {
+    Import-Module Microsoft.Graph.Identity.Governance -Force
+} else {
+    Import-Module Microsoft.Graph -Force
+}
+
 if (-not (Get-Command -Name 'Get-MgRoleManagementDirectoryRoleDefinition' -ErrorAction SilentlyContinue)) {
-    throw "Microsoft.Graph.Identity.Governance module not found. Install it with: Install-Module Microsoft.Graph.Identity.Governance -Scope AllUsers"
+    throw "Cmdlet 'Get-MgRoleManagementDirectoryRoleDefinition' not found after importing Microsoft.Graph. Run: Install-Module Microsoft.Graph -Scope AllUsers"
 }
 
 $ProgramDataQuestRoot = "C:\ProgramData\Quest"
