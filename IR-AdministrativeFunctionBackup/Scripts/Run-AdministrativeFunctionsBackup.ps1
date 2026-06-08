@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]
 param(
     [switch]$RmadMode,
-    [string]$ClientSecret = "",
+    [string]$ClientSecret = $env:IR_CLIENT_SECRET,
 
     # Accepted for compatibility with the default invoker (app's PowerShellRunner).
     # The backup reads the effective TenantId/ClientId/CertificateThumbprint from settings.json,
@@ -169,7 +169,8 @@ function Invoke-RmadBackup {
             exit 1
         }
 
-        $effectiveSecret = if (-not [string]::IsNullOrWhiteSpace($ClientSecret)) { $ClientSecret }
+        $effectiveSecret = if (-not [string]::IsNullOrWhiteSpace($env:IR_CLIENT_SECRET)) { $env:IR_CLIENT_SECRET }
+                           elseif (-not [string]::IsNullOrWhiteSpace($ClientSecret)) { $ClientSecret }
                            elseif (-not [string]::IsNullOrWhiteSpace($validation.Settings.ClientSecret)) { $validation.Settings.ClientSecret }
                            else { "" }
 

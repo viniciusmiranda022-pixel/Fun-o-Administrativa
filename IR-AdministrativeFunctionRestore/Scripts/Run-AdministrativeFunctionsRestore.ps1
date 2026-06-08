@@ -50,6 +50,10 @@ $tenantId = [string]$settings.TenantId
 $clientId = [string]$settings.ClientId
 $thumb = [string]$settings.CertificateThumbprint
 $clientSecret = [string]$settings.ClientSecret
+# Prefer env var over settings.json to avoid storing secrets in config files
+if (-not [string]::IsNullOrWhiteSpace($env:IR_CLIENT_SECRET)) {
+    $clientSecret = $env:IR_CLIENT_SECRET
+}
 $backupRoot = if (-not [string]::IsNullOrWhiteSpace([string]$settings.BackupRoot)) { [string]$settings.BackupRoot } else { $DefaultBackupRoot }
 
 if ([string]::IsNullOrWhiteSpace($tenantId)) { throw "TenantId is empty. Check settings.json." }

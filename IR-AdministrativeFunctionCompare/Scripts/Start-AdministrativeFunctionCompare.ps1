@@ -5,7 +5,7 @@ param(
     [string]$TenantId,
     [string]$ClientId,
     [string]$Thumbprint = "",
-    [string]$ClientSecret = ""
+    [string]$ClientSecret = $env:IR_CLIENT_SECRET
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -20,8 +20,34 @@ Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName System.Windows.Forms
 
-Import-Module Microsoft.Graph.Authentication
-Import-Module Microsoft.Graph.Identity.Governance
+# Expand PSModulePath to include user-profile paths that may be missing
+# when running under a Windows Service account
+$extraPaths = @(
+    "$env:USERPROFILE\Documents\WindowsPowerShell\Modules",
+    "$env:USERPROFILE\OneDrive - Corporativo\Documentos\WindowsPowerShell\Modules",
+    "$env:USERPROFILE\OneDrive\Documentos\WindowsPowerShell\Modules",
+    "$env:ProgramFiles\WindowsPowerShell\Modules",
+    "$env:ProgramFiles\PowerShell\Modules"
+)
+foreach ($p in $extraPaths) {
+    if ((Test-Path $p) -and ($env:PSModulePath -notlike "*$p*")) {
+        $env:PSModulePath = "$p;$env:PSModulePath"
+    }
+}
+
+Import-Module Microsoft.Graph.Authentication -Force
+
+# Try the sub-module directly first; if not found, import the full
+# Microsoft.Graph meta-module which contains all sub-modules
+if (Get-Module -Name 'Microsoft.Graph.Identity.Governance' -ListAvailable) {
+    Import-Module Microsoft.Graph.Identity.Governance -Force
+} else {
+    Import-Module Microsoft.Graph -Force
+}
+
+if (-not (Get-Command -Name 'Get-MgRoleManagementDirectoryRoleDefinition' -ErrorAction SilentlyContinue)) {
+    throw "Cmdlet 'Get-MgRoleManagementDirectoryRoleDefinition' not found after importing Microsoft.Graph. Run: Install-Module Microsoft.Graph -Scope AllUsers"
+}
 
 $ProgramDataQuestRoot = "C:\ProgramData\Quest"
 $BackupInstallRoot = Join-Path $ProgramDataQuestRoot "IR-AdministrativeFunctionBackup"
@@ -192,10 +218,14 @@ function Connect-AppOnlyWithRetry {
         [string]$TenantId,
         [string]$ClientId,
         [string]$Thumbprint = "",
-        [string]$ClientSecret = "",
+        [string]$ClientSecret = $env:IR_CLIENT_SECRET,
         [string]$Operation = "Validation",
         [scriptblock]$StatusCallback
     )
+
+    if ([string]::IsNullOrWhiteSpace($ClientSecret) -and -not [string]::IsNullOrWhiteSpace($env:IR_CLIENT_SECRET)) {
+        $ClientSecret = $env:IR_CLIENT_SECRET
+    }
 
     $maxAttempts = 8
     $delaySeconds = 15
@@ -335,8 +365,12 @@ function Load-CurrentTenantData {
         [string]$TenantId,
         [string]$ClientId,
         [string]$Thumbprint = "",
-        [string]$ClientSecret = ""
+        [string]$ClientSecret = $env:IR_CLIENT_SECRET
     )
+
+    if ([string]::IsNullOrWhiteSpace($ClientSecret) -and -not [string]::IsNullOrWhiteSpace($env:IR_CLIENT_SECRET)) {
+        $ClientSecret = $env:IR_CLIENT_SECRET
+    }
 
     if (-not [string]::IsNullOrWhiteSpace($Thumbprint)) {
         Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $Thumbprint -NoWelcome -ContextScope Process | Out-Null
