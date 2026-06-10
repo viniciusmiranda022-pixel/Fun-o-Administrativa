@@ -85,6 +85,9 @@ export default function Sidebar() {
             />
             <span className="text-xs text-white font-medium pl-2">Microsoft Entra ID</span>
           </div>
+          <div className="relative px-3 py-2 select-none" title="Not available in this plan">
+            <span className="text-[11px] pl-2" style={{ color: '#555' }}>Active Directory</span>
+          </div>
         </div>
       )}
     </div>
