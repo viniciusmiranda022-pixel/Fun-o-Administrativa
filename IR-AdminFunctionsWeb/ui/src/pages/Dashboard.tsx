@@ -4,7 +4,7 @@ import { buildBars } from '../utils/chartUtils';
 import { useNavigate } from 'react-router-dom';
 import {
   Settings, ArrowDownToLine, RotateCcw, Package,
-  CheckCircle2, X, Check, AlertCircle,
+  CheckCircle2, X, Check, AlertCircle, Network,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Modal from '../components/common/Modal';
@@ -17,14 +17,16 @@ interface ToolBtnProps {
   label: string;
   onClick?: () => void;
   disabled?: boolean;
+  title?: string;
 }
 
 /* ── Toolbar button ── */
-function ToolBtn({ icon: Icon, label, onClick, disabled }: ToolBtnProps) {
+function ToolBtn({ icon: Icon, label, onClick, disabled, title }: ToolBtnProps) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2] disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <Icon size={13} />
@@ -453,6 +455,8 @@ export default function Dashboard() {
         <ToolBtn icon={ArrowDownToLine} label="MANAGE RESTORES" onClick={() => setModal('manageRestores')} />
         <ToolBtn icon={RotateCcw} label="CREATE BACKUP" onClick={() => setModal('createBackup')} disabled={!selectedTenant} />
         <ToolBtn icon={Package} label="UNPACK BACKUP" onClick={() => setModal('unpack')} disabled={backups.length === 0} />
+        <div className="w-px h-5 bg-[#DEE2E6] mx-1" />
+        <ToolBtn icon={Network} label="CONFIGURE HYBRID CONNECTION" disabled title="Hybrid connection requires an on-premises connector — contact your Quest administrator." />
       </div>
 
       {/* ── Cards grid ── */}
@@ -562,6 +566,20 @@ export default function Dashboard() {
                 <span>No tenant configured. Add a tenant to enable backups.</span>
               </div>
             )}
+          </div>
+        </Card>
+
+        {/* Card 8: Hybrid connection */}
+        <Card title="Hybrid connection" icon={<Network size={16} className="text-[#888]" />}>
+          <div className="space-y-2 mt-2">
+            <div className="flex items-center gap-2 text-xs text-[#888]">
+              <Network size={14} className="text-[#aaa] flex-shrink-0" />
+              <span>No hybrid connector installed.</span>
+            </div>
+            <p className="text-[11px] text-[#aaa] leading-relaxed">
+              Install an on-premises connector to enable hybrid Active Directory recovery.
+              Contact your Quest administrator for instructions.
+            </p>
           </div>
         </Card>
 
