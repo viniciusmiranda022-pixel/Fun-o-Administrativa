@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Settings, ArrowDownToLine, RotateCcw, Package,
   CheckCircle2, X, Check, AlertCircle,
-  type LucideIcon,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Modal from '../components/common/Modal';
@@ -18,19 +17,17 @@ interface ToolBtnProps {
   label: string;
   onClick?: () => void;
   disabled?: boolean;
-  title?: string;
 }
 
 /* ── Toolbar button ── */
-function ToolBtn({ icon: Icon, label, onClick, disabled, title }: ToolBtnProps) {
+function ToolBtn({ icon: Icon, label, onClick, disabled }: ToolBtnProps) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      title={title}
-      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold border border-[#C8C8C8] bg-white text-[#0078A8] hover:bg-[#EBF5FB] hover:border-[#0078A8] disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+      className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border border-[#DEE2E6] bg-white text-[#0078A8] hover:bg-[#F2F2F2] disabled:opacity-40 disabled:cursor-not-allowed"
     >
-      <Icon size={13} className="flex-shrink-0" />
+      <Icon size={13} />
       {label}
     </button>
   );
@@ -543,7 +540,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Card 7: Consent Status */}
-        <Card title="Consent Status" icon={<AlertCircle size={16} className="text-[#0096D6]" />} accent="#0096D6">
+        <Card title="Consent Status" icon={<AlertCircle size={16} className="text-[#0096D6]" />}>
           <div className="space-y-3 mt-2">
             <div className="flex items-center gap-2 text-xs">
               <CheckCircle2 size={14} className={selectedTenant?.consents?.basic?.granted ? 'text-[#28A745]' : 'text-[#DC3545]'} />
